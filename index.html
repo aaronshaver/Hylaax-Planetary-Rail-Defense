@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#070a0d">
+  <title>Hylaax Planetary Rail Defense</title>
+  <link rel="stylesheet" href="vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="gameRoot" aria-label="Hylaax Planetary Rail Defense game">
+    <section id="worldWrap" aria-label="Hex grid game world">
+      <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
+
+      <div class="hud top-left">
+        <div class="eyebrow">SECTOR <span id="sectorLabel">0 · 0</span></div>
+        <div class="d-flex align-items-baseline gap-3">
+          <div class="wave-label">WAVE <span id="waveNumber">0</span></div>
+          <div class="countdown" id="waveTimer">PAUSED</div>
+        </div>
+        <div class="threat-track"><span id="threatFill"></span></div>
+      </div>
+
+      <div id="hoverStatus" class="hud hover-status bottom-right d-none" aria-live="polite">
+        <div class="hover-title" id="hoverTitle"></div>
+        <div class="hover-detail" id="hoverDetail"></div>
+      </div>
+
+      <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+      <div id="gameOver" class="game-over d-none">
+        <div class="game-over-card">
+          <div class="eyebrow text-danger">BASE LOST</div>
+          <h1>THE BIOMASS BROKE THROUGH</h1>
+          <p>Sector Survival Time: <span id="survivalTime">0:00</span></p>
+          <button id="restartButton" class="btn btn-danger">Restart Sector</button>
+        </div>
+      </div>
+    </section>
+
+    <aside id="commandPanel" aria-label="Command panel">
+      <header class="panel-header">
+        <div>
+          <div class="brand-kicker">HYLAAX PLANETARY</div>
+          <h1>RAIL<br><span>DEFENSE</span></h1>
+        </div>
+        <div class="header-controls">
+          <button id="waveToggle" class="btn btn-sm btn-outline-secondary icon-button" title="Start or pause new enemy waves" aria-label="Start or pause new enemy waves">START WAVES</button>
+          <button id="soundToggle" class="btn btn-sm btn-outline-secondary icon-button" title="Toggle sound" aria-label="Toggle sound">SOUND</button>
+        </div>
+      </header>
+
+      <section class="panel-section tools-section">
+        <div class="section-label">ACTIONS</div>
+        <div class="tool-grid" role="group" aria-label="Actions">
+          <button class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="Select units and structures. With a train selected, click connected track to dispatch it."><span class="keycap">1</span>Select Object</button>
+          <button class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Click existing Track to choose a start. Click adjacent empty hexes to add Track, or adjacent existing Track to connect and close loops. Click non-adjacent existing Track to choose a new start. Uses one Track per new hex. Tight triangles are not allowed."><span class="keycap">2</span>Build Track</button>
+          <button class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Build within three hexes of track. Costs 6 Material and 6 Energy from Base inventory."><span class="keycap">3</span>Build Turret</button>
+          <button class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Place a Mine on top of an existing finite 1,000-unit Resource Node within three hexes of Track. Costs 8 Material and 4 Energy from Base inventory."><span class="keycap">4</span>Build Mine</button>
+          <button class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="Salvage track, turret, or mine. Recovered resources return to Base inventory."><span class="keycap">5</span>Salvage Object</button>
+        </div>
+      </section>
+
+      <section id="selectionPanel" class="panel-section selection-section">
+        <div class="section-label">SELECTED</div>
+        <div id="selectionContent"></div>
+      </section>
+
+    </aside>
+  </main>
+
+  <script src="vendor/bootstrap.bundle.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
