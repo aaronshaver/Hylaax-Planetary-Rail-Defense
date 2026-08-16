@@ -38,19 +38,6 @@ button { touch-action: manipulation; }
   background: #070a0d;
 }
 
-.creator-link {
-  position: fixed;
-  z-index: 5;
-  right: 18px;
-  bottom: 16px;
-  color: #8a9a9f;
-  font-size: 17px;
-  font-weight: 700;
-  text-align: right;
-  text-decoration: underline;
-}
-.creator-link:hover { color: #aebabe; }
-
 #worldWrap {
   position: relative;
   min-width: 0;
@@ -268,5 +255,4 @@ button { touch-action: manipulation; }
   .panel-header { display: none; }
   .selection-section { min-height: 210px; }
   .top-left { top: 10px; left: 10px; }
-  .creator-link { right: 10px; bottom: 10px; }
 }
