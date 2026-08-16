@@ -89,25 +89,14 @@
 
   <a class="creator-link" href="https://www.linkedin.com/in/aaronshaver/" target="_blank" rel="noopener noreferrer">Created by Aaron Shaver</a>
 
-  <div id="remindersDialog" class="reminders-overlay" role="dialog" aria-modal="true" aria-labelledby="remindersTitle" aria-describedby="remindersList">
+  <div id="remindersDialog" class="reminders-overlay" role="dialog" aria-modal="true" aria-labelledby="remindersTitle" aria-describedby="remindersNotice">
     <div class="reminders-card">
-      <div class="eyebrow">BEFORE YOU BEGIN</div>
-      <h2 id="remindersTitle">Reminders</h2>
-      <ul id="remindersList">
-        <li>Automation is required! You must build an automated loop to have any hope of success. Luckily it's easy: select the Train, click Add Schedule, and add Stops in a loop near Mines, Turrets, and the Base.</li>
-        <li>The initial Train is sitting on Tracks. Extend new Track off of that Track to make your loops.</li>
-        <li>To make a Train Stop loop, repeat the first Stop as the last Stop to finish the Loop (e.g. A1 to A2 to A3 to A1).</li>
-        <li>Build new Trains by first selecting the (B)ase building and click the button for the Train type that you want.</li>
-        <li>Mines must be adjacent (one tile away) from Train Stops to be Mined successfully. Likewise, Turrets must be adjacent to a Stop to get their Energy refilled by a Train.</li>
-        <li>You can build a Combat Train that shoots automatically as it moves; it must be refueled with Energy only at the Base, so be sure to have a Stop at the Base for it.</li>
-        <li>You can Pause the game to catch your breath.</li>
-        <li>Turrets and Combat Trains will attempt to neutralize Hives in addition to Creeps.</li>
-        <li>Be sure to build at least one Energy Mine and one Construction Material Mine so that you don't soft lock yourself.</li>
-        <li>Hive activity will slowly grow stronger over time.</li>
-        <li>Trains loaded with Construction Material will pause for one second to auto Repair damaged buildings and Track within one tile as they travel.</li>
-        <li>You can Salvage depleted Mines to clear space.</li>
-      </ul>
-      <button id="remindersContinue" class="btn btn-command">Start Game</button>
+      <h2 id="remindersTitle">This is a fun web game</h2>
+      <p id="remindersNotice">Please play on a desktop or laptop computer; mobile is not supported at this time.</p>
+      <div class="reminders-actions">
+        <button id="remindersTutorial" class="btn btn-command">Start Game with Tutorial (recommended)</button>
+        <button id="remindersContinue" class="btn btn-cyan">Start Game (no tutorial)</button>
+      </div>
     </div>
   </div>
 
