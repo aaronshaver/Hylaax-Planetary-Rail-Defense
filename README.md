@@ -1,5 +1,5 @@
-# Hylaax-Planetary-Rail-Defense
+# Planetary Rail Defense
 
-Vibe coded train tower defense game
+Train tower defense game
 
 Play it here: https://aaronshaver.github.io/Hylaax-Planetary-Rail-Defense
