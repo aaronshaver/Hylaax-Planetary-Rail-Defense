@@ -99,7 +99,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.paused,true,"the final step must remain paused until Okay is clicked");
     assert.equal(elements.get("pauseToggle").disabled,true);
     assert.equal(elements.get("tutorialOkay").hidden,false);
-    assert.match(elements.get("tutorialText").textContent,/^Step 14: That's it!/);
+    assert.equal(elements.get("tutorialText").textContent,"Step 14: That's it!\n\nYou now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to catch your breath at any time.");
 
     api.finishTutorial();
     assert.equal(api.state.tutorial,null);

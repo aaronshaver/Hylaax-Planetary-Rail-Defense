@@ -24,7 +24,16 @@ describe("game bootstrap", () => {
   test("the tutorial button is enabled without the temporary unavailable tooltip", () => {
     const html = fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/id="remindersTutorial" class="btn btn-command"/);
+    assert.match(html,/Start Game with Tutorial \(recommended for new players\)/);
     assert.doesNotMatch(html,/id="remindersTutorial"[^>]*disabled/);
     assert.doesNotMatch(html,/I'm working on this Sun 16 Aug/);
+  });
+
+  test("action tooltips use the revised concise Track wording",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+    assert.match(html,/title="Select units and structures\."/);
+    assert.doesNotMatch(html,/Select a Train to create or clear its automatic schedule/);
+    assert.match(html,/Costs 1 Construction Material per new Track segment from Base inventory\./);
+    assert.doesNotMatch(html,/per new Track hex/);
   });
 });

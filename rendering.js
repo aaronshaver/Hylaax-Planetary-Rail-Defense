@@ -196,16 +196,26 @@ function drawTurretRanges(){
 }
 
 function drawBase(){
-  const p=axialToWorld(0,0);ctx.save();ctx.shadowBlur=18;ctx.shadowColor="rgba(230,185,74,.25)";hexPath(0,0,.78);ctx.fillStyle="#303438";ctx.fill();ctx.strokeStyle="#e6b94a";ctx.lineWidth=2.4;ctx.stroke();ctx.shadowBlur=0;
-  ctx.fillStyle="#151a1d";ctx.fillRect(p.x-17,p.y-14,34,28);ctx.strokeStyle="#a68a47";ctx.strokeRect(p.x-17,p.y-14,34,28);ctx.fillStyle="#f4cf69";ctx.font="900 22px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("B",p.x,p.y+1);ctx.restore();
-  if((state.selected?.type==="base")||(state.hover?.q===0&&state.hover?.r===0))drawMiniBar(p.x-18,p.y-25,36,state.base.hp/state.base.maxHp,state.base.hp<20?"#e34747":"#70bd77");
+  const p=axialToWorld(0,0),destroyed=state.gameOver||state.base.hp<=0;ctx.save();
+  if(destroyed){
+    ctx.globalAlpha=.48;ctx.setLineDash([5,4]);hexPath(0,0,.78);ctx.fillStyle="#232a2d";ctx.fill();ctx.strokeStyle="#9aa6aa";ctx.lineWidth=2.2;ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle="#171c1f";ctx.fillRect(p.x-17,p.y-14,34,28);ctx.strokeStyle="#7e898d";ctx.lineWidth=1.5;ctx.strokeRect(p.x-17,p.y-14,34,28);
+    ctx.fillStyle="#aeb8bb";ctx.font="900 22px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("B",p.x,p.y+1);
+    ctx.strokeStyle="#c2cacc";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(p.x-13,p.y-9);ctx.lineTo(p.x-5,p.y-2);ctx.lineTo(p.x-10,p.y+5);ctx.moveTo(p.x+13,p.y-8);ctx.lineTo(p.x+6,p.y-1);ctx.lineTo(p.x+11,p.y+7);ctx.stroke();
+  }else{
+    ctx.shadowBlur=18;ctx.shadowColor="rgba(230,185,74,.25)";hexPath(0,0,.78);ctx.fillStyle="#303438";ctx.fill();ctx.strokeStyle="#e6b94a";ctx.lineWidth=2.4;ctx.stroke();ctx.shadowBlur=0;
+    ctx.fillStyle="#151a1d";ctx.fillRect(p.x-17,p.y-14,34,28);ctx.strokeStyle="#a68a47";ctx.strokeRect(p.x-17,p.y-14,34,28);ctx.fillStyle="#f4cf69";ctx.font="900 22px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("B",p.x,p.y+1);
+  }
+  ctx.restore();
+  if(!destroyed&&((state.selected?.type==="base")||(state.hover?.q===0&&state.hover?.r===0)))drawMiniBar(p.x-18,p.y-25,36,state.base.hp/state.base.maxHp,state.base.hp<20?"#e34747":"#70bd77");
 }
 
 function drawHives(){
   for(const hive of state.hives.values()){
     const p=axialToWorld(hive.q,hive.r),pulse=.5+.5*Math.sin(state.elapsed*3+hive.q-hive.r);
     ctx.save();ctx.shadowBlur=14+pulse*7;ctx.shadowColor="#a71932";hexPath(hive.q,hive.r,.62);ctx.fillStyle="#481522";ctx.fill();ctx.strokeStyle="#d33a51";ctx.lineWidth=2.2;ctx.stroke();ctx.shadowBlur=0;
-    ctx.fillStyle="#ff8793";ctx.font="900 18px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("H",p.x,p.y+1);ctx.restore();
+    ctx.fillStyle="#ff8793";ctx.font="900 20px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("H",p.x,p.y-4);
+    ctx.fillStyle="#f4a7b0";ctx.font="900 9px ui-monospace, monospace";ctx.fillText(String(hive.level),p.x,p.y+11);ctx.restore();
     const focused=(state.selected?.type==="hive"&&state.selected.id===hive.id)||(state.hover?.q===hive.q&&state.hover?.r===hive.r);
     if(focused)drawMiniBar(p.x-17,p.y-25,34,hive.hp/hive.maxHp,hive.hp<=2?"#e34747":"#70bd77");
   }

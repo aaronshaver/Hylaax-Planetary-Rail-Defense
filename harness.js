@@ -26,8 +26,10 @@ function makeCanvasContext() {
   const methods = {
     measureText: text => ({ width: String(text).length * 7 }),
     createLinearGradient: () => ({ addColorStop() {} }),
-    createRadialGradient: () => ({ addColorStop() {} })
+    createRadialGradient: () => ({ addColorStop() {} }),
+    fillText: (text,x,y) => values.textCalls.push({text:String(text),x,y,font:values.font,fillStyle:values.fillStyle})
   };
+  values.textCalls=[];
   return new Proxy(values, {
     get(target, property) {
       if (property in target) return target[property];

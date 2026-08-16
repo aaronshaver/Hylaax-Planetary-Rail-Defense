@@ -100,17 +100,31 @@ button { touch-action: manipulation; }
 
 .header-controls {
   display: grid;
-  grid-template-columns: auto auto;
-  gap: 7px;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  min-width: 142px;
   justify-items: stretch;
 }
 
 .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   font-size: 14px;
+  font-weight: 800;
   letter-spacing: .1em;
-  border-color: #344249;
-  color: #aebabe;
+  white-space: nowrap;
 }
+.flat-status-icon { width: 15px; height: 15px; flex: 0 0 15px; fill: currentColor; }
+.icon-button.status-playing,
+.icon-button.status-sound-on { border-color: #3d8255; background: #1d5531; color: #c8f2d3; }
+.icon-button.status-playing:hover,
+.icon-button.status-sound-on:hover { border-color: #59a870; background: #276c3e; color: #effff3; }
+.icon-button.status-paused,
+.icon-button.status-sound-off { border-color: #96762c; background: #65501e; color: #ffe8a2; }
+.icon-button.status-paused:hover,
+.icon-button.status-sound-off:hover { border-color: #bc9638; background: #7a6124; color: #fff5cf; }
 
 .panel-section { padding: 18px 20px; border-bottom: 1px solid var(--line); }
 .section-label { margin-bottom: 12px; }

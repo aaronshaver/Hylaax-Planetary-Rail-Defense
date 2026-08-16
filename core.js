@@ -31,7 +31,7 @@ const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*
 
 const ui = Object.fromEntries([
   "hivesNeutralized", "creepsNeutralized", "timeSurvived", "hivesInWorld", "creepsInWorld",
-  "pauseToggle", "soundToggle",
+  "pauseToggle", "soundToggle", "selectionLabel",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart",

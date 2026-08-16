@@ -15,7 +15,7 @@ const TUTORIAL_MESSAGES = [
   "Click on the C and E nodes to add Mines to them",
   "Click Build Turret",
   "Place a Turret one tile away from one of the Train Stops",
-  "That's it! You now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base"
+  "That's it!\n\nYou now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to catch your breath at any time."
 ];
 
 function tutorialLocksPause(){return Boolean(state.tutorial?.active);}

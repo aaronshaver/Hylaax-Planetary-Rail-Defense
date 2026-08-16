@@ -18,7 +18,7 @@ if(window.__HYLAAX_TEST__){
     showTrainEnergyWarning,updateTrainEnergyWarnings,updateAutomaticRepair,updateAutomaticLogistics,updateAutomaticRebuild,leaveGhost,rebuildGhost,damageTarget,
     resetEnemyNavigation,rebuildEnemyNavigation,ensureEnemyNavigation,nextEnemyNavigationStep,enemyNavigationStats,findEnemyStep,updateEnemies,
     updateTrains,updateCombatTrains,updateStructures,update,advanceSimulation,
-    activityColor,showWorldActivity,worldMessagePriority,worldMessageLayout,terrainLayerStats,ensureTerrainLayer,render,
+    activityColor,showWorldActivity,worldMessagePriority,worldMessageLayout,terrainLayerStats,ensureTerrainLayer,drawBase,drawHives,render,
     selectionHtml,updateUI,formatSurvivalTime,
     tutorialMessage,tutorialLoopTargets,tutorialScheduleTargets,tutorialTargetsHaveMines,tutorialTurretIsByStop,tutorialEvent,startTutorial,finishTutorial,restartTutorial,startGame,resetGameState
   };

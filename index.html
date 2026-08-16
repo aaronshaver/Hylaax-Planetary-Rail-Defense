@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 1.3</title>
+  <title>Planetary Rail Defense 1.4</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 1.3 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 1.4 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -60,19 +60,19 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 1.3</span></h1>
+          <h1>RAIL<br><span>DEFENSE 1.4</span></h1>
         </div>
         <div class="header-controls">
-          <button id="pauseToggle" class="btn btn-sm btn-outline-secondary icon-button" title="Pause simulation" aria-label="Pause simulation">Pause</button>
-          <button id="soundToggle" class="btn btn-sm btn-outline-secondary icon-button" title="Toggle sound" aria-label="Toggle sound">Sound: ON</button>
+          <button id="pauseToggle" class="btn btn-sm icon-button status-playing" title="Pause simulation" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
+          <button id="soundToggle" class="btn btn-sm icon-button status-sound-on" title="Toggle sound" aria-label="Toggle sound"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2Z"/><path d="M11 5.2c1.5 1.5 1.5 4.1 0 5.6M12.7 3.5c2.5 2.5 2.5 6.5 0 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Sound: ON</span></button>
         </div>
       </header>
 
       <section class="panel-section tools-section">
         <div class="section-label">ACTIONS</div>
         <div class="tool-grid" role="group" aria-label="Actions">
-          <button class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="Select units and structures. Select a Train to create or clear its automatic schedule."><span class="keycap">1</span>Select Object</button>
-          <button class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Click existing Track to choose a start, then click adjacent empty hexes to build or adjacent existing Track to connect and close loops. Click non-adjacent existing Track to choose a new start. Tight triangles are not allowed.&#10;&#10;Costs 1 Construction Material per new Track hex."><span class="keycap">2</span>Build Track</button>
+          <button class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="Select units and structures."><span class="keycap">1</span>Select Object</button>
+          <button class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Click existing Track to choose a start, then click adjacent empty hexes to build or adjacent existing Track to connect and close loops. Click non-adjacent existing Track to choose a new start. Tight triangles are not allowed.&#10;&#10;Costs 1 Construction Material per new Track segment from Base inventory."><span class="keycap">2</span>Build Track</button>
           <button class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Build within three hexes of Track.&#10;&#10;Costs 10 Construction Material and 5 Energy from Base inventory."><span class="keycap">3</span>Build Turret</button>
           <button class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Place a Mine on top of an existing finite Resource Node within three hexes of Track.&#10;&#10;Costs 8 Construction Material from Base inventory."><span class="keycap">4</span>Build Mine</button>
           <button class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="Salvage Track, Turrets, Mines, or Trains. Salvaging a Train requires confirmation, removes its schedule, and returns its Construction Material plus carried resources to Base inventory."><span class="keycap">5</span>Salvage Object</button>
@@ -80,7 +80,7 @@
       </section>
 
       <section id="selectionPanel" class="panel-section selection-section">
-        <div class="section-label">SELECTED</div>
+        <div id="selectionLabel" class="section-label">SELECTED</div>
         <div id="selectionContent"></div>
       </section>
 
@@ -92,7 +92,7 @@
       <h2 id="remindersTitle">This is a fun web game</h2>
       <p id="remindersNotice">Please play on a desktop or laptop computer; mobile is not well-supported.</p>
       <div class="reminders-actions">
-        <button id="remindersTutorial" class="btn btn-command">Start Game with Tutorial (recommended)</button>
+        <button id="remindersTutorial" class="btn btn-command">Start Game with Tutorial (recommended for new players)</button>
         <button id="remindersContinue" class="btn btn-cyan">Start Game (no tutorial)</button>
       </div>
     </div>
