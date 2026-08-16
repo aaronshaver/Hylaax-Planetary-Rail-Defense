@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { describe, test, beforeEach } = require("node:test");
-const { api, moveTrain, makeEnemy, performance } = require("./harness.js");
+const { api, moveTrain, makeEnemy, addTestTrain, performance } = require("./harness.js");
 
 beforeEach(() => { api.reset(); });
 
@@ -70,7 +70,7 @@ describe("Hive and defense behavior", () => {
 
   test("Turret Trains can hit Hives at range 6", () => {
     const state = api.state;
-    const train = state.trains[0];
+    const train = addTestTrain();
     train.trainType = "combat";
     train.wagons = [train.wagons[1]];
     train.wagons[0].amount = 5;

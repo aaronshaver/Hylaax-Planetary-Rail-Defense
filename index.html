@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 1.2</title>
+  <title>Planetary Rail Defense 1.3</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 1.2 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 1.3 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -29,6 +29,11 @@
       </div>
 
       <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+      <div id="tutorialPrompt" class="tutorial-prompt d-none" hidden role="status" aria-live="polite">
+        <div id="tutorialText"></div>
+        <button id="tutorialOkay" class="btn btn-command d-none" hidden>Okay</button>
+        <button id="tutorialRestart" class="btn tutorial-restart">Restart Tutorial</button>
+      </div>
       <div id="gameOver" class="game-over d-none" hidden>
         <div class="game-over-card">
           <div class="eyebrow text-danger">BASE LOST</div>
@@ -55,7 +60,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 1.2</span></h1>
+          <h1>RAIL<br><span>DEFENSE 1.3</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm btn-outline-secondary icon-button" title="Pause simulation" aria-label="Pause simulation">Pause</button>
@@ -87,9 +92,7 @@
       <h2 id="remindersTitle">This is a fun web game</h2>
       <p id="remindersNotice">Please play on a desktop or laptop computer; mobile is not well-supported.</p>
       <div class="reminders-actions">
-        <span class="disabled-button-tip" data-bs-toggle="tooltip" data-bs-placement="top" title="I'm working on this Sun 16 Aug, please come back in a couple hours and refresh your browser window">
-          <button id="remindersTutorial" class="btn btn-quiet" disabled aria-disabled="true">Start Game with Tutorial (recommended)</button>
-        </span>
+        <button id="remindersTutorial" class="btn btn-command">Start Game with Tutorial (recommended)</button>
         <button id="remindersContinue" class="btn btn-cyan">Start Game (no tutorial)</button>
       </div>
     </div>
@@ -117,6 +120,7 @@
   <script src="simulation.js"></script>
   <script src="rendering.js"></script>
   <script src="interface.js"></script>
+  <script src="tutorial.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

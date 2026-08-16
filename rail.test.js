@@ -2,9 +2,9 @@
 
 const assert = require("node:assert/strict");
 const { describe, test, beforeEach } = require("node:test");
-const { api, moveTrain, makeTrack } = require("./harness.js");
+const { api, moveTrain, makeTrack, addTestTrain } = require("./harness.js");
 
-beforeEach(() => { api.reset(); });
+beforeEach(() => { api.reset(); addTestTrain(); });
 
 describe("repairs, ghosts, and schedules", () => {
   test("Track costs one carried Construction Material and repairs to 1 HP", () => {

@@ -23,7 +23,7 @@ function handleHexClick(hex) {
   if (state.mode === "turret") return buildTurret(q,r);
   if (state.mode === "mine") return buildMine(q,r);
   if (state.mode === "deploy") return deployTrain(q,r);
-  if (structure) return select(structure.type === "base" ? "base" : "structure", structure.id);
+  if (structure) {select(structure.type === "base" ? "base" : "structure", structure.id);if(structure.type==="base")tutorialEvent("base-selected");return;}
   if (hive) return select("hive",hive.id);
   if (enemy) return select("enemy",enemy.id);
   if (state.tracks.has(key(q,r))) return select("track", key(q,r));
@@ -204,7 +204,7 @@ function handleAction(action, element) {
   if(action==="fabricate-place-builder-train"||action==="fabricate-place-combat-train"){
     if(state.nextTrainIndex>=26)return fail("No more than 26 trains can be built.");
     const trainType=action==="fabricate-place-combat-train"?"combat":"builder";
-    if(payBase(COSTS.train,trainType==="combat"?"Turret Train":"Build/Mine Train")){state.deploymentPaid=true;state.deploymentTrainType=trainType;sounds.place();setMode("deploy");toast("Click an empty Track hex for the Train Head, then click a highlighted Tail point.","info");}
+    if(payBase(COSTS.train,trainType==="combat"?"Turret Train":"Build/Mine Train")){state.deploymentPaid=true;state.deploymentTrainType=trainType;sounds.place();setMode("deploy");toast("Click an empty Track hex for the Train Head, then click a highlighted Tail point.","info");if(trainType==="builder")tutorialEvent("builder-fabrication-started");}
   }
   if(action==="add-schedule"&&selected?.wagons){
     if(!trainStopped(selected))return fail("Clear the current schedule and wait for the train to stop first.");
@@ -212,6 +212,7 @@ function handleAction(action, element) {
     selected.schedule=[];selected.scheduleComplete=false;selected.scheduleTargetIndex=0;selected.servicingStop=false;selected.stopHoldUntil=0;
     state.scheduleTrainId=selected.id;state.mode="schedule";canvas.style.cursor="crosshair";
     document.querySelectorAll("[data-mode]").forEach(button=>button.classList.remove("active"));
+    tutorialEvent("schedule-started",{trainId:selected.id,train:selected});
   }
   if(action==="clear-schedule"&&selected?.wagons)clearTrainSchedule(selected);
   updateUI(true);

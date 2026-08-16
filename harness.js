@@ -6,7 +6,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { performance } = require("node:perf_hooks");
 
-const GAME_SCRIPTS = ["core.js", "terrain.js", "world.js", "rail.js", "trains.js", "enemies.js", "simulation.js", "rendering.js", "interface.js", "game.js"];
+const GAME_SCRIPTS = ["core.js", "terrain.js", "world.js", "rail.js", "trains.js", "enemies.js", "simulation.js", "rendering.js", "interface.js", "tutorial.js", "game.js"];
 
 class ClassListMock {
   constructor() { this.values = new Set(); }
@@ -136,4 +136,13 @@ function makeEnemy(id, q, r) {
   return { id, type: "enemy", q, r, x: point.x, y: point.y, fromQ: q, fromR: r, toQ: q, toR: r, progress: 1, speed: api.constants.ENEMY_SPEED, hp: 1, maxHp: 1, attackClock: 0, nextPathAt: 0, phase: 0 };
 }
 
-module.exports = { api, elements: harness.elements, moveTrain, makeTrack, makeEnemy, performance, GAME_SCRIPTS };
+function addTestTrain(trainType="builder") {
+  const state=api.state,trainIndex=state.nextTrainIndex++,code=api.trainCode(trainIndex),roles=trainType==="combat"?["energy"]:["material","energy"];
+  const positions=[{q:3,r:0},{q:2,r:0},{q:1,r:0}],heading=0;
+  const wagons=roles.map((role,index)=>{const position=positions[index+1],point=api.axialToWorld(position.q,position.r);return {id:`test-wagon-${state.nextId++}`,kind:"wagon",...position,x:point.x,y:point.y,heading,role,type:role,amount:0,capacity:30,hp:18,maxHp:18};});
+  const head=positions[0],point=api.axialToWorld(head.q,head.r);
+  const train={id:`test-train-${state.nextId++}`,name:api.trainName(trainIndex,trainType),code,trainType,...head,x:point.x,y:point.y,route:[],routePurpose:null,progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,repairHoldUntil:0,repairResumeStatus:null,energyDepleted:false,nextEnergyWarningAt:0,forwardDirection:{q:1,r:0},fuel:20,maxFuel:20,hp:28,maxHp:28,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
+  state.trains.push(train);return train;
+}
+
+module.exports = { api, elements: harness.elements, moveTrain, makeTrack, makeEnemy, addTestTrain, performance, GAME_SCRIPTS };

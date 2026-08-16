@@ -21,9 +21,10 @@ describe("game bootstrap", () => {
     assert.ok(elements.get("gameCanvas"));
   });
 
-  test("the unavailable tutorial button is disabled with an explanatory tooltip", () => {
+  test("the tutorial button is enabled without the temporary unavailable tooltip", () => {
     const html = fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-    assert.match(html,/id="remindersTutorial"[^>]*disabled/);
-    assert.match(html,/I'm working on this Sun 16 Aug, please come back in a couple hours and refresh your browser window/);
+    assert.match(html,/id="remindersTutorial" class="btn btn-command"/);
+    assert.doesNotMatch(html,/id="remindersTutorial"[^>]*disabled/);
+    assert.doesNotMatch(html,/I'm working on this Sun 16 Aug/);
   });
 });

@@ -2,9 +2,9 @@
 
 const assert = require("node:assert/strict");
 const { describe, test, beforeEach } = require("node:test");
-const { api, moveTrain } = require("./harness.js");
+const { api, moveTrain, addTestTrain } = require("./harness.js");
 
-beforeEach(() => { api.reset(); });
+beforeEach(() => { api.reset(); addTestTrain(); });
 
 describe("resource logistics", () => {
   test("the Base accepts each resource only up to 100", () => {

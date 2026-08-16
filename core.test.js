@@ -15,14 +15,15 @@ describe("geometry and initial state", () => {
     }
   });
 
-  test("a new game has a full locomotive and two empty dedicated wagons", () => {
+  test("a new game has one random adjacent Track and no Train", () => {
     const state = api.state;
-    const train = state.trains[0];
-    assert.equal(state.tracks.size, 3);
+    const [track]=state.tracks.values();
+    assert.equal(state.tracks.size, 1);
+    assert.equal(api.hexDistance(track,state.base),1);
+    assert.equal(track.links.size,0);
+    assert.equal(state.trains.length,0);
     assert.equal(state.baseMaterial, 100);
-    assert.equal(train.fuel, train.maxFuel);
-    assert.equal(train.wagons.map(wagon => wagon.role).join(","), "material,energy");
-    assert.equal(train.wagons.map(wagon => wagon.amount).join(","), "0,0");
+    assert.equal(state.nextTrainIndex,0);
     assert.equal(api.constants.TRACK_HIT_POINTS, 1);
   });
 

@@ -2,20 +2,11 @@
 
 function makeInitialState() {
   const mapSeed=Date.now();
-  const [dq,dr]=DIRECTIONS[mapSeed%DIRECTIONS.length];
-  const initialTrack=[1,2,3].map(distance=>({q:dq*distance,r:dr*distance}));
+  const [dq,dr]=DIRECTIONS[Math.floor(Math.random()*DIRECTIONS.length)];
+  const initialTrack={q:dq,r:dr};
   const tracks = new Map();
-  initialTrack.forEach(({q,r}) => tracks.set(key(q,r), { q, r, hp: TRACK_HIT_POINTS, maxHp: TRACK_HIT_POINTS, links: new Set() }));
-  for(let index=0;index<initialTrack.length-1;index++){
-    tracks.get(key(initialTrack[index].q,initialTrack[index].r)).links.add(key(initialTrack[index+1].q,initialTrack[index+1].r));
-    tracks.get(key(initialTrack[index+1].q,initialTrack[index+1].r)).links.add(key(initialTrack[index].q,initialTrack[index].r));
-  }
+  tracks.set(key(initialTrack.q,initialTrack.r), { ...initialTrack, hp: TRACK_HIT_POINTS, maxHp: TRACK_HIT_POINTS, links: new Set() });
   const base = { id: "base", type: "base", q: 0, r: 0, hp: 100, maxHp: 100 };
-  const [energyPosition,materialPosition,locoPosition]=initialTrack;
-  const p = axialToWorld(locoPosition.q,locoPosition.r);
-  const wm = axialToWorld(materialPosition.q,materialPosition.r);
-  const we = axialToWorld(energyPosition.q,energyPosition.r);
-  const heading=Math.atan2(p.y-wm.y,p.x-wm.x);
   return {
     mode: "select",
     paused: false,
@@ -35,18 +26,7 @@ function makeInitialState() {
     nodeResources: new Map(),
     clearedResourceNodes: new Set(),
     worldMessages: [],
-    trains: [{
-      id: "train-1", name: trainName(0,"builder"), code: trainCode(0), trainType: "builder", q: locoPosition.q, r: locoPosition.r, x: p.x, y: p.y,
-      route: [], routePurpose: null, progress: 0, speed: 2.25, stepFrom: null, stepTo: null,
-      schedule: [], scheduleComplete: false, scheduleTargetIndex: 0, servicingStop: false, stopHoldUntil: 0, scheduleRetryAt: 0, repairHoldUntil: 0, repairResumeStatus: null, energyDepleted: false, nextEnergyWarningAt: 0,
-      forwardDirection: { q: dq, r: dr },
-      fuel: 20, maxFuel: 20, hp: 28, maxHp: 28, status: "Idle",
-      wagons: [
-        { id: "wagon-1", kind: "wagon", q: materialPosition.q, r: materialPosition.r, x: wm.x, y: wm.y, heading, role: "material", type: "material", amount: 0, capacity: 30, hp: 18, maxHp: 18 },
-        { id: "wagon-2", kind: "wagon", q: energyPosition.q, r: energyPosition.r, x: we.x, y: we.y, heading, role: "energy", type: "energy", amount: 0, capacity: 30, hp: 18, maxHp: 18 }
-      ],
-      heading, wheelClock: 0, wasNearBase: false
-    }],
+    trains: [],
     enemies: [],
     projectiles: [],
     particles: [],
@@ -62,11 +42,12 @@ function makeInitialState() {
     deploymentReserved: new Set(),
     pendingTrainSalvageId: null,
     hover: null,
-    nextId: 3,
-    nextTrainIndex: 1,
+    nextId: 1,
+    nextTrainIndex: 0,
     camera: { x: 75, y: 45, zoom: 1 },
     pointer: { down: false, moved: false, x: 0, y: 0, startX: 0, startY: 0, camX: 0, camY: 0 },
-    sound: true
+    sound: true,
+    tutorial: null
   };
 }
 
@@ -268,6 +249,7 @@ function setMode(mode) {
   state.mode = mode;
   document.querySelectorAll("[data-mode]").forEach(button => button.classList.toggle("active", button.dataset.mode === mode));
   canvas.style.cursor = mode === "select" ? "default" : "crosshair";
+  tutorialEvent("mode",{mode});
   updateUI(true);
 }
 

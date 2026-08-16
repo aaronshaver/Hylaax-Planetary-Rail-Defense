@@ -88,7 +88,7 @@ function layTrack(q, r) {
       sounds.place();burst(q,r,"#d9bd78",5);
       if(state.baseMaterial<=0){toast("Base has no Construction Material remaining.","info");setMode("select");return;}
     }
-    state.trackStart=destination;toast("Track Start Selected. Click adjacent hexes to keep building.","info");updateUI(true);return;
+    state.trackStart=destination;toast("Track Start Selected. Click adjacent hexes to keep building.","info");tutorialEvent("track-selected",{q,r});updateUI(true);return;
   }
   const start=state.trackStart;
   const destinationGhost=ghostAt(q,r);
@@ -121,6 +121,7 @@ function layTrack(q, r) {
   state.trackStart=destination;
   sounds.place();
   burst(q, r, "#d9bd78", 5);
+  tutorialEvent(isNew?"track-built":"track-linked",{q,r});
   if(isNew&&state.baseMaterial<=0){toast("Base has no Construction Material remaining.","info");setMode("select");return;}
   updateUI(true);
 }
@@ -178,7 +179,7 @@ function buildTurret(q, r) {
   state.structures.set(key(q,r), turret);
   invalidateEnemyNavigation();
   state.stats.turretsBuilt++;
-  sounds.place(); burst(q, r, "#65dbe0", 10); select("structure", turret.id);
+  sounds.place(); burst(q, r, "#65dbe0", 10); select("structure", turret.id);tutorialEvent("turret-built",{turret});
 }
 
 function buildMine(q, r) {
@@ -192,7 +193,7 @@ function buildMine(q, r) {
   state.structures.set(key(q,r), mine);
   invalidateEnemyNavigation();
   state.stats.minesBuilt++;
-  sounds.place(); burst(q, r, terrain.resource === "energy" ? "#60d5db" : "#e6b94a", 10); select("structure", mine.id);
+  sounds.place(); burst(q, r, terrain.resource === "energy" ? "#60d5db" : "#e6b94a", 10); select("structure", mine.id);tutorialEvent("mine-built",{mine});
 }
 
 function salvageStructure(structure) {
@@ -272,7 +273,7 @@ function deployTrain(q,r){
   const heading=Math.atan2(hp.y-firstPoint.y,hp.x-firstPoint.x),trainIndex=state.nextTrainIndex++,code=trainCode(trainIndex),roles=trainType==="combat"?["energy"]:["material","energy"];
   const wagons=roles.map((role,index)=>{const position=path[index+1],point=axialToWorld(position.q,position.r);return {id:`wagon-${state.nextId++}`,kind:"wagon",q:position.q,r:position.r,x:point.x,y:point.y,heading,role,type:role,amount:0,capacity:30,hp:18,maxHp:18};});
   const train={id:`train-${state.nextId++}`,name:trainName(trainIndex,trainType),code,trainType,q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],routePurpose:null,progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,repairHoldUntil:0,repairResumeStatus:null,energyDepleted:false,nextEnergyWarningAt:0,forwardDirection:{q:head.q-firstWagon.q,r:head.r-firstWagon.r},fuel:10,maxFuel:20,hp:28,maxHp:28,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
-  state.trains.push(train);state.stats.trainsBuilt++;clearDeploymentReservation();sounds.place();select("train",train.id);setMode("select");toast(`${train.name} Deployed.`,"info");
+  state.trains.push(train);state.stats.trainsBuilt++;clearDeploymentReservation();sounds.place();select("train",train.id);setMode("select");toast(`${train.name} Deployed.`,"info");tutorialEvent("builder-train-deployed",{trainId:train.id,train});
 }
 
 function findPath(start, goal) {
@@ -364,7 +365,7 @@ function addScheduleStop(train,q,r){
     state.scheduleTrainId=null;state.mode="select";
     document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));
     canvas.style.cursor="default";
-    toast(`${train.name} Schedule Complete.`,"info");sounds.place();updateUI(true);return;
+    toast(`${train.name} Schedule Complete.`,"info");sounds.place();tutorialEvent("schedule-completed",{trainId:train.id,train});updateUI(true);return;
   }
   if(existingIndex>0)return fail("Select the first stop again to complete the schedule.");
   if(stops.length>=9)return fail("A train schedule cannot have more than 9 stops.");

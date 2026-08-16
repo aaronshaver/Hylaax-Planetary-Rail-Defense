@@ -35,7 +35,7 @@ function selectionHtml(){
 }
 
 function updateUI(force=false){
-  ui.pauseToggle.textContent=state.gameOver?"Paused":state.paused?"Play":"Pause";ui.pauseToggle.disabled=state.gameOver;ui.pauseToggle.ariaLabel=state.paused||state.gameOver?"Play simulation":"Pause simulation";ui.soundToggle.textContent=state.sound?"Sound: ON":"Sound: OFF";ui.hivesNeutralized.textContent=state.hivesNeutralized;ui.creepsNeutralized.textContent=state.creepsNeutralized;ui.hivesInWorld.textContent=state.hives.size;ui.creepsInWorld.textContent=state.enemies.length;ui.timeSurvived.textContent=formatSurvivalTime(state.elapsed);
+  ui.pauseToggle.textContent=state.gameOver?"Paused":state.paused?"Play":"Pause";ui.pauseToggle.disabled=state.gameOver||tutorialLocksPause();ui.pauseToggle.ariaLabel=state.paused||state.gameOver?"Play simulation":"Pause simulation";ui.soundToggle.textContent=state.sound?"Sound: ON":"Sound: OFF";ui.hivesNeutralized.textContent=state.hivesNeutralized;ui.creepsNeutralized.textContent=state.creepsNeutralized;ui.hivesInWorld.textContent=state.hives.size;ui.creepsInWorld.textContent=state.enemies.length;ui.timeSurvived.textContent=formatSurvivalTime(state.elapsed);
   const selectionMarkup=selectionHtml();
   if(force||selectionMarkup!==selectionCache){disposeTooltips(selectionContent);selectionContent.innerHTML=selectionMarkup;selectionCache=selectionMarkup;initializeTooltips(selectionContent);}
 }
@@ -47,6 +47,7 @@ function formatSurvivalTime(seconds){const total=Math.max(0,Math.floor(seconds))
 
 function showReminders(){
   remindersOpen=true;simulationAccumulator=0;
+  syncTutorialUI();
   ui.remindersDialog.hidden=false;ui.remindersDialog.classList.remove("d-none");
   setTimeout(()=>ui.remindersContinue.focus(),0);
 }

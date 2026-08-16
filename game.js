@@ -19,7 +19,8 @@ if(window.__HYLAAX_TEST__){
     resetEnemyNavigation,rebuildEnemyNavigation,ensureEnemyNavigation,nextEnemyNavigationStep,enemyNavigationStats,findEnemyStep,updateEnemies,
     updateTrains,updateCombatTrains,updateStructures,update,advanceSimulation,
     activityColor,showWorldActivity,worldMessagePriority,worldMessageLayout,terrainLayerStats,ensureTerrainLayer,render,
-    selectionHtml,updateUI,formatSurvivalTime
+    selectionHtml,updateUI,formatSurvivalTime,
+    tutorialMessage,tutorialLoopTargets,tutorialScheduleTargets,tutorialTargetsHaveMines,tutorialTurretIsByStop,tutorialEvent,startTutorial,finishTutorial,restartTutorial,startGame,resetGameState
   };
 }
 
@@ -30,16 +31,20 @@ canvas.addEventListener("pointerleave",()=>{state.hover=null;if(!state.pointer.d
 canvas.addEventListener("wheel",e=>{e.preventDefault();const rect=canvas.getBoundingClientRect(),sx=e.clientX-rect.left,sy=e.clientY-rect.top;const beforeX=(sx-width/2)/state.camera.zoom+state.camera.x,beforeY=(sy-height/2)/state.camera.zoom+state.camera.y;const factor=Math.exp(-e.deltaY*.0012);state.camera.zoom=clamp(state.camera.zoom*factor,.42,2.15);state.camera.x=beforeX-(sx-width/2)/state.camera.zoom;state.camera.y=beforeY-(sy-height/2)/state.camera.zoom;render();},{passive:false});
 
 document.addEventListener("click",e=>{const modeButton=e.target.closest("[data-mode]");if(modeButton){setMode(modeButton.dataset.mode);return;}const actionButton=e.target.closest("[data-action]");if(actionButton&&!actionButton.disabled)handleAction(actionButton.dataset.action,actionButton);});
-document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e.key==="Enter")closeReminders();return;}if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="5"){setMode(["select","track","turret","mine","salvage"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
+document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e.key==="Enter")startGame(false);return;}if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="5"){setMode(["select","track","turret","mine","salvage"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
 document.querySelectorAll("[data-mode]").forEach(button=>button.addEventListener("click",()=>sounds.init()));
-ui.pauseToggle.addEventListener("click",()=>{if(state.gameOver)return;state.paused=!state.paused;simulationAccumulator=0;lastWallTime=Date.now();updateUI(true);render();});
+ui.pauseToggle.addEventListener("click",()=>{if(state.gameOver||tutorialLocksPause())return;state.paused=!state.paused;simulationAccumulator=0;lastWallTime=Date.now();updateUI(true);render();});
 ui.soundToggle.addEventListener("click",()=>{state.sound=!state.sound;sounds.enabled=state.sound;if(state.sound)sounds.place();updateUI(true);});
-ui.remindersContinue.addEventListener("click",closeReminders);
+ui.remindersTutorial.addEventListener("click",()=>startGame(true));
+ui.remindersContinue.addEventListener("click",()=>startGame(false));
+ui.tutorialOkay.addEventListener("click",finishTutorial);
+ui.tutorialRestart.addEventListener("click",restartTutorial);
 ui.confirmNo.addEventListener("click",cancelTrainSalvage);
 ui.confirmYes.addEventListener("click",confirmTrainSalvage);
 ui.viewMapButton.addEventListener("click",showFinalMap);
 ui.viewFinalStats.addEventListener("click",showFinalStats);
-ui.restartButton.addEventListener("click",()=>{state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");setMode("select");showReminders();});
+function resetGameState(){state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");syncTutorialUI();setMode("select");}
+ui.restartButton.addEventListener("click",()=>{resetGameState();showReminders();});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){const now=Date.now();advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;resetPerformanceMetrics();render();}});
 window.addEventListener("resize",resize);
 ui.gameOver.hidden=true;ui.viewFinalStats.hidden=true;ui.confirmDialog.hidden=true;resize();initializeTooltips();updateUI(true);showReminders();

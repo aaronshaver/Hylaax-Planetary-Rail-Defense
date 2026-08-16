@@ -33,7 +33,8 @@ const ui = Object.fromEntries([
   "hivesNeutralized", "creepsNeutralized", "timeSurvived", "hivesInWorld", "creepsInWorld",
   "pauseToggle", "soundToggle",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
-  "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersContinue",
+  "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
+  "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart",
   "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt"
 ].map(id => [id, document.getElementById(id)]));
 
