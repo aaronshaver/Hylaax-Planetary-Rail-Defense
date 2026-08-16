@@ -19,6 +19,7 @@
   const REPAIR_PAUSE_SECONDS = 1;
   const TURRET_RANGE = 4;
   const COMBAT_TRAIN_RANGE = 6;
+  const BASE_UNLOAD_TARGET = 100;
   const HIVE_LEVELS = [2,3,5,8,13,21];
   const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
   const COSTS = {
@@ -424,6 +425,8 @@
     return state.tracks.has(key(q, r));
   }
 
+  function isScheduleTrackHex(q,r){return isRailHex(q,r)||Boolean(trackGhostAt(q,r));}
+
   function connectedTrackNeighbors(q, r) {
     const track = state.tracks.get(key(q,r));
     return track ? [...track.links].map(fromKey) : [];
@@ -759,7 +762,7 @@
     let direction=train.wagons?.length?{q:train.q-train.wagons[0].q,r:train.r-train.wagons[0].r}:train.forwardDirection;
     for(const target of [...stops,stops[0]]){
       if(position.q===target.q&&position.r===target.r)continue;
-      const path=findPath({q:position.q,r:position.r,forwardDirection:direction},target);
+      const path=findConceptualTrackPath({q:position.q,r:position.r,forwardDirection:direction},target);
       if(!path?.length)return false;
       const previous=path.length>1?path[path.length-2]:position;
       direction={q:target.q-previous.q,r:target.r-previous.r};
@@ -770,7 +773,7 @@
 
   function addScheduleStop(train,q,r){
     if(state.mode!=="schedule"||state.scheduleTrainId!==train.id)return;
-    if(!isRailHex(q,r))return fail("Schedule stops must be placed on Track.");
+    if(!isScheduleTrackHex(q,r))return fail("Schedule stops must be placed on Track or Destroyed Track.");
     const owner=scheduleStopOwner(q,r,train.id);
     if(owner)return fail(`That Track is already Stop ${trainScheduleCode(owner)}${owner.schedule.findIndex(stop=>stop.q===q&&stop.r===r)+1}.`);
     const stops=train.schedule;
@@ -904,16 +907,22 @@
     return moved;
   }
 
+  function unloadCargoToBaseTarget(train,type){
+    const stored=type==="material"?state.baseMaterial:state.baseEnergy;
+    const moved=removeCargo(train,type,Math.min(Math.max(0,BASE_UNLOAD_TARGET-stored),totalCargo(train,type)));
+    if(type==="material")state.baseMaterial+=moved;else state.baseEnergy+=moved;
+    return moved;
+  }
+
   function serviceBaseLogistics(train) {
     if(train.trainType==="combat"){
       refuelAtBase(train);fillBaseCargo(train);return;
     }
     const emptyOnArrival=new Set(train.wagons.filter(w=>w.amount<=.0001).map(w=>w.id));
-    const material=removeCargo(train,"material",totalCargo(train,"material"));
-    const energy=removeCargo(train,"energy",totalCargo(train,"energy"));
-    state.baseMaterial+=material;state.baseEnergy+=energy;
-    if(material+energy>0)showWorldActivity(state.base,`${trainActivityName(train)} Unloaded Resources to Base`,1.25);
     refuelAtBase(train);
+    const material=unloadCargoToBaseTarget(train,"material");
+    const energy=unloadCargoToBaseTarget(train,"energy");
+    if(material+energy>0)showWorldActivity(state.base,`${trainActivityName(train)} Unloaded Resources to Base`,1.25);
     for(const wagon of train.wagons.filter(w=>emptyOnArrival.has(w.id)))fillWagonFromBase(train,wagon);
   }
 
@@ -1652,7 +1661,7 @@
     ctx.restore();
   }
 
-  function activeScheduleStops(train){return (train.schedule||[]).map((stop,index)=>({stop,index})).filter(entry=>state.tracks.has(key(entry.stop.q,entry.stop.r)));}
+  function activeScheduleStops(train){return (train.schedule||[]).map((stop,index)=>({stop,index})).filter(entry=>isScheduleTrackHex(entry.stop.q,entry.stop.r));}
 
   function drawTrainStops(){
     for(const train of state.trains){
@@ -1668,7 +1677,7 @@
   }
 
   function drawSelectedStopServiceRange(){
-    if(state.selected?.type!=="track")return;
+    if(state.selected?.type!=="track"&&!(state.selected?.type==="ghost"&&state.selected.objectType==="track"))return;
     const center=fromKey(state.selected.id);
     if(!scheduleStopAt(center.q,center.r))return;
     const cells=[center,...neighbors(center.q,center.r)],cellKeys=new Set(cells.map(cell=>key(cell.q,cell.r)));
@@ -1886,7 +1895,7 @@
 
   function render(){
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ensureTerrainLayer();ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,0,0,width,height);ctx.save();ctx.translate(width/2,height/2);ctx.scale(state.camera.zoom,state.camera.zoom);ctx.translate(-state.camera.x,-state.camera.y);
-    drawResourceNodes();drawTurretRanges();drawTracks();drawSelectedStopServiceRange();drawTrainStops();drawGhosts();drawHives();drawBase();drawStructures();drawSelection();drawTrains();drawBuildTrackGlow();drawEnemies();drawEffects();drawHover();drawWorldMessages();ctx.restore();
+    drawResourceNodes();drawTurretRanges();drawTracks();drawSelectedStopServiceRange();drawGhosts();drawTrainStops();drawHives();drawBase();drawStructures();drawSelection();drawTrains();drawBuildTrackGlow();drawEnemies();drawEffects();drawHover();drawWorldMessages();ctx.restore();
   }
 
   function hpBlock(object){const ratio=clamp(object.hp/object.maxHp*100,0,100);return `<div class="status-bar"><span style="width:${ratio}%"></span></div><div class="status-caption"><span>HIT POINTS</span><span>${Math.ceil(object.hp)} / ${object.maxHp}</span></div>`;}
@@ -1912,12 +1921,12 @@
       const combatTip=`Places one Locomotive with one empty Energy Wagon. It automatically fires at Hives and Creeps within 6 hexes, including while moving. Locomotive Energy and weapon Energy can only be restocked at Base. Placement uses two clicks: Head, then Tail.&#10;&#10;Costs 30 Construction Material.${unavailableTip}`;
       return `<div class="selection-title"><h2>Base</h2></div>${hpBlock(selected)}${baseInventoryHtml()}${deployNote}<div class="panel-actions">${button("fabricate-place-builder-train","Fabricate and Place Build and Mine Train",canPlaceTrain?"btn-command":"btn-quiet",builderTip,!canPlaceTrain)}${button("fabricate-place-combat-train","Fabricate and Place Combat Train",canPlaceTrain?"btn-cyan":"btn-quiet",combatTip,!canPlaceTrain)}</div>`;
     }
-    if(selected.wagons){const adding=state.mode==="schedule"&&state.scheduleTrainId===selected.id,hasStops=(selected.schedule?.length||0)>0,canAdd=!hasStops&&trainStopped(selected)&&!adding;const code=trainScheduleCode(selected);const note=adding?`<div class="action-note">Click Track to add Stop ${code}${selected.schedule.length+1}. Add at least 3 stops, then click ${code}1 again to start.</div>`:"",combatNote=selected.trainType==="combat"?`<div class="selection-subtitle">Moving defense train · Range 6 hexes · Locomotive and weapon Energy restock only at Base</div>`:"";return `<div class="selection-title"><h2>${selected.name}</h2></div>${combatNote}${hpBlock(selected)}<div class="status-bar energy"><span style="width:${selected.fuel/selected.maxFuel*100}%"></span></div><div class="status-caption"><span>ENERGY</span><span>${selected.fuel.toFixed(1)} / ${selected.maxFuel}</span></div>${cargoHtml(selected)}${note}<div class="panel-actions">${button("clear-schedule","Clear Schedule",hasStops||adding?"btn-danger":"btn-quiet","Clears every stop and stops the train at the next Track hex.",!hasStops&&!adding)}${button("add-schedule","Add Schedule",canAdd?"btn-command":"btn-quiet","Click at least 3 Track stops, then click the first stop again to complete the loop. Maximum 9 stops.",!canAdd)}</div>`;}
+    if(selected.wagons){const adding=state.mode==="schedule"&&state.scheduleTrainId===selected.id,hasStops=(selected.schedule?.length||0)>0,canAdd=!hasStops&&trainStopped(selected)&&!adding;const code=trainScheduleCode(selected);const note=adding?`<div class="action-note">Click Track or Destroyed Track to add Stop ${code}${selected.schedule.length+1}. Add at least 3 stops, then click ${code}1 again to start.</div>`:"",combatNote=selected.trainType==="combat"?`<div class="selection-subtitle">Moving defense train · Range 6 hexes · Locomotive and weapon Energy restock only at Base</div>`:"";return `<div class="selection-title"><h2>${selected.name}</h2></div>${combatNote}${hpBlock(selected)}<div class="status-bar energy"><span style="width:${selected.fuel/selected.maxFuel*100}%"></span></div><div class="status-caption"><span>ENERGY</span><span>${selected.fuel.toFixed(1)} / ${selected.maxFuel}</span></div>${cargoHtml(selected)}${note}<div class="panel-actions">${button("clear-schedule","Clear Schedule",hasStops||adding?"btn-danger":"btn-quiet","Clears every stop and stops the train at the next Track hex.",!hasStops&&!adding)}${button("add-schedule","Add Schedule",canAdd?"btn-command":"btn-quiet","Click at least 3 Track or Destroyed Track stops, then click the first stop again to complete the loop. Maximum 9 stops.",!canAdd)}</div>`;}
     if(selected.type==="turret")return `<div class="selection-title"><h2>Turret</h2></div><div class="selection-subtitle">Range 4 hexes · Instantly refills when a stopped Build and Mine Train Locomotive is adjacent</div>${hpBlock(selected)}${energyBlock(selected)}`;
     if(selected.type==="mine"){const node=resourceNodeAt(selected.q,selected.r),exhausted=node.amount<=0,title=`${exhausted?"Exhausted ":""}${resourceLabel(selected.resource)} Mine`,description=exhausted?"This Resource Node is exhausted":selected.resource==="energy"?"An adjacent stopped locomotive instantly refuels, then loads available Energy":"An adjacent stopped locomotive instantly loads available Construction Material";return `<div class="selection-title"><h2>${title}</h2></div><div class="selection-subtitle">${description}</div>${hpBlock(selected)}${resourceBlock(node)}`;}
     if(selected.type==="node")return `<div class="selection-title"><h2>${resourceLabel(selected.resource)} Node</h2></div>${resourceBlock(selected)}<div class="selection-subtitle">Build a Mine here to extract its resources</div>`;
     if(selected.type==="hive"){const rate=selected.level;const expansion=hiveExpansionLevel(selected);return `<div class="selection-title"><h2>Level ${rate} Hive</h2></div><div class="selection-subtitle">The two original Hives begin with one forced Creep batch · Expanded Hives immediately make the normal production choice · Each normal choice produces ${rate} Creeps as one batch or has a 1 in ${rate} chance to create one Hive instead · Repeats once per minute · A new Hive is Level ${expansion}, at most one Fibonacci step above its parent · Existing Hives never increase level</div>${hpBlock(selected)}`;}
-    if(selected.type==="ghost"){const name=selected.objectType==="track"?"Track":selected.objectType==="turret"?"Turret":`${resourceLabel(selected.resource)} Mine`;return `<div class="selection-title"><h2>Destroyed ${name}</h2></div><div class="selection-subtitle">Stops being a ghost when a locomotive carrying ${REBUILD_COSTS[selected.objectType]} Construction Material stops adjacent to it</div>`;}
+    if(selected.type==="ghost"){const name=selected.objectType==="track"?"Track":selected.objectType==="turret"?"Turret":`${resourceLabel(selected.resource)} Mine`,scheduled=selected.objectType==="track"?scheduleStopAt(selected.q,selected.r):null,title=scheduled?`Destroyed Track with Train Stop ${trainScheduleCode(scheduled.train)}${scheduled.index+1} (Train ${trainScheduleCode(scheduled.train)})`:`Destroyed ${name}`;return `<div class="selection-title"><h2>${title}</h2></div><div class="selection-subtitle">Stops being a ghost when a locomotive carrying ${REBUILD_COSTS[selected.objectType]} Construction Material stops adjacent to it</div>`;}
     if(state.tracks.get(key(selected.q,selected.r))===selected){const scheduled=scheduleStopAt(selected.q,selected.r),title=scheduled?`Track with Train Stop ${trainScheduleCode(scheduled.train)}${scheduled.index+1} (Train ${trainScheduleCode(scheduled.train)})`:"Track";return `<div class="selection-title"><h2>${title}</h2></div>${hpBlock(selected)}`;}
     return `<div class="selection-empty">Unknown selection.</div>`;
   }
@@ -1944,7 +1953,7 @@
     const track=state.tracks.get(key(q,r));
     if(track){ui.hoverTitle.textContent="Track";ui.hoverDetail.textContent=`Hit Points ${Math.ceil(track.hp)}/${track.maxHp}`;return;}
     const ghost=ghostAt(q,r);
-    if(ghost){const name=ghost.objectType==="track"?"Track":ghost.objectType==="turret"?"Turret":`${resourceLabel(ghost.resource)} Mine`;ui.hoverTitle.textContent=`Destroyed ${name}`;ui.hoverDetail.textContent=`Requires ${REBUILD_COSTS[ghost.objectType]} Construction Material in an adjacent stopped locomotive to rebuild`;return;}
+    if(ghost){const name=ghost.objectType==="track"?"Track":ghost.objectType==="turret"?"Turret":`${resourceLabel(ghost.resource)} Mine`,scheduled=ghost.objectType==="track"?scheduleStopAt(q,r):null;ui.hoverTitle.textContent=scheduled?`Destroyed Track · Stop ${trainScheduleCode(scheduled.train)}${scheduled.index+1}`:`Destroyed ${name}`;ui.hoverDetail.textContent=`Requires ${REBUILD_COSTS[ghost.objectType]} Construction Material in an adjacent stopped locomotive to rebuild`;return;}
     const hive=hiveAt(q,r);
     if(hive){const rate=hive.level;ui.hoverTitle.textContent=`Level ${rate} Hive`;ui.hoverDetail.textContent=`Hit Points ${Math.ceil(hive.hp)}/${hive.maxHp} · ${rate} Creeps per batch · 1 in ${rate} expansion chance`;return;}
     const terrain=terrainAt(q,r);
