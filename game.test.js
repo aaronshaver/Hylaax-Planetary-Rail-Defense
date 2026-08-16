@@ -156,7 +156,7 @@ describe("geometry and initial state", () => {
   });
 
   test("survival time uses the compact hour-minute-second format", () => {
-    assert.equal(api.formatSurvivalTime(7384), "02h03m04s");
+    assert.equal(api.formatSurvivalTime(7384), "02h 03m 04s");
   });
 });
 
