@@ -1974,6 +1974,27 @@
     lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();sounds.init();render();
   }
 
+  if(window.__HYLAAX_TEST__){
+    window.__HYLAAX_TEST_API__={
+      constants:{NODE_MIN_CAPACITY,NODE_MAX_CAPACITY,INITIAL_HIVE_COUNT,ENEMY_SPEED,SIMULATION_STEP,TRACK_HIT_POINTS,REPAIR_PAUSE_SECONDS,TURRET_RANGE,COMBAT_TRAIN_RANGE,BASE_UNLOAD_TARGET,HIVE_LEVELS,COSTS,REBUILD_COSTS,DIRECTIONS},
+      get state(){return state;},
+      reset({mapSeed=123456789,seedHives=false}={}){
+        state=makeInitialState();state.mapSeed=mapSeed;state.hives.clear();state.enemies=[];state.projectiles=[];state.particles=[];
+        terrainCacheSeed=null;terrainCache=new Map();terrainRevision=0;simulationAccumulator=0;selectionCache="";remindersOpen=false;sounds.enabled=false;
+        resetEnemyNavigation();if(seedHives)seedInitialHives();return state;
+      },
+      key,fromKey,hexDistance,neighbors,axialToWorld,worldToAxial,terrainAt,isPassable,resourceNodeAt,setNodeAmount,
+      trainCode,trainName,trainSegments,trainStopped,totalCargo,cargoSpace,removeCargo,addCargo,fillBaseCargo,refuelAtBase,serviceBaseLogistics,
+      connectedTrackNeighbors,conceptualTrackNeighbors,tracksAreLinked,linkTracks,deleteTrack,curveIsExtreme,layTrack,placeTrackOverGhost,
+      scheduleStopAt,addScheduleStop,clearTrainSchedule,findPath,findConceptualTrackPath,repairApproachFor,scheduleLoopIsReachable,startScheduledLeg,updateTrainSchedules,
+      hiveUnlockedLevel,nextHiveLevel,hiveExpansionLevel,createHive,hiveHexOpen,hiveReplicationRoll,hiveSpawnCandidates,spawnHiveNear,spawnEnemyFromHive,updateHives,
+      showTrainEnergyWarning,updateTrainEnergyWarnings,updateAutomaticRepair,updateAutomaticLogistics,updateAutomaticRebuild,leaveGhost,rebuildGhost,damageTarget,
+      resetEnemyNavigation,rebuildEnemyNavigation,ensureEnemyNavigation,nextEnemyNavigationStep,enemyNavigationStats,findEnemyStep,updateEnemies,
+      updateTrains,updateCombatTrains,updateStructures,update,advanceSimulation,
+      activityColor,showWorldActivity,worldMessagePriority,worldMessageLayout,selectionHtml,formatSurvivalTime
+    };
+  }
+
   canvas.addEventListener("pointerdown",e=>{sounds.init();canvas.setPointerCapture(e.pointerId);const p=state.pointer;p.down=true;p.moved=false;p.startX=p.x=e.clientX;p.startY=p.y=e.clientY;p.camX=state.camera.x;p.camY=state.camera.y;canvas.focus();});
   canvas.addEventListener("pointermove",e=>{state.hover=screenToHex(e.clientX,e.clientY);updateHoverStatus(state.hover);const p=state.pointer;if(!p.down){if(state.paused||state.gameOver)render();return;}p.x=e.clientX;p.y=e.clientY;const dx=p.x-p.startX,dy=p.y-p.startY;if(Math.hypot(dx,dy)>4)p.moved=true;if(p.moved){state.camera.x=p.camX-dx/state.camera.zoom;state.camera.y=p.camY-dy/state.camera.zoom;canvas.style.cursor="grabbing";render();}});
   canvas.addEventListener("pointerup",e=>{const p=state.pointer;if(!p.down)return;p.down=false;canvas.style.cursor=state.mode==="select"?"default":"crosshair";if(!p.moved)handleHexClick(screenToHex(e.clientX,e.clientY));});
