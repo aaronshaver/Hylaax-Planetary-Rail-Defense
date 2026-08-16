@@ -220,6 +220,13 @@ button { touch-action: manipulation; }
 .defeat-stats div:first-child { grid-column: 1 / -1; }
 @media (max-width: 560px) { .defeat-stats { grid-template-columns: 1fr; } .defeat-stats div:first-child { grid-column: auto; } }
 
+.confirm-overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(5,7,9,.76); backdrop-filter: blur(4px); }
+.confirm-card { width: min(520px, 100%); padding: 30px; border: 1px solid #71343b; background: #121013; box-shadow: 0 22px 75px #000; text-align: center; }
+.confirm-card h2 { margin: 10px 0 14px; font-size: 31px; font-weight: 900; }
+.confirm-card p { min-height: 3em; margin: 0 0 24px; color: #b8c4c7; line-height: 1.45; }
+.confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.confirm-actions .btn { min-height: 48px; font-weight: 800; }
+
 @media (max-width: 800px) {
   :root { --panel-width: 390px; }
   .panel-header { padding: 17px 15px; }

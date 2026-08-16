@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
   <title>Hylaax Planetary Rail Defense</title>
-  <link rel="stylesheet" href="vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -16,7 +16,7 @@
       <div class="hud top-left">
         <div class="hud-stat">Hives Neutralized: <strong id="hivesNeutralized">0</strong></div>
         <div class="hud-stat">Creeps Neutralized: <strong id="creepsNeutralized">0</strong></div>
-        <div class="hud-stat">Time Survived: <strong id="timeSurvived">00:00:00</strong></div>
+        <div class="hud-stat">Time Survived: <strong id="timeSurvived">00h00m00s</strong></div>
       </div>
 
       <div id="performanceStatus" class="hud performance-status bottom-left" aria-label="Simulation and rendering performance">
@@ -34,7 +34,7 @@
           <div class="eyebrow text-danger">BASE LOST</div>
           <h1>THE BIOMASS BROKE THROUGH</h1>
           <div class="defeat-stats">
-            <div><span>Survival Time</span><strong id="survivalTime">00:00:00</strong></div>
+            <div><span>Survival Time</span><strong id="survivalTime">00h00m00s</strong></div>
             <div><span>Hives Neutralized</span><strong id="defeatHivesNeutralized">0</strong></div>
             <div><span>Creeps Neutralized</span><strong id="defeatCreepsNeutralized">0</strong></div>
             <div><span>Track Laid</span><strong id="defeatTracksLaid">0</strong></div>
@@ -54,7 +54,7 @@
           <h1>RAIL<br><span>DEFENSE</span></h1>
         </div>
         <div class="header-controls">
-          <button id="soundToggle" class="btn btn-sm btn-outline-secondary icon-button" title="Toggle sound" aria-label="Toggle sound">SOUND</button>
+          <button id="soundToggle" class="btn btn-sm btn-outline-secondary icon-button" title="Toggle sound" aria-label="Toggle sound">Sound: ON</button>
         </div>
       </header>
 
@@ -65,7 +65,7 @@
           <button class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Click existing Track to choose a start, then click adjacent empty hexes to build or adjacent existing Track to connect and close loops. Click non-adjacent existing Track to choose a new start. Tight triangles are not allowed.&#10;&#10;Costs 1 Construction Material per new Track hex."><span class="keycap">2</span>Build Track</button>
           <button class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Build within three hexes of Track.&#10;&#10;Costs 6 Construction Material from Base inventory."><span class="keycap">3</span>Build Turret</button>
           <button class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Place a Mine on top of an existing finite Resource Node within three hexes of Track.&#10;&#10;Costs 8 Construction Material from Base inventory."><span class="keycap">4</span>Build Mine</button>
-          <button class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="Salvage track, turret, or mine. Recovered resources return to Base inventory."><span class="keycap">5</span>Salvage Object</button>
+          <button class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="Salvage Track, Turrets, Mines, or Trains. Salvaging a Train requires confirmation, removes its schedule, and returns its Construction Material plus carried resources to Base inventory."><span class="keycap">5</span>Salvage Object</button>
         </div>
       </section>
 
@@ -77,7 +77,19 @@
     </aside>
   </main>
 
-  <script src="vendor/bootstrap.bundle.min.js"></script>
+  <div id="confirmDialog" class="confirm-overlay d-none" hidden role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+    <div class="confirm-card">
+      <div class="eyebrow text-danger">SALVAGE TRAIN</div>
+      <h2 id="confirmTitle">Really Salvage this Train?</h2>
+      <p id="confirmMessage"></p>
+      <div class="confirm-actions">
+        <button id="confirmNo" class="btn btn-outline-secondary">No</button>
+        <button id="confirmYes" class="btn btn-danger">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="bootstrap.bundle.min.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

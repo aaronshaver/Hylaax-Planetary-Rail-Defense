@@ -26,6 +26,7 @@
     "hivesNeutralized", "creepsNeutralized", "timeSurvived",
     "soundToggle",
     "hoverStatus", "hoverTitle", "hoverDetail", "gameOver", "survivalTime", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
+    "confirmDialog", "confirmMessage", "confirmYes", "confirmNo",
     "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt"
   ].map(id => [id, document.getElementById(id)]));
 
@@ -163,7 +164,7 @@
       trains: [{
         id: "train-1", name: "Train A", q: locoPosition.q, r: locoPosition.r, x: p.x, y: p.y,
         route: [], progress: 0, speed: 2.25, stepFrom: null, stepTo: null,
-        schedule: [], scheduleComplete: false, scheduleTargetIndex: 0, servicingStop: false, stopHoldUntil: 0, scheduleRetryAt: 0,
+        schedule: [], scheduleComplete: false, scheduleTargetIndex: 0, servicingStop: false, stopHoldUntil: 0, scheduleRetryAt: 0, energyDepleted: false,
         forwardDirection: { q: dq, r: dr },
         fuel: 20, maxFuel: 20, hp: 28, maxHp: 28, status: "Idle",
         wagons: [
@@ -184,6 +185,7 @@
       deploymentHead: null,
       deploymentPaths: [],
       deploymentReserved: new Set(),
+      pendingTrainSalvageId: null,
       hover: null,
       nextId: 3,
       nextTrainIndex: 1,
@@ -573,6 +575,29 @@
     toast(structure.type==="turret"?`Salvaged ${mat} Construction Material and ${energy} Energy.`:`Salvaged ${mat} Construction Material.`);
   }
 
+  function requestTrainSalvage(train){
+    state.pendingTrainSalvageId=train.id;
+    ui.confirmMessage.textContent=`${train.name} and all of its schedule stops will be removed. 30 Construction Material and all carried resources will return to Base.`;
+    ui.confirmDialog.hidden=false;ui.confirmDialog.classList.remove("d-none");ui.confirmYes.focus();
+  }
+
+  function cancelTrainSalvage(){
+    state.pendingTrainSalvageId=null;ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");canvas.focus();
+  }
+
+  function confirmTrainSalvage(){
+    const train=state.trains.find(candidate=>candidate.id===state.pendingTrainSalvageId);
+    if(!train){cancelTrainSalvage();return false;}
+    const carriedMaterial=totalCargo(train,"material"),carriedEnergy=totalCargo(train,"energy");
+    state.baseMaterial+=COSTS.train.material+carriedMaterial;state.baseEnergy+=carriedEnergy;
+    state.trains=state.trains.filter(candidate=>candidate.id!==train.id);
+    if(state.scheduleTrainId===train.id)state.scheduleTrainId=null;
+    if(state.selected?.type==="train"&&state.selected.id===train.id)state.selected={type:"base",id:"base"};
+    sounds.remove();burst(train.q,train.r,"#9ba9ad",10);cancelTrainSalvage();updateUI(true);
+    toast(`Salvaged ${train.name}. Returned ${COSTS.train.material+carriedMaterial} Construction Material${carriedEnergy?` and ${carriedEnergy} Energy`:""} to Base.`);
+    return true;
+  }
+
   function deploymentPathsFrom(head){
     const paths=[];
     for(const middle of connectedTrackNeighbors(head.q,head.r))for(const tail of connectedTrackNeighbors(middle.q,middle.r)){
@@ -600,7 +625,7 @@
     if(path.some(position=>trainClaimsHex(position.q,position.r)))return fail("Those deployment Track hexes are no longer clear.");
     const [head,middle,tail]=path,hp=axialToWorld(head.q,head.r),mp=axialToWorld(middle.q,middle.r),tp=axialToWorld(tail.q,tail.r);
     const heading=Math.atan2(hp.y-mp.y,hp.x-mp.x),trainIndex=state.nextTrainIndex++;
-    const train={id:`train-${state.nextId++}`,name:trainName(trainIndex),q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,forwardDirection:{q:head.q-middle.q,r:head.r-middle.r},fuel:10,maxFuel:20,hp:28,maxHp:28,status:"Idle",wagons:[
+    const train={id:`train-${state.nextId++}`,name:trainName(trainIndex),q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,energyDepleted:false,forwardDirection:{q:head.q-middle.q,r:head.r-middle.r},fuel:10,maxFuel:20,hp:28,maxHp:28,status:"Idle",wagons:[
       {id:`wagon-${state.nextId++}`,kind:"wagon",q:middle.q,r:middle.r,x:mp.x,y:mp.y,heading,role:"material",type:"material",amount:0,capacity:30,hp:18,maxHp:18},
       {id:`wagon-${state.nextId++}`,kind:"wagon",q:tail.q,r:tail.r,x:tp.x,y:tp.y,heading,role:"energy",type:"energy",amount:0,capacity:30,hp:18,maxHp:18}
     ],heading,wheelClock:0,wasNearBase:false};
@@ -684,6 +709,10 @@
 
   function startScheduledLeg(train){
     if(!train.scheduleComplete||!trainStopped(train)||state.elapsed<train.scheduleRetryAt)return false;
+    if(train.energyDepleted){
+      if(train.fuel<=.15&&totalCargo(train,"energy")<=0){train.status="Stuck — no Energy";return false;}
+      train.energyDepleted=false;
+    }
     const target=train.schedule[train.scheduleTargetIndex];
     if(!target)return false;
     if(train.q===target.q&&train.r===target.r){
@@ -717,15 +746,16 @@
       const scheduleTrain=state.trains.find(candidate=>candidate.id===state.scheduleTrainId);
       return scheduleTrain?addScheduleStop(scheduleTrain,q,r):setMode("select");
     }
+    if (state.mode === "salvage") {
+      if(train)return requestTrainSalvage(train);
+      if (state.tracks.has(key(q,r))) return removeTrack(q,r);
+      if (structure && structure.type !== "base") return salvageStructure(structure);
+      return fail("There is no Track, Turret, Mine, or Train to salvage here.");
+    }
     if (train) { select("train", train.id); setMode("select"); return; }
     if (state.mode === "turret") return buildTurret(q,r);
     if (state.mode === "mine") return buildMine(q,r);
     if (state.mode === "deploy") return deployTrain(q,r);
-    if (state.mode === "salvage") {
-      if (state.tracks.has(key(q,r))) return removeTrack(q,r);
-      if (structure && structure.type !== "base") return salvageStructure(structure);
-      return fail("There is no track, turret, or mine to salvage here.");
-    }
     if (structure) return select(structure.type === "base" ? "base" : "structure", structure.id);
     if (hive) return select("hive",hive.id);
     if (state.tracks.has(key(q,r))) return select("track", key(q,r));
@@ -881,8 +911,13 @@
       if (!train.route.length) continue;
       if (!train.stepFrom && train.fuel <= .15) {
         const pulled = removeCargo(train,"energy",1);
-        if (pulled > 0) train.fuel += pulled;
-        else { train.route = []; train.stepFrom = null; train.stepTo = null; train.status = "Stuck — no Energy"; fail(`${train.name} is out of Energy.`); continue; }
+        if (pulled > 0) {train.fuel += pulled;train.energyDepleted=false;}
+        else {
+          train.route = []; train.stepFrom = null; train.stepTo = null; train.status = "Stuck — no Energy";
+          if(!train.energyDepleted)fail(`${train.name} is out of Energy.`);
+          train.energyDepleted=true;
+          continue;
+        }
       }
       if (!train.stepFrom && !prepareTrainStep(train)) continue;
       train.progress += dt * train.speed;
@@ -1468,10 +1503,19 @@
         ctx.save();ctx.fillStyle="#f3f7f8";ctx.font="800 13px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("W",wagon.x,wagon.y+.5);ctx.restore();
         if(focused)drawMiniBar(wagon.x-14,wagon.y-17,28,wagon.hp/wagon.maxHp,wagon.hp<5?"#e34747":"#70bd77");
       });
+      drawTrainTailLetter(train);
       ctx.save();ctx.translate(train.x,train.y);ctx.rotate(train.heading);if(state.selected?.id===train.id)drawTrainSelectionRing();ctx.shadowBlur=12;ctx.shadowColor="#e34747";ctx.fillStyle="#a9343e";ctx.strokeStyle="#ff8790";ctx.lineWidth=2;ctx.fillRect(-14,-9,28,18);ctx.strokeRect(-14,-9,28,18);ctx.beginPath();ctx.moveTo(14,-7);ctx.lineTo(22,0);ctx.lineTo(14,7);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
       ctx.save();ctx.fillStyle="#fff4f4";ctx.font="900 13px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("L",train.x,train.y+.5);ctx.restore();
       if(focused){drawMiniBar(train.x-16,train.y-17,32,train.hp/train.maxHp,train.hp<5?"#e34747":"#70bd77");drawMiniBar(train.x-16,train.y+18,32,train.fuel/train.maxFuel,"#60d5db");}
     }
+  }
+
+  function drawTrainTailLetter(train){
+    const tail=train.wagons[train.wagons.length-1];if(!tail)return;
+    const angle=Number.isFinite(tail.heading)?tail.heading:train.heading,ux=Math.cos(angle),uy=Math.sin(angle),x=tail.x-ux*24,y=tail.y-uy*24;
+    ctx.save();ctx.strokeStyle="#b88a50";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(tail.x-ux*14,tail.y-uy*14);ctx.lineTo(x+ux*7,y+uy*7);ctx.stroke();
+    ctx.fillStyle="rgba(9,14,17,.96)";ctx.strokeStyle="#e6b94a";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#fff1b4";ctx.font="900 10px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(trainScheduleCode(train),x,y+.5);ctx.restore();
   }
 
   function drawTrainSelectionRing(){ctx.strokeStyle="#fff1b4";ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.beginPath();ctx.arc(0,0,24,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
@@ -1528,7 +1572,7 @@
   }
 
   function updateUI(force=false){
-    ui.soundToggle.textContent=state.sound?"SOUND":"MUTED";ui.hivesNeutralized.textContent=state.hivesNeutralized;ui.creepsNeutralized.textContent=state.creepsNeutralized;ui.timeSurvived.textContent=formatSurvivalTime(state.elapsed);
+    ui.soundToggle.textContent=state.sound?"Sound: ON":"Sound: OFF";ui.hivesNeutralized.textContent=state.hivesNeutralized;ui.creepsNeutralized.textContent=state.creepsNeutralized;ui.timeSurvived.textContent=formatSurvivalTime(state.elapsed);
     const selectionMarkup=selectionHtml();
     if(force||selectionMarkup!==selectionCache){disposeTooltips(selectionContent);selectionContent.innerHTML=selectionMarkup;selectionCache=selectionMarkup;initializeTooltips(selectionContent);}
   }
@@ -1557,7 +1601,7 @@
     ui.hoverTitle.textContent=terrain.type==="water"?"Body of Water":terrain.type==="rock"?"Mountain":terrain.type==="trees"?"Trees":capitalize(terrain.type);ui.hoverDetail.textContent=terrain.type==="ground"?"Clear terrain":"Impassable terrain";
   }
 
-  function formatSurvivalTime(seconds){const total=Math.max(0,Math.floor(seconds)),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60);return `${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;}
+  function formatSurvivalTime(seconds){const total=Math.max(0,Math.floor(seconds)),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60);return `${String(hours).padStart(2,"0")}h${String(minutes).padStart(2,"0")}m${String(total%60).padStart(2,"0")}s`;}
 
   canvas.addEventListener("pointerdown",e=>{sounds.init();canvas.setPointerCapture(e.pointerId);const p=state.pointer;p.down=true;p.moved=false;p.startX=p.x=e.clientX;p.startY=p.y=e.clientY;p.camX=state.camera.x;p.camY=state.camera.y;canvas.focus();});
   canvas.addEventListener("pointermove",e=>{state.hover=screenToHex(e.clientX,e.clientY);updateHoverStatus(state.hover);const p=state.pointer;if(!p.down)return;p.x=e.clientX;p.y=e.clientY;const dx=p.x-p.startX,dy=p.y-p.startY;if(Math.hypot(dx,dy)>4)p.moved=true;if(p.moved){state.camera.x=p.camX-dx/state.camera.zoom;state.camera.y=p.camY-dy/state.camera.zoom;canvas.style.cursor="grabbing";}});
@@ -1566,12 +1610,14 @@
   canvas.addEventListener("wheel",e=>{e.preventDefault();const rect=canvas.getBoundingClientRect(),sx=e.clientX-rect.left,sy=e.clientY-rect.top;const beforeX=(sx-width/2)/state.camera.zoom+state.camera.x,beforeY=(sy-height/2)/state.camera.zoom+state.camera.y;const factor=Math.exp(-e.deltaY*.0012);state.camera.zoom=clamp(state.camera.zoom*factor,.42,2.15);state.camera.x=beforeX-(sx-width/2)/state.camera.zoom;state.camera.y=beforeY-(sy-height/2)/state.camera.zoom;},{passive:false});
 
   document.addEventListener("click",e=>{const modeButton=e.target.closest("[data-mode]");if(modeButton){setMode(modeButton.dataset.mode);return;}const actionButton=e.target.closest("[data-action]");if(actionButton&&!actionButton.disabled)handleAction(actionButton.dataset.action,actionButton);});
-  document.addEventListener("keydown",e=>{if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="5"){setMode(["select","track","turret","mine","salvage"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
+  document.addEventListener("keydown",e=>{if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="5"){setMode(["select","track","turret","mine","salvage"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
   document.querySelectorAll("[data-mode]").forEach(button=>button.addEventListener("click",()=>sounds.init()));
   ui.soundToggle.addEventListener("click",()=>{state.sound=!state.sound;sounds.enabled=state.sound;if(state.sound)sounds.place();updateUI(true);});
-  ui.restartButton.addEventListener("click",()=>{state=makeInitialState();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");updateHoverStatus(null);setMode("select");toast("New Game Started.","info");});
+  ui.confirmNo.addEventListener("click",cancelTrainSalvage);
+  ui.confirmYes.addEventListener("click",confirmTrainSalvage);
+  ui.restartButton.addEventListener("click",()=>{state=makeInitialState();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");updateHoverStatus(null);setMode("select");toast("New Game Started.","info");});
   document.addEventListener("visibilitychange",()=>{if(!document.hidden){const now=Date.now();advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;resetPerformanceMetrics();render();}});
   window.addEventListener("resize",resize);
-  ui.gameOver.hidden=true;resize();initializeTooltips();updateHoverStatus(null);updateUI(true);
+  ui.gameOver.hidden=true;ui.confirmDialog.hidden=true;resize();initializeTooltips();updateHoverStatus(null);updateUI(true);
   function frame(frameTime){const now=Date.now(),ticks=advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;const rendered=ticks>0;if(rendered)render();recordPerformance(frameTime,ticks,rendered);requestAnimationFrame(frame);}requestAnimationFrame(frame);
 })();
