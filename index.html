@@ -89,7 +89,9 @@
       <h2 id="remindersTitle">This is a fun web game</h2>
       <p id="remindersNotice">Please play on a desktop or laptop computer; mobile is not well-supported.</p>
       <div class="reminders-actions">
-        <button id="remindersTutorial" class="btn btn-command">Start Game with Tutorial (recommended)</button>
+        <span class="disabled-button-tip" data-bs-toggle="tooltip" data-bs-placement="top" title="I'm working on this Sun 16 Aug, please come back in a couple hours and refresh your browser window">
+          <button id="remindersTutorial" class="btn btn-quiet" disabled aria-disabled="true">Start Game with Tutorial (recommended)</button>
+        </span>
         <button id="remindersContinue" class="btn btn-cyan">Start Game (no tutorial)</button>
       </div>
     </div>

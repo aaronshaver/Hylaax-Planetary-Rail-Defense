@@ -245,8 +245,7 @@ button { touch-action: manipulation; }
 .reminders-card p { margin: 0 0 26px; color: #c6d0d3; font-size: 18px; line-height: 1.45; }
 .reminders-actions { display: grid; gap: 12px; }
 .reminders-actions .btn { width: 100%; min-height: 52px; font-size: 18px; font-weight: 900; }
-#remindersTutorial { background: #d8ab3d; border-color: #d8ab3d; color: #111; }
-#remindersTutorial:hover { background: #f0c65d; border-color: #f0c65d; color: #111; }
+.reminders-actions .btn:disabled { opacity: .45; }
 #remindersContinue { background: #296d73; border-color: #3c8c93; color: #e6fcff; }
 #remindersContinue:hover { background: #348089; border-color: #3c8c93; color: #fff; }
 

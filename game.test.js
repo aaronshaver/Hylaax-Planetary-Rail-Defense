@@ -20,4 +20,10 @@ describe("game bootstrap", () => {
     assert.equal(typeof api.selectionHtml, "function");
     assert.ok(elements.get("gameCanvas"));
   });
+
+  test("the unavailable tutorial button is disabled with an explanatory tooltip", () => {
+    const html = fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+    assert.match(html,/id="remindersTutorial"[^>]*disabled/);
+    assert.match(html,/I'm working on this Sun 16 Aug, please come back in a couple hours and refresh your browser window/);
+  });
 });
