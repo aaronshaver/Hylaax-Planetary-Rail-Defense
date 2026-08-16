@@ -58,6 +58,8 @@ button { touch-action: manipulation; }
 .bottom-left { left: 16px; bottom: 16px; }
 .performance-status { position: absolute; z-index: 3; padding: 7px 10px; border: 1px solid rgba(96,213,219,.24); background: rgba(7,10,13,.82); color: #819196; font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; pointer-events: none; }
 .performance-status strong { color: var(--cyan); }
+.world-population-status { left: 16px; bottom: 52px; min-width: 220px; padding: 9px 11px; color: #aebabe; font: 700 15px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.world-population-status strong { color: #f08088; }
 
 #commandPanel {
   position: relative;
@@ -97,6 +99,7 @@ button { touch-action: manipulation; }
 
 .header-controls {
   display: grid;
+  grid-template-columns: auto auto;
   gap: 7px;
   justify-items: stretch;
 }
@@ -153,6 +156,8 @@ button { touch-action: manipulation; }
 .panel-actions.two { grid-template-columns: 1fr 1fr; }
 .panel-actions .btn { border-radius: 3px; font-size: 17px; font-weight: 700; padding: 10px 11px; }
 .panel-actions .btn:disabled { opacity: .34; cursor: not-allowed; }
+.disabled-button-tip { display: block; }
+.disabled-button-tip .btn { width: 100%; }
 .btn-command { background: #d8ab3d; border-color: #d8ab3d; color: #111; }
 .btn-command:hover { background: #f0c65d; border-color: #f0c65d; color: #111; }
 .btn-cyan { background: #296d73; border-color: #3c8c93; color: #e6fcff; }
@@ -218,6 +223,9 @@ button { touch-action: manipulation; }
 .defeat-stats span { color: #9dabad; }
 .defeat-stats strong { color: #f08088; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .defeat-stats div:first-child { grid-column: 1 / -1; }
+.game-over-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.game-over-actions .btn { min-height: 50px; font-weight: 800; }
+.final-stats-button { position: absolute; z-index: 9; left: 16px; bottom: 126px; min-height: 54px; padding: 10px 18px; font-size: 18px; font-weight: 900; box-shadow: 0 12px 32px rgba(0,0,0,.45); }
 @media (max-width: 560px) { .defeat-stats { grid-template-columns: 1fr; } .defeat-stats div:first-child { grid-column: auto; } }
 
 .confirm-overlay { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(5,7,9,.76); backdrop-filter: blur(4px); }

@@ -23,6 +23,11 @@
         TPS <strong id="tpsValue">0</strong> · FPS <strong id="fpsValue">0</strong>
       </div>
 
+      <div id="worldPopulationStatus" class="hud world-population-status" aria-label="Current world population">
+        <div>Hives in world: <strong id="hivesInWorld">0</strong></div>
+        <div>Creeps in world: <strong id="creepsInWorld">0</strong></div>
+      </div>
+
       <div id="hoverStatus" class="hud hover-status bottom-right d-none" aria-live="polite">
         <div class="hover-title" id="hoverTitle"></div>
         <div class="hover-detail" id="hoverDetail"></div>
@@ -42,9 +47,13 @@
             <div><span>Turrets Built</span><strong id="defeatTurretsBuilt">0</strong></div>
             <div><span>Train Sets Constructed</span><strong id="defeatTrainsBuilt">0</strong></div>
           </div>
-          <button id="restartButton" class="btn btn-danger">Start New Game</button>
+          <div class="game-over-actions">
+            <button id="viewMapButton" class="btn btn-outline-secondary">View Map</button>
+            <button id="restartButton" class="btn btn-danger">Start New Game</button>
+          </div>
         </div>
       </div>
+      <button id="viewFinalStats" class="btn btn-danger final-stats-button d-none" hidden>View Final Game Stats</button>
     </section>
 
     <aside id="commandPanel" aria-label="Command panel">
@@ -54,6 +63,7 @@
           <h1>RAIL<br><span>DEFENSE</span></h1>
         </div>
         <div class="header-controls">
+          <button id="pauseToggle" class="btn btn-sm btn-outline-secondary icon-button" title="Pause simulation" aria-label="Pause simulation">Pause</button>
           <button id="soundToggle" class="btn btn-sm btn-outline-secondary icon-button" title="Toggle sound" aria-label="Toggle sound">Sound: ON</button>
         </div>
       </header>
@@ -63,7 +73,7 @@
         <div class="tool-grid" role="group" aria-label="Actions">
           <button class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="Select units and structures. Select a Train to create or clear its automatic schedule."><span class="keycap">1</span>Select Object</button>
           <button class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Click existing Track to choose a start, then click adjacent empty hexes to build or adjacent existing Track to connect and close loops. Click non-adjacent existing Track to choose a new start. Tight triangles are not allowed.&#10;&#10;Costs 1 Construction Material per new Track hex."><span class="keycap">2</span>Build Track</button>
-          <button class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Build within three hexes of Track.&#10;&#10;Costs 6 Construction Material from Base inventory."><span class="keycap">3</span>Build Turret</button>
+          <button class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Build within three hexes of Track.&#10;&#10;Costs 10 Construction Material from Base inventory."><span class="keycap">3</span>Build Turret</button>
           <button class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Place a Mine on top of an existing finite Resource Node within three hexes of Track.&#10;&#10;Costs 8 Construction Material from Base inventory."><span class="keycap">4</span>Build Mine</button>
           <button class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="Salvage Track, Turrets, Mines, or Trains. Salvaging a Train requires confirmation, removes its schedule, and returns its Construction Material plus carried resources to Base inventory."><span class="keycap">5</span>Salvage Object</button>
         </div>
