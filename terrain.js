@@ -57,11 +57,11 @@ function terrainAt(q, r) {
   const corridorB = q >= -4 && q <= 0 && r >= 0 && r <= 7;
   let terrain;
   if (d < 6 || corridorA || corridorB)terrain={type:"ground"};
-  else if(inWaterBlob(q,r))terrain={type:"water"};
-  else if(inTreeGrove(q,r))terrain={type:"trees"};
+  else if(inWaterBlob(q,r))terrain={type:"water",variant:1+Math.min(2,Math.floor(terrainHash(q,r,105)*3))};
+  else if(inTreeGrove(q,r))terrain={type:"trees",variant:1+Math.min(2,Math.floor(terrainHash(q,r,305)*3))};
   else{
   const ridge=terrainNoise(q,r,11,201),ridgeDetail=terrainNoise(q,r,3.4,202);
-    if(Math.abs(ridge-.5)<.034&&ridgeDetail>.3)terrain={type:"rock"};
+    if(Math.abs(ridge-.5)<.034&&ridgeDetail>.3)terrain={type:"rock",variant:1+Math.min(1,Math.floor(terrainHash(q,r,205)*2))};
     else {const v=terrainHash(q,r,17);terrain=v>.986?{type:"resource",resource:terrainHash(q,r,31)>.5?"material":"energy"}:{type:"ground"};}
   }
   terrainCache.set(terrainKey,terrain);return terrain;

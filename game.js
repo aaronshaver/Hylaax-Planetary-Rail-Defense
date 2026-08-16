@@ -10,7 +10,7 @@ if(window.__HYLAAX_TEST__){
       resetEnemyNavigation();if(seedHives)seedInitialHives();return state;
     },
     key,fromKey,hexDistance,neighbors,axialToWorld,worldToAxial,terrainAt,isPassable,resourceNodeAt,setNodeAmount,
-    getSelected,setMode,select,structureAt,ghostAt,trainAt,trainSegmentAt,
+    getSelected,setMode,select,structureAt,ghostAt,trainAt,trainSegmentAt,handleHexClick,
     trainCode,trainName,trainSegments,trainStopped,totalCargo,cargoSpace,removeCargo,addCargo,fillBaseCargo,refuelAtBase,serviceBaseLogistics,
     connectedTrackNeighbors,conceptualTrackNeighbors,tracksAreLinked,linkTracks,deleteTrack,curveIsExtreme,layTrack,placeTrackOverGhost,salvageStructure,
     scheduleStopAt,addScheduleStop,clearTrainSchedule,findPath,findConceptualTrackPath,repairApproachFor,scheduleLoopIsReachable,startScheduledLeg,updateTrainSchedules,
@@ -24,9 +24,9 @@ if(window.__HYLAAX_TEST__){
 }
 
 canvas.addEventListener("pointerdown",e=>{sounds.init();canvas.setPointerCapture(e.pointerId);const p=state.pointer;p.down=true;p.moved=false;p.startX=p.x=e.clientX;p.startY=p.y=e.clientY;p.camX=state.camera.x;p.camY=state.camera.y;canvas.focus();});
-canvas.addEventListener("pointermove",e=>{state.hover=screenToHex(e.clientX,e.clientY);updateHoverStatus(state.hover);const p=state.pointer;if(!p.down){if(state.paused||state.gameOver)render();return;}p.x=e.clientX;p.y=e.clientY;const dx=p.x-p.startX,dy=p.y-p.startY;if(Math.hypot(dx,dy)>4)p.moved=true;if(p.moved){state.camera.x=p.camX-dx/state.camera.zoom;state.camera.y=p.camY-dy/state.camera.zoom;canvas.style.cursor="grabbing";render();}});
+canvas.addEventListener("pointermove",e=>{state.hover=screenToHex(e.clientX,e.clientY);const p=state.pointer;if(!p.down){if(state.paused||state.gameOver)render();return;}p.x=e.clientX;p.y=e.clientY;const dx=p.x-p.startX,dy=p.y-p.startY;if(Math.hypot(dx,dy)>4)p.moved=true;if(p.moved){state.camera.x=p.camX-dx/state.camera.zoom;state.camera.y=p.camY-dy/state.camera.zoom;canvas.style.cursor="grabbing";render();}});
 canvas.addEventListener("pointerup",e=>{const p=state.pointer;if(!p.down)return;p.down=false;canvas.style.cursor=state.mode==="select"?"default":"crosshair";if(!p.moved)handleHexClick(screenToHex(e.clientX,e.clientY));});
-canvas.addEventListener("pointerleave",()=>{state.hover=null;updateHoverStatus(null);if(!state.pointer.down)canvas.style.cursor=state.mode==="select"?"default":"crosshair";});
+canvas.addEventListener("pointerleave",()=>{state.hover=null;if(!state.pointer.down)canvas.style.cursor=state.mode==="select"?"default":"crosshair";});
 canvas.addEventListener("wheel",e=>{e.preventDefault();const rect=canvas.getBoundingClientRect(),sx=e.clientX-rect.left,sy=e.clientY-rect.top;const beforeX=(sx-width/2)/state.camera.zoom+state.camera.x,beforeY=(sy-height/2)/state.camera.zoom+state.camera.y;const factor=Math.exp(-e.deltaY*.0012);state.camera.zoom=clamp(state.camera.zoom*factor,.42,2.15);state.camera.x=beforeX-(sx-width/2)/state.camera.zoom;state.camera.y=beforeY-(sy-height/2)/state.camera.zoom;render();},{passive:false});
 
 document.addEventListener("click",e=>{const modeButton=e.target.closest("[data-mode]");if(modeButton){setMode(modeButton.dataset.mode);return;}const actionButton=e.target.closest("[data-action]");if(actionButton&&!actionButton.disabled)handleAction(actionButton.dataset.action,actionButton);});
@@ -39,8 +39,8 @@ ui.confirmNo.addEventListener("click",cancelTrainSalvage);
 ui.confirmYes.addEventListener("click",confirmTrainSalvage);
 ui.viewMapButton.addEventListener("click",showFinalMap);
 ui.viewFinalStats.addEventListener("click",showFinalStats);
-ui.restartButton.addEventListener("click",()=>{state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");updateHoverStatus(null);setMode("select");showReminders();});
+ui.restartButton.addEventListener("click",()=>{state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");setMode("select");showReminders();});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){const now=Date.now();advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;resetPerformanceMetrics();render();}});
 window.addEventListener("resize",resize);
-ui.gameOver.hidden=true;ui.viewFinalStats.hidden=true;ui.confirmDialog.hidden=true;resize();initializeTooltips();updateHoverStatus(null);updateUI(true);showReminders();
+ui.gameOver.hidden=true;ui.viewFinalStats.hidden=true;ui.confirmDialog.hidden=true;resize();initializeTooltips();updateUI(true);showReminders();
 function frame(frameTime){const now=Date.now(),ticks=advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;const rendered=ticks>0;if(rendered)render();recordPerformance(frameTime,ticks,rendered);requestAnimationFrame(frame);}requestAnimationFrame(frame);

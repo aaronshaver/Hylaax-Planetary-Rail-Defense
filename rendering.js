@@ -1,5 +1,11 @@
 "use strict";
 
+const TREE_LAYOUTS = {
+  1: [[0,1,1.05]],
+  2: [[-7,7,.85],[6,-4,.96]],
+  3: [[-10,7,.78],[8,8,.88],[0,-5,.94]]
+};
+
 function hexPathOn(context,q,r,scale=.94){
   const p=axialToWorld(q,r),radius=HEX*scale;context.beginPath();
   HEX_CORNERS.forEach((corner,index)=>{const x=p.x+radius*corner.x,y=p.y+radius*corner.y;if(index===0)context.moveTo(x,y);else context.lineTo(x,y);});context.closePath();
@@ -30,13 +36,18 @@ function drawTerrainBase(context){
     context.fill();context.strokeStyle="rgba(132,136,139,.13)";context.lineWidth=.7;context.stroke();
     const p=axialToWorld(q,r);
     if(terrain.type==="water"){
-      context.strokeStyle="rgba(83,174,198,.34)";context.lineWidth=1.2;
+      context.strokeStyle=terrain.variant===2?"rgba(125,215,233,.48)":terrain.variant===3?"rgba(42,112,137,.42)":"rgba(83,174,198,.34)";context.lineWidth=1.2;
       for(const offset of [-6,4]){context.beginPath();context.moveTo(p.x-15,p.y+offset);context.bezierCurveTo(p.x-10,p.y+offset-4,p.x-5,p.y+offset+4,p.x,p.y+offset);context.bezierCurveTo(p.x+5,p.y+offset-4,p.x+10,p.y+offset+4,p.x+15,p.y+offset);context.stroke();}
     }else if(terrain.type==="rock"){
-      context.fillStyle="#41484b";context.beginPath();context.moveTo(p.x-21,p.y+13);context.lineTo(p.x-10,p.y-13);context.lineTo(p.x-2,p.y-3);context.lineTo(p.x+6,p.y-16);context.lineTo(p.x+21,p.y+13);context.closePath();context.fill();
-      context.fillStyle="#596267";context.beginPath();context.moveTo(p.x-10,p.y-13);context.lineTo(p.x-2,p.y-3);context.lineTo(p.x-13,p.y+5);context.closePath();context.fill();context.beginPath();context.moveTo(p.x+6,p.y-16);context.lineTo(p.x+13,p.y+2);context.lineTo(p.x+1,p.y-7);context.closePath();context.fill();
+      if(terrain.variant===1){
+        context.fillStyle="#41484b";context.beginPath();context.moveTo(p.x-18,p.y+13);context.lineTo(p.x,p.y-18);context.lineTo(p.x+18,p.y+13);context.closePath();context.fill();
+        context.fillStyle="#596267";context.beginPath();context.moveTo(p.x,p.y-18);context.lineTo(p.x,p.y+13);context.lineTo(p.x-18,p.y+13);context.closePath();context.fill();
+      }else{
+        context.fillStyle="#41484b";context.beginPath();context.moveTo(p.x-21,p.y+13);context.lineTo(p.x-10,p.y-13);context.lineTo(p.x-2,p.y-3);context.lineTo(p.x+6,p.y-16);context.lineTo(p.x+21,p.y+13);context.closePath();context.fill();
+        context.fillStyle="#596267";context.beginPath();context.moveTo(p.x-10,p.y-13);context.lineTo(p.x-2,p.y-3);context.lineTo(p.x-13,p.y+5);context.closePath();context.fill();context.beginPath();context.moveTo(p.x+6,p.y-16);context.lineTo(p.x+13,p.y+2);context.lineTo(p.x+1,p.y-7);context.closePath();context.fill();
+      }
     }else if(terrain.type==="trees"){
-      for(const [ox,oy,scale] of [[-10,7,.78],[8,8,.88],[0,-5,.94]]){context.fillStyle="#4b3827";context.fillRect(p.x+ox-1.5*scale,p.y+oy,3*scale,8*scale);context.fillStyle=shade>.5?"#3f8154":"#356f49";context.beginPath();context.moveTo(p.x+ox,p.y+oy-15*scale);context.lineTo(p.x+ox-9*scale,p.y+oy+5*scale);context.lineTo(p.x+ox+9*scale,p.y+oy+5*scale);context.closePath();context.fill();context.fillStyle="#285c3c";context.beginPath();context.moveTo(p.x+ox,p.y+oy-9*scale);context.lineTo(p.x+ox-7*scale,p.y+oy+8*scale);context.lineTo(p.x+ox+7*scale,p.y+oy+8*scale);context.closePath();context.fill();}
+      for(const [ox,oy,scale] of TREE_LAYOUTS[terrain.variant]||TREE_LAYOUTS[3]){context.fillStyle="#4b3827";context.fillRect(p.x+ox-1.5*scale,p.y+oy,3*scale,8*scale);context.fillStyle=shade>.5?"#3f8154":"#356f49";context.beginPath();context.moveTo(p.x+ox,p.y+oy-15*scale);context.lineTo(p.x+ox-9*scale,p.y+oy+5*scale);context.lineTo(p.x+ox+9*scale,p.y+oy+5*scale);context.closePath();context.fill();context.fillStyle="#285c3c";context.beginPath();context.moveTo(p.x+ox,p.y+oy-9*scale);context.lineTo(p.x+ox-7*scale,p.y+oy+8*scale);context.lineTo(p.x+ox+7*scale,p.y+oy+8*scale);context.closePath();context.fill();}
     }else if(terrain.type==="resource")resources.push({q,r,p,type:terrain.resource});
   }
   return {resources,cells};

@@ -7,6 +7,39 @@ const { api } = require("./harness.js");
 beforeEach(() => { api.reset(); });
 
 describe("terrain generation", () => {
+  test("tree hexes use stable one-, two-, and three-tree variants", () => {
+    const variants = new Set();
+    for(let q=-40;q<=40&&variants.size<3;q++)for(let r=-40;r<=40&&variants.size<3;r++){
+      const first = api.terrainAt(q,r);
+      if(first.type!=="trees")continue;
+      assert.equal(api.terrainAt(q,r).variant,first.variant);
+      variants.add(first.variant);
+    }
+    assert.deepEqual([...variants].sort(),[1,2,3]);
+  });
+
+  test("mountain hexes use stable single- and multi-peak variants", () => {
+    const variants = new Set();
+    for(let q=-60;q<=60&&variants.size<2;q++)for(let r=-60;r<=60&&variants.size<2;r++){
+      const first = api.terrainAt(q,r);
+      if(first.type!=="rock")continue;
+      assert.equal(api.terrainAt(q,r).variant,first.variant);
+      variants.add(first.variant);
+    }
+    assert.deepEqual([...variants].sort(),[1,2]);
+  });
+
+  test("water hexes use stable normal, light, and dark wave variants", () => {
+    const variants = new Set();
+    for(let q=-60;q<=60&&variants.size<3;q++)for(let r=-60;r<=60&&variants.size<3;r++){
+      const first = api.terrainAt(q,r);
+      if(first.type!=="water")continue;
+      assert.equal(api.terrainAt(q,r).variant,first.variant);
+      variants.add(first.variant);
+    }
+    assert.deepEqual([...variants].sort(),[1,2,3]);
+  });
+
   test("guaranteed resource nodes remain available and typed", () => {
     assert.deepEqual({ ...api.terrainAt(7, -2) }, { type: "resource", resource: "material" });
     assert.deepEqual({ ...api.terrainAt(-4, 7) }, { type: "resource", resource: "energy" });

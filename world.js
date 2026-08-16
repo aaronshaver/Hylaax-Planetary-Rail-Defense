@@ -246,6 +246,7 @@ function getSelected() {
   if (state.selected.type === "train") return state.trains.find(t => t.id === state.selected.id) || null;
   if (state.selected.type === "structure") return [...state.structures.values()].find(s => s.id === state.selected.id) || null;
   if (state.selected.type === "hive") return [...state.hives.values()].find(hive => hive.id === state.selected.id) || null;
+  if (state.selected.type === "enemy") return state.enemies.find(enemy => enemy.id === state.selected.id) || null;
   if (state.selected.type === "track") return state.tracks.get(state.selected.id) || null;
   if (state.selected.type === "ghost") return state.ghosts.get(state.selected.id) || null;
   if (state.selected.type === "node") { const position=fromKey(state.selected.id); return resourceNodeAt(position.q,position.r); }

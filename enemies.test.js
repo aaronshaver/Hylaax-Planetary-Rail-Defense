@@ -68,7 +68,7 @@ describe("Hive and defense behavior", () => {
     assert.equal(turret.energy, 2);
   });
 
-  test("Combat Trains can hit Hives at range 6", () => {
+  test("Turret Trains can hit Hives at range 6", () => {
     const state = api.state;
     const train = state.trains[0];
     train.trainType = "combat";

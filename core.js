@@ -32,7 +32,7 @@ const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*
 const ui = Object.fromEntries([
   "hivesNeutralized", "creepsNeutralized", "timeSurvived", "hivesInWorld", "creepsInWorld",
   "pauseToggle", "soundToggle",
-  "hoverStatus", "hoverTitle", "hoverDetail", "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
+  "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersContinue",
   "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt"
 ].map(id => [id, document.getElementById(id)]));
@@ -50,7 +50,7 @@ function trainCode(index) {
   return label;
 }
 
-function trainName(index,type="builder") {return `${type==="combat"?"Combat":"Build and Mine"} Train ${trainCode(index)}`;}
+function trainName(index,type="builder") {return `${type==="combat"?"Turret Train":"Build/Mine Train"} ${trainCode(index)}`;}
 
 function axialToWorld(q, r) {
   return { x: HEX * SQRT3 * (q + r / 2), y: HEX * 1.5 * r };

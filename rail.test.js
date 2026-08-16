@@ -76,7 +76,20 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(train.schedule.length, 1);
     assert.equal(`${train.schedule[0].q},${train.schedule[0].r}`, "4,0");
     state.selected = { type: "ghost", id: "4,0" };
-    assert.match(api.selectionHtml(), /Destroyed Track with Train Stop A1 \(Train A\)/);
+    assert.match(api.selectionHtml(), /Destroyed Stop A1 \(Build\/Mine Train A\)/);
+  });
+
+  test("selected Stops include the full Train type and name", () => {
+    const state = api.state;
+    const train = state.trains[0];
+    train.code = "B";
+    train.name = api.trainName(1,"combat");
+    train.schedule = [{q:4,r:0}];
+    const track = makeTrack(4,0);
+    state.tracks.set("4,0",track);
+    state.selected = {type:"track",id:"4,0"};
+
+    assert.match(api.selectionHtml(),/Stop B1 \(Turret Train B\)/);
   });
 
   test("a depleted Train warning is throttled instead of being spammed", () => {

@@ -204,9 +204,6 @@ button { touch-action: manipulation; }
 .top-left { top: 18px; left: 18px; width: min(360px, calc(100% - 36px)); padding: 12px 15px; }
 .hud-stat { color: #aebabe; font: 700 22px/1.4 ui-monospace, monospace; white-space: nowrap; }
 .hud-stat strong { color: var(--accent); font-weight: 900; }
-.bottom-right { right: 18px; bottom: 18px; width: 330px; padding: 14px 17px; }
-.hover-title { margin-top: 5px; color: #dce6e8; font-size: 20px; font-weight: 800; }
-.hover-detail { margin-top: 3px; color: #728188; font: 14px/1.45 ui-monospace, monospace; }
 
 .tooltip .tooltip-inner {
   max-width: 260px;
@@ -272,6 +269,5 @@ button { touch-action: manipulation; }
   .panel-header { display: none; }
   .selection-section { min-height: 210px; }
   .top-left { top: 10px; left: 10px; }
-  .bottom-right { right: 10px; bottom: 10px; }
   .creator-link { right: 10px; bottom: 10px; }
 }

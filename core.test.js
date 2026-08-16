@@ -25,4 +25,9 @@ describe("geometry and initial state", () => {
     assert.equal(train.wagons.map(wagon => wagon.amount).join(","), "0,0");
     assert.equal(api.constants.TRACK_HIT_POINTS, 1);
   });
+
+  test("Train names use the Build/Mine and Turret labels", () => {
+    assert.equal(api.trainName(0,"builder"),"Build/Mine Train A");
+    assert.equal(api.trainName(1,"combat"),"Turret Train B");
+  });
 });

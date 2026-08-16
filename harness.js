@@ -133,7 +133,7 @@ function makeTrack(q, r, links = []) {
 
 function makeEnemy(id, q, r) {
   const point = api.axialToWorld(q, r);
-  return { id, q, r, x: point.x, y: point.y, fromQ: q, fromR: r, toQ: q, toR: r, progress: 1, speed: api.constants.ENEMY_SPEED, attackClock: 0, nextPathAt: 0, phase: 0 };
+  return { id, type: "enemy", q, r, x: point.x, y: point.y, fromQ: q, fromR: r, toQ: q, toR: r, progress: 1, speed: api.constants.ENEMY_SPEED, hp: 1, maxHp: 1, attackClock: 0, nextPathAt: 0, phase: 0 };
 }
 
 module.exports = { api, elements: harness.elements, moveTrain, makeTrack, makeEnemy, performance, GAME_SCRIPTS };

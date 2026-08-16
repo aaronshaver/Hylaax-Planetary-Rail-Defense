@@ -38,7 +38,7 @@ function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
   options.sort((a,b)=>hash(b.q,b.r,(state.mapSeed+spawnNumber)|0)-hash(a.q,a.r,(state.mapSeed+spawnNumber)|0));
   const location=options[0];if(!location)return null;
   const p=axialToWorld(location.q,location.r);
-  const enemy={id:`enemy-${state.nextId++}`,q:location.q,r:location.r,x:p.x,y:p.y,fromQ:location.q,fromR:location.r,toQ:location.q,toR:location.r,progress:1,speed:ENEMY_SPEED,attackClock:0,nextPathAt:0,phase:hash(location.q,location.r,spawnNumber)*Math.PI*2};
+  const enemy={id:`enemy-${state.nextId++}`,type:"enemy",q:location.q,r:location.r,x:p.x,y:p.y,fromQ:location.q,fromR:location.r,toQ:location.q,toR:location.r,progress:1,speed:ENEMY_SPEED,hp:1,maxHp:1,attackClock:0,nextPathAt:0,phase:hash(location.q,location.r,spawnNumber)*Math.PI*2};
   state.enemies.push(enemy);return enemy;
 }
 
@@ -348,7 +348,7 @@ function updateCombatTrains(dt){
     removeCargo(train,"energy",1);train.combatCooldown=.48;train.gunAngle=Math.atan2(targetPoint.y-train.y,targetPoint.x-train.x);
     state.projectiles.push({x1:train.x,y1:train.y,x2:targetPoint.x,y2:targetPoint.y,life:.12,maxLife:.12});
     if(hive)damageTarget(hive,1);
-    else {state.enemies=state.enemies.filter(candidate=>candidate.id!==enemy.id);state.creepsNeutralized++;burst(enemy.q,enemy.r,"#e35050",7);}
+    else {state.enemies=state.enemies.filter(candidate=>candidate.id!==enemy.id);if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;state.creepsNeutralized++;burst(enemy.q,enemy.r,"#e35050",7);}
     sounds.shot();
   }
 }
@@ -369,6 +369,7 @@ function updateStructures(dt) {
           state.projectiles.push({x1:from.x,y1:from.y,x2:enemy.x,y2:enemy.y,life:.12,maxLife:.12});
           structure.energy--; structure.cooldown=.48;
           state.enemies=state.enemies.filter(e=>e.id!==enemy.id);
+          if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;
           state.creepsNeutralized++;
           burst(enemy.q,enemy.r,"#e35050",7); sounds.shot();
         }
