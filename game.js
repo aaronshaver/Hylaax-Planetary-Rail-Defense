@@ -7,19 +7,26 @@
   const selectionContent = document.getElementById("selectionContent");
   const HEX = 31;
   const SQRT3 = Math.sqrt(3);
-  const NODE_CAPACITY = 1000;
+  const NODE_MIN_CAPACITY = 100;
+  const NODE_MAX_CAPACITY = 1000;
+  const INITIAL_HIVE_BUFFER = 8;
+  const INITIAL_HIVE_COUNT = 2;
+  const ENEMY_SPEED = .38;
+  const SIMULATION_STEP = 1 / 60;
+  const HIVE_RATE_STEPS = [1,2,3,5,8,13,21];
   const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
   const COSTS = {
-    trackPack: { material: 10, energy: 0 },
-    train: { material: 40, energy: 0 },
-    turret: { material: 6, energy: 6 },
-    mine: { material: 8, energy: 4 }
+    train: { material: 30, energy: 0 },
+    turret: { material: 6, energy: 0 },
+    mine: { material: 8, energy: 0 }
   };
+  const REBUILD_COSTS = { track: 1, turret: 6, mine: 8 };
 
   const ui = Object.fromEntries([
-    "sectorLabel", "waveNumber", "waveTimer", "threatFill",
+    "hivesNeutralized", "creepsNeutralized", "timeSurvived",
     "soundToggle",
-    "hoverStatus", "hoverTitle", "hoverDetail", "gameOver", "survivalTime", "restartButton", "toastStack"
+    "hoverStatus", "hoverTitle", "hoverDetail", "gameOver", "survivalTime", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
+    "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt"
   ].map(id => [id, document.getElementById(id)]));
 
   const key = (q, r) => `${q},${r}`;
@@ -84,6 +91,20 @@
     return false;
   }
 
+  function inTreeGrove(q,r){
+    const size=10,mq=Math.floor(q/size),mr=Math.floor(r/size);
+    for(let dq=-1;dq<=1;dq++)for(let dr=-1;dr<=1;dr++){
+      const cellQ=mq+dq,cellR=mr+dr;
+      if(terrainHash(cellQ,cellR,301)>.28)continue;
+      const centerQ=cellQ*size+terrainHash(cellQ,cellR,302)*(size-1);
+      const centerR=cellR*size+terrainHash(cellQ,cellR,303)*(size-1);
+      const x=(q-centerQ)+(r-centerR)/2,y=(r-centerR)*.8660254;
+      const radius=2+terrainHash(cellQ,cellR,304)*2.2;
+      if(Math.hypot(x,y)<=radius)return true;
+    }
+    return false;
+  }
+
   const guaranteedNodes = new Map([
     [key(7, -2), "material"],
     [key(-4, 7), "energy"],
@@ -99,6 +120,7 @@
     const corridorB = q >= -4 && q <= 0 && r >= 0 && r <= 7;
     if (d < 6 || corridorA || corridorB) return { type: "ground" };
     if(inWaterBlob(q,r))return {type:"water"};
+    if(inTreeGrove(q,r))return {type:"trees"};
     const ridge=terrainNoise(q,r,11,201),ridgeDetail=terrainNoise(q,r,3.4,202);
     if(Math.abs(ridge-.5)<.034&&ridgeDetail>.3)return {type:"rock"};
     const v=terrainHash(q,r,17);
@@ -107,49 +129,58 @@
   }
 
   function makeInitialState() {
+    const mapSeed=Date.now();
+    const [dq,dr]=DIRECTIONS[mapSeed%DIRECTIONS.length];
+    const initialTrack=[1,2,3].map(distance=>({q:dq*distance,r:dr*distance}));
     const tracks = new Map();
-    [[1,0],[2,0],[3,0],[4,0],[5,0],[6,0]].forEach(([q,r]) => tracks.set(key(q,r), { q, r, hp: 10, maxHp: 10, links: new Set() }));
-    for(let q=1;q<6;q++){
-      tracks.get(key(q,0)).links.add(key(q+1,0));
-      tracks.get(key(q+1,0)).links.add(key(q,0));
+    initialTrack.forEach(({q,r}) => tracks.set(key(q,r), { q, r, hp: 10, maxHp: 10, links: new Set() }));
+    for(let index=0;index<initialTrack.length-1;index++){
+      tracks.get(key(initialTrack[index].q,initialTrack[index].r)).links.add(key(initialTrack[index+1].q,initialTrack[index+1].r));
+      tracks.get(key(initialTrack[index+1].q,initialTrack[index+1].r)).links.add(key(initialTrack[index].q,initialTrack[index].r));
     }
     const base = { id: "base", type: "base", q: 0, r: 0, hp: 100, maxHp: 100 };
-    const p = axialToWorld(3, 0);
-    const wm = axialToWorld(2, 0);
-    const we = axialToWorld(1, 0);
+    const [energyPosition,materialPosition,locoPosition]=initialTrack;
+    const p = axialToWorld(locoPosition.q,locoPosition.r);
+    const wm = axialToWorld(materialPosition.q,materialPosition.r);
+    const we = axialToWorld(energyPosition.q,energyPosition.r);
+    const heading=Math.atan2(p.y-wm.y,p.x-wm.x);
     return {
       mode: "select",
-      mapSeed: Date.now(),
+      mapSeed,
       gameOver: false,
       elapsed: 0,
-      wave: 0,
-      waveClock: 24,
+      hivesNeutralized: 0,
+      creepsNeutralized: 0,
+      stats: { tracksLaid: 0, minesBuilt: 0, turretsBuilt: 0, trainsBuilt: 0 },
       uiClock: 0,
       tracks,
       base,
       structures: new Map(),
+      hives: new Map(),
+      ghosts: new Map(),
       nodeResources: new Map(),
       worldMessages: [],
       trains: [{
-        id: "train-1", name: "Train A", q: 3, r: 0, x: p.x, y: p.y,
+        id: "train-1", name: "Train A", q: locoPosition.q, r: locoPosition.r, x: p.x, y: p.y,
         route: [], progress: 0, speed: 2.25, stepFrom: null, stepTo: null,
-        forwardDirection: { q: 1, r: 0 },
+        schedule: [], scheduleComplete: false, scheduleTargetIndex: 0, servicingStop: false, stopHoldUntil: 0, scheduleRetryAt: 0,
+        forwardDirection: { q: dq, r: dr },
         fuel: 20, maxFuel: 20, hp: 28, maxHp: 28, status: "Idle",
         wagons: [
-          { id: "wagon-1", kind: "wagon", q: 2, r: 0, x: wm.x, y: wm.y, heading: 0, role: "material", type: "material", amount: 0, capacity: 30, hp: 18, maxHp: 18 },
-          { id: "wagon-2", kind: "wagon", q: 1, r: 0, x: we.x, y: we.y, heading: 0, role: "energy", type: "energy", amount: 0, capacity: 30, hp: 18, maxHp: 18 }
+          { id: "wagon-1", kind: "wagon", q: materialPosition.q, r: materialPosition.r, x: wm.x, y: wm.y, heading, role: "material", type: "material", amount: 0, capacity: 30, hp: 18, maxHp: 18 },
+          { id: "wagon-2", kind: "wagon", q: energyPosition.q, r: energyPosition.r, x: we.x, y: we.y, heading, role: "energy", type: "energy", amount: 0, capacity: 30, hp: 18, maxHp: 18 }
         ],
-        heading: 0, wheelClock: 0, wasNearBase: false
+        heading, wheelClock: 0, wasNearBase: false
       }],
       enemies: [],
       projectiles: [],
       particles: [],
       baseMaterial: 70,
       baseEnergy: 48,
-      trackInventory: 20,
-      trainInventory: 0,
       selected: { type: "base", id: "base" },
       trackStart: null,
+      scheduleTrainId: null,
+      deploymentPaid: false,
       deploymentHead: null,
       deploymentPaths: [],
       deploymentReserved: new Set(),
@@ -162,9 +193,57 @@
     };
   }
 
+  function hiveAt(q,r){return state.hives.get(key(q,r))||null;}
+
+  function hiveSpawnRate(elapsedSeconds=state.elapsed){
+    const elapsedMinutes=elapsedSeconds/60;
+    let rate=1;
+    for(const step of HIVE_RATE_STEPS)if(elapsedMinutes>=step)rate=step;
+    return rate;
+  }
+
+  function syncHiveHitPoints(hive,level=hiveSpawnRate()){
+    if(hive.maxHp===level)return;
+    const damage=Math.max(0,hive.maxHp-hive.hp);
+    hive.maxHp=level;
+    hive.hp=Math.max(1,level-damage);
+  }
+
+  function createHive(q,r){
+    const level=hiveSpawnRate();
+    const hive={id:`hive-${state.nextId++}`,type:"hive",q,r,hp:level,maxHp:level,nextSpawnAt:state.elapsed,spawnCount:0};
+    state.hives.set(key(q,r),hive);
+    return hive;
+  }
+
+  function hiveHexOpen(q,r){
+    if(terrainAt(q,r).type!=="ground")return false;
+    if(structureAt(q,r)||state.tracks.has(key(q,r))||ghostAt(q,r)||hiveAt(q,r)||trainClaimsHex(q,r))return false;
+    return !state.enemies.some(enemy=>enemy.q===q&&enemy.r===r);
+  }
+
+  function seedInitialHives(){
+    const candidates=[];
+    for(let q=-22;q<=22;q++)for(let r=-22;r<=22;r++){
+      const distance=hexDistance({q,r},state.base);
+      const tooCloseToInfrastructure=hexDistance({q,r},state.base)<INITIAL_HIVE_BUFFER||[...state.tracks.values()].some(track=>hexDistance({q,r},track)<INITIAL_HIVE_BUFFER);
+      if(tooCloseToInfrastructure||distance>20||!hiveHexOpen(q,r))continue;
+      candidates.push({q,r,score:terrainHash(q,r,901)});
+    }
+    candidates.sort((a,b)=>b.score-a.score);
+    for(const candidate of candidates){
+      if([...state.hives.values()].some(hive=>hexDistance(hive,candidate)<9))continue;
+      createHive(candidate.q,candidate.r);
+      if(state.hives.size>=INITIAL_HIVE_COUNT)break;
+    }
+  }
+
   let state = makeInitialState();
+  seedInitialHives();
   let width = 1, height = 1, dpr = 1;
-  let lastTime = performance.now();
+  let lastWallTime = Date.now();
+  let simulationAccumulator = 0;
+  let performanceWindowStart = performance.now(), performanceTicks = 0, performanceFrames = 0;
   let selectionCache = "";
 
   class SoundBank {
@@ -192,10 +271,9 @@
     place() { this.tone(150, .12, "square", .025, 260); }
     remove() { this.tone(170, .16, "sawtooth", .022, 65); }
     dispatch() { this.tone(190, .38, "triangle", .038, 380); setTimeout(() => this.tone(250, .28, "triangle", .025, 470), 90); }
-    shot() { const now = performance.now(); if (now - this.lastShot > 65) { this.lastShot = now; this.tone(460, .055, "square", .018, 170); } }
+    shot() { const now = performance.now(); if (now - this.lastShot > 65) { this.lastShot = now; this.tone(920, .075, "square", .045, 240); setTimeout(()=>this.tone(135, .09, "sawtooth", .026, 70),18); } }
     hit() { const now = performance.now(); if (now - this.lastHit > 500) { this.lastHit = now; this.tone(75, .12, "sawtooth", .018, 48); } }
     error() { this.tone(105, .18, "square", .022, 72); }
-    wave() { this.tone(95, .5, "sawtooth", .026, 165); }
   }
   const sounds = new SoundBank();
 
@@ -228,7 +306,7 @@
 
   function isPassable(q, r) {
     const terrain = terrainAt(q, r);
-    return terrain.type !== "water" && terrain.type !== "rock";
+    return terrain.type !== "water" && terrain.type !== "rock" && terrain.type !== "trees";
   }
 
   function structureAt(q, r) {
@@ -236,11 +314,14 @@
     return state.structures.get(key(q, r)) || null;
   }
 
+  function ghostAt(q,r){return state.ghosts.get(key(q,r))||null;}
+
   function resourceNodeAt(q,r) {
     const terrain=terrainAt(q,r);
     if(terrain.type!=="resource")return null;
     const nodeKey=key(q,r);
-    return {id:nodeKey,type:"node",resource:terrain.resource,q,r,amount:state.nodeResources.get(nodeKey)??NODE_CAPACITY,maxAmount:NODE_CAPACITY};
+    const maxAmount=NODE_MIN_CAPACITY+Math.floor(terrainHash(q,r,707)*(NODE_MAX_CAPACITY-NODE_MIN_CAPACITY+1));
+    return {id:nodeKey,type:"node",resource:terrain.resource,q,r,amount:state.nodeResources.get(nodeKey)??maxAmount,maxAmount};
   }
 
   function setNodeAmount(node,amount) {
@@ -279,18 +360,25 @@
     if (state.selected.type === "base") return state.base;
     if (state.selected.type === "train") return state.trains.find(t => t.id === state.selected.id) || null;
     if (state.selected.type === "structure") return [...state.structures.values()].find(s => s.id === state.selected.id) || null;
+    if (state.selected.type === "hive") return [...state.hives.values()].find(hive => hive.id === state.selected.id) || null;
     if (state.selected.type === "track") return state.tracks.get(state.selected.id) || null;
+    if (state.selected.type === "ghost") return state.ghosts.get(state.selected.id) || null;
     if (state.selected.type === "node") { const position=fromKey(state.selected.id); return resourceNodeAt(position.q,position.r); }
     return null;
   }
 
-  function clearDeploymentReservation(){
-    state.deploymentHead=null;state.deploymentPaths=[];state.deploymentReserved.clear();
+  function clearDeploymentReservation(refund=false){
+    if(refund&&state.deploymentPaid){state.baseMaterial+=COSTS.train.material;state.baseEnergy+=COSTS.train.energy;}
+    state.deploymentPaid=false;state.deploymentHead=null;state.deploymentPaths=[];state.deploymentReserved.clear();
   }
 
   function setMode(mode) {
+    if(state.mode==="schedule"&&mode!=="schedule"&&state.scheduleTrainId){
+      fail("Use Clear Schedule to exit stop adding mode.");
+      return;
+    }
     if (mode !== "track" || state.mode !== "track") state.trackStart = null;
-    if(mode!=="deploy"||state.mode==="deploy")clearDeploymentReservation();
+    if(state.mode==="deploy"&&(mode!=="deploy"||state.deploymentPaid))clearDeploymentReservation(true);
     state.mode = mode;
     document.querySelectorAll("[data-mode]").forEach(button => button.classList.toggle("active", button.dataset.mode === mode));
     canvas.style.cursor = mode === "select" ? "default" : "crosshair";
@@ -328,6 +416,12 @@
     if(state.trackStart?.q===q&&state.trackStart?.r===r)state.trackStart=null;
   }
 
+  function trainScheduleCode(train){return train.name.replace(/^Train\s+/,"");}
+
+  function scheduleStopOwner(q,r,excludeTrainId=null){
+    return state.trains.find(train=>train.id!==excludeTrainId&&(train.schedule||[]).some(stop=>stop.q===q&&stop.r===r))||null;
+  }
+
   function curveIsExtreme(start, end) {
     return connectedTrackNeighbors(start.q,start.r).some(neighbor=>tracksAreLinked(neighbor,end));
   }
@@ -342,14 +436,32 @@
     return false;
   }
 
+  function placeTrackOverGhost(ghost){
+    if(!payBase({material:1,energy:0},"Track"))return null;
+    const ghostKey=key(ghost.q,ghost.r),rebuilt={q:ghost.q,r:ghost.r,hp:10,maxHp:10,links:new Set()};
+    state.tracks.set(ghostKey,rebuilt);
+    for(const linkedKey of ghost.links||[]){const neighbor=state.tracks.get(linkedKey);if(neighbor){rebuilt.links.add(linkedKey);neighbor.links.add(ghostKey);}}
+    state.ghosts.delete(ghostKey);
+    if(state.selected?.type==="ghost"&&state.selected.id===ghostKey)state.selected={type:"track",id:ghostKey};
+    showWorldActivity(rebuilt,"Rebuilt Track",1.4);
+    return rebuilt;
+  }
+
   function layTrack(q, r) {
     const destination={q,r},destinationKey=key(q,r);
     if(!state.trackStart){
-      if(state.trackInventory<1)return fail("No Track in Base inventory. Fabricate a Track Pack at the Base.");
-      if(!state.tracks.has(destinationKey))return fail("Select an existing track hex first.");
+      const startGhost=ghostAt(q,r);
+      if(!state.tracks.has(destinationKey)){
+        if(startGhost?.objectType!=="track")return fail("Select an existing track hex first.");
+        if(!placeTrackOverGhost(startGhost))return;
+        sounds.place();burst(q,r,"#d9bd78",5);
+        if(state.baseMaterial<=0){toast("Base has no Construction Material remaining.","info");setMode("select");return;}
+      }
       state.trackStart=destination;toast("Track Start Selected. Click adjacent hexes to keep building.","info");updateUI(true);return;
     }
     const start=state.trackStart;
+    const destinationGhost=ghostAt(q,r);
+    const isTrackGhost=destinationGhost?.objectType==="track";
     const isNew=!state.tracks.has(destinationKey);
     if(!isNew&&hexDistance(start,destination)!==1){
       state.trackStart=destination;
@@ -366,16 +478,19 @@
     }
     if(isNew){
       if(!isPassable(q,r)||terrainAt(q,r).type==="resource")return fail("Track needs clear ground.");
-      if(structureAt(q,r)||trainAt(q,r))return fail("That hex is occupied.");
-      if(state.trackInventory<1)return fail("No Track in Base inventory. Fabricate a Track Pack at the Base.");
+      if(destinationGhost&&!isTrackGhost)return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
+      if(structureAt(q,r)||hiveAt(q,r)||trainAt(q,r))return fail("That hex is occupied.");
     }
     if(curveIsExtreme(start,destination))return fail("Train curves cannot be that extreme");
-    if(isNew){state.trackInventory--;state.tracks.set(destinationKey,{q,r,hp:10,maxHp:10,links:new Set()});}
+    if(isNew){
+      if(isTrackGhost){if(!placeTrackOverGhost(destinationGhost))return;}
+      else {if(!payBase({material:1,energy:0},"Track"))return;state.tracks.set(destinationKey,{q,r,hp:10,maxHp:10,links:new Set()});state.stats.tracksLaid++;}
+    }
     linkTracks(start,destination);
     state.trackStart=destination;
     sounds.place();
     burst(q, r, "#d9bd78", 5);
-    if(isNew&&state.trackInventory<=0){toast("Base Inventory Has No Track Remaining.","info");setMode("select");return;}
+    if(isNew&&state.baseMaterial<=0){toast("Base has no Construction Material remaining.","info");setMode("select");return;}
     updateUI(true);
   }
 
@@ -384,7 +499,7 @@
     if (!state.tracks.has(k)) return;
     if (trainAt(q, r)) return fail("Move the train before removing this track.");
     deleteTrack(q,r);
-    state.trackInventory++;
+    state.baseMaterial++;
     if (state.selected?.type === "track" && state.selected.id === k) state.selected = null;
     sounds.remove();
     updateUI(true);
@@ -425,24 +540,26 @@
 
   function buildTurret(q, r) {
     if(!requireNearbyTrack({q,r},"building a turret"))return;
-    if (!isPassable(q, r) || terrainAt(q, r).type === "resource" || structureAt(q, r) || state.tracks.has(key(q,r))) return fail("Turrets need clear ground away from track.");
-    if(!payBase(COSTS.turret))return;
+    if(ghostAt(q,r))return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
+    if (!isPassable(q, r) || terrainAt(q, r).type === "resource" || structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("Turrets need clear ground away from track.");
+    if(!payBase(COSTS.turret,"Turret"))return;
     const turret = { id: `turret-${state.nextId++}`, type: "turret", q, r, hp: 18, maxHp: 18, energy: 20, maxEnergy: 20, cooldown: 0, showRangeUntil: state.elapsed + 3.5 };
     state.structures.set(key(q,r), turret);
+    state.stats.turretsBuilt++;
     sounds.place(); burst(q, r, "#65dbe0", 10); select("structure", turret.id);
-    toast("Turret Online.", "info");
   }
 
   function buildMine(q, r) {
     const terrain = terrainAt(q, r);
     if(!requireNearbyTrack({q,r},"building a mine"))return;
+    if(ghostAt(q,r))return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
     if (terrain.type !== "resource") return fail("Mines must be placed on a resource node.");
-    if (structureAt(q, r) || state.tracks.has(key(q,r))) return fail("That resource node is occupied.");
-    if(!payBase(COSTS.mine))return;
+    if (structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("That resource node is occupied.");
+    if(!payBase(COSTS.mine,"Mine"))return;
     const mine = { id: `mine-${state.nextId++}`, type: "mine", resource: terrain.resource, q, r, hp: 22, maxHp: 22 };
     state.structures.set(key(q,r), mine);
+    state.stats.minesBuilt++;
     sounds.place(); burst(q, r, terrain.resource === "energy" ? "#60d5db" : "#e6b94a", 10); select("structure", mine.id);
-    toast(`${resourceLabel(terrain.resource)} Mine established.`, "info");
   }
 
   function salvageStructure(structure) {
@@ -461,14 +578,14 @@
     for(const middle of connectedTrackNeighbors(head.q,head.r))for(const tail of connectedTrackNeighbors(middle.q,middle.r)){
       if(tail.q===head.q&&tail.r===head.r)continue;
       const path=[head,middle,tail];
-      if(path.some(position=>trainClaimsHex(position.q,position.r)||structureAt(position.q,position.r)))continue;
+      if(path.some(position=>trainClaimsHex(position.q,position.r)||structureAt(position.q,position.r)||hiveAt(position.q,position.r)))continue;
       paths.push(path);
     }
     return paths;
   }
 
   function deployTrain(q,r){
-    if(state.trainInventory<1)return fail("No complete Train Set is available in Base inventory.");
+    if(!state.deploymentPaid)return fail("Use Fabricate and Place Train Set at the Base first.");
     if(!state.deploymentHead){
       if(!isRailHex(q,r))return fail("Select an empty Track hex for the Train Head.");
       if(trainClaimsHex(q,r))return fail("That Track is occupied or already being entered.");
@@ -483,11 +600,11 @@
     if(path.some(position=>trainClaimsHex(position.q,position.r)))return fail("Those deployment Track hexes are no longer clear.");
     const [head,middle,tail]=path,hp=axialToWorld(head.q,head.r),mp=axialToWorld(middle.q,middle.r),tp=axialToWorld(tail.q,tail.r);
     const heading=Math.atan2(hp.y-mp.y,hp.x-mp.x),trainIndex=state.nextTrainIndex++;
-    const train={id:`train-${state.nextId++}`,name:trainName(trainIndex),q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],progress:0,speed:2.25,stepFrom:null,stepTo:null,forwardDirection:{q:head.q-middle.q,r:head.r-middle.r},fuel:10,maxFuel:20,hp:28,maxHp:28,status:"Idle",wagons:[
+    const train={id:`train-${state.nextId++}`,name:trainName(trainIndex),q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,forwardDirection:{q:head.q-middle.q,r:head.r-middle.r},fuel:10,maxFuel:20,hp:28,maxHp:28,status:"Idle",wagons:[
       {id:`wagon-${state.nextId++}`,kind:"wagon",q:middle.q,r:middle.r,x:mp.x,y:mp.y,heading,role:"material",type:"material",amount:0,capacity:30,hp:18,maxHp:18},
       {id:`wagon-${state.nextId++}`,kind:"wagon",q:tail.q,r:tail.r,x:tp.x,y:tp.y,heading,role:"energy",type:"energy",amount:0,capacity:30,hp:18,maxHp:18}
     ],heading,wheelClock:0,wasNearBase:false};
-    state.trains.push(train);state.trainInventory--;clearDeploymentReservation();sounds.place();select("train",train.id);setMode("select");toast(`${train.name} Deployed.`,"info");
+    state.trains.push(train);state.stats.trainsBuilt++;clearDeploymentReservation();sounds.place();select("train",train.id);setMode("select");toast(`${train.name} Deployed.`,"info");
   }
 
   function findPath(start, goal) {
@@ -518,24 +635,88 @@
     return path.reverse();
   }
 
-  function dispatchTrain(train, q, r) {
-    if (train.route.length || train.stepFrom) return fail("Train is already moving.");
-    const occupant = trainAt(q,r);
-    if (occupant && occupant.id !== train.id) return fail("Another train occupies that destination.");
-    const path = findPath(train, {q,r});
-    if (!path?.length) return fail("No forward route reaches that destination. Build a track loop to turn the train around.");
-    if(locoNearBase(train)){refuelAtBase(train);fillBaseCargo(train);}
-    if (train.fuel <= .2 && totalCargo(train,"energy") < 1) return fail("Train is out of Energy.");
-    train.route = path; train.progress = 0; train.stepFrom = null; train.stepTo = null; train.status = "En route";
-    sounds.dispatch(); updateUI(true);
+  function scheduleLoopIsReachable(train){
+    const stops=train.schedule||[];
+    if(stops.length<3)return false;
+    let position={q:train.q,r:train.r};
+    let direction=train.wagons?.length?{q:train.q-train.wagons[0].q,r:train.r-train.wagons[0].r}:train.forwardDirection;
+    for(const target of [...stops,stops[0]]){
+      if(position.q===target.q&&position.r===target.r)continue;
+      const path=findPath({q:position.q,r:position.r,forwardDirection:direction},target);
+      if(!path?.length)return false;
+      const previous=path.length>1?path[path.length-2]:position;
+      direction={q:target.q-previous.q,r:target.r-previous.r};
+      position=target;
+    }
+    return true;
+  }
+
+  function addScheduleStop(train,q,r){
+    if(state.mode!=="schedule"||state.scheduleTrainId!==train.id)return;
+    if(!isRailHex(q,r))return fail("Schedule stops must be placed on Track.");
+    const owner=scheduleStopOwner(q,r,train.id);
+    if(owner)return fail(`That Track is already Stop ${trainScheduleCode(owner)}${owner.schedule.findIndex(stop=>stop.q===q&&stop.r===r)+1}.`);
+    const stops=train.schedule;
+    const existingIndex=stops.findIndex(stop=>stop.q===q&&stop.r===r);
+    if(existingIndex===0){
+      if(stops.length<3)return fail("A schedule needs at least 3 stops before returning to its first stop.");
+      if(!scheduleLoopIsReachable(train))return fail("The schedule must form a forward-only Track loop.");
+      train.scheduleComplete=true;train.scheduleTargetIndex=0;train.servicingStop=false;train.stopHoldUntil=0;train.scheduleRetryAt=0;
+      state.scheduleTrainId=null;state.mode="select";
+      document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));
+      canvas.style.cursor="default";
+      toast(`${train.name} Schedule Complete.`,"info");sounds.place();updateUI(true);return;
+    }
+    if(existingIndex>0)return fail("Select the first stop again to complete the schedule.");
+    if(stops.length>=9)return fail("A train schedule cannot have more than 9 stops.");
+    stops.push({q,r});sounds.place();updateUI(true);
+  }
+
+  function clearTrainSchedule(train){
+    train.schedule=[];train.scheduleComplete=false;train.scheduleTargetIndex=0;train.servicingStop=false;train.stopHoldUntil=0;train.scheduleRetryAt=0;
+    if(train.stepFrom&&train.route.length)train.route=[train.route[0]];else train.route=[];
+    train.status=train.stepFrom?"Stopping at next hex":"Idle";
+    if(state.scheduleTrainId===train.id)state.scheduleTrainId=null;
+    state.mode="select";
+    document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));
+    canvas.style.cursor="default";updateUI(true);
+  }
+
+  function startScheduledLeg(train){
+    if(!train.scheduleComplete||!trainStopped(train)||state.elapsed<train.scheduleRetryAt)return false;
+    const target=train.schedule[train.scheduleTargetIndex];
+    if(!target)return false;
+    if(train.q===target.q&&train.r===target.r){
+      const reached=train.scheduleTargetIndex;
+      train.servicingStop=true;train.stopHoldUntil=state.elapsed+1;train.scheduleTargetIndex=(reached+1)%train.schedule.length;train.status=`At Stop ${trainScheduleCode(train)}${reached+1}`;
+      return true;
+    }
+    const path=findPath(train,target);
+    if(!path?.length){train.status="Schedule blocked";train.scheduleRetryAt=state.elapsed+1;return false;}
+    train.route=path;train.progress=0;train.stepFrom=null;train.stepTo=null;train.servicingStop=false;train.status="En route";
+    sounds.dispatch();return true;
+  }
+
+  function updateTrainSchedules(){
+    for(const train of state.trains){
+      if(!train.scheduleComplete||!trainStopped(train))continue;
+      if(train.servicingStop){if(state.elapsed<train.stopHoldUntil)continue;train.servicingStop=false;}
+      startScheduledLeg(train);
+    }
   }
 
   function handleHexClick(hex) {
     if (state.gameOver) return;
     const { q, r } = hex;
     const structure = structureAt(q,r);
+    const hive=hiveAt(q,r);
+    const ghost=ghostAt(q,r);
     const train = trainAt(q,r);
     if (state.mode === "track") return layTrack(q,r);
+    if(state.mode==="schedule"){
+      const scheduleTrain=state.trains.find(candidate=>candidate.id===state.scheduleTrainId);
+      return scheduleTrain?addScheduleStop(scheduleTrain,q,r):setMode("select");
+    }
     if (train) { select("train", train.id); setMode("select"); return; }
     if (state.mode === "turret") return buildTurret(q,r);
     if (state.mode === "mine") return buildMine(q,r);
@@ -545,18 +726,18 @@
       if (structure && structure.type !== "base") return salvageStructure(structure);
       return fail("There is no track, turret, or mine to salvage here.");
     }
-    const selected = getSelected();
-    if (selected?.wagons && isRailHex(q,r)) return dispatchTrain(selected,q,r);
     if (structure) return select(structure.type === "base" ? "base" : "structure", structure.id);
+    if (hive) return select("hive",hive.id);
     if (state.tracks.has(key(q,r))) return select("track", key(q,r));
+    if (ghost) return select("ghost",key(q,r));
     if (terrainAt(q,r).type==="resource") return select("node",key(q,r));
     state.selected = null; updateUI(true);
   }
 
   function canBaseAfford(cost){return state.baseMaterial>=cost.material&&state.baseEnergy>=cost.energy;}
 
-  function payBase(cost) {
-    if (!canBaseAfford(cost)) { fail(`Base needs ${cost.material} Construction Material${cost.energy?` and ${cost.energy} Energy`:""}.`); return false; }
+  function payBase(cost,item) {
+    if (!canBaseAfford(cost)) { fail(`Needs ${cost.material} Construction Material${cost.energy?` and ${cost.energy} Energy`:""} for ${item}.`); return false; }
     state.baseMaterial -= cost.material; state.baseEnergy -= cost.energy; return true;
   }
 
@@ -591,7 +772,7 @@
     const material=removeCargo(train,"material",totalCargo(train,"material"));
     const energy=removeCargo(train,"energy",totalCargo(train,"energy"));
     state.baseMaterial+=material;state.baseEnergy+=energy;
-    if(material+energy>0)showWorldActivity(state.base,"Unloaded Resources to Base",1.25,"#bafcff");
+    if(material+energy>0)showWorldActivity(state.base,"Unloaded Resources to Base",1.25);
     refuelAtBase(train);
     for(const wagon of train.wagons.filter(w=>emptyOnArrival.has(w.id)))fillWagonFromBase(train,wagon);
   }
@@ -604,7 +785,17 @@
     return state.trains.filter(train=>trainStopped(train)&&hexDistance(train,target)<=range).sort((a,b)=>hexDistance(a,target)-hexDistance(b,target))[0]||null;
   }
 
-  function showWorldActivity(target,message,duration=1.1,color="#bafcff") {
+  function activityColor(message){
+    if(message==="Loaded Turret with Energy")return "#60d5db";
+    if(message==="Mined Construction Material")return "#e6b94a";
+    if(message==="Mined Energy")return "#8aa6ff";
+    if(message.startsWith("Repairing "))return "#70bd77";
+    if(message.startsWith("Rebuilt "))return "#d5a3ff";
+    if(message.startsWith("Unloaded "))return "#ff8b3d";
+    return "#bafcff";
+  }
+
+  function showWorldActivity(target,message,duration=1.1,color=activityColor(message)) {
     state.worldMessages=state.worldMessages.filter(item=>item.until>state.elapsed);
     const targetKey=`${target.q},${target.r}`;
     const existing=state.worldMessages.find(item=>item.targetKey===targetKey&&item.message===message);
@@ -628,12 +819,13 @@
       const repaired=Math.min(target.maxHp-target.hp,totalCargo(train,"material"));
       if(repaired<=0)break;
       removeCargo(train,"material",repaired);target.hp+=repaired;
-      showWorldActivity(target,`Repairing ${repairLabel(target)}`,1.25,"#fff1b4");
+      showWorldActivity(target,`Repairing ${repairLabel(target)}`,1.25);
     }
   }
 
   function updateAutomaticLogistics() {
     const cargoChangedTrains=new Set();
+    updateAutomaticRebuild();
     for(const train of state.trains){
       updateAutomaticRepair(train);
     }
@@ -647,12 +839,12 @@
       if(moved>0){
         cargoChangedTrains.add(train.id);
         setNodeAmount(node,node.amount-moved);
-        showWorldActivity(structure,`Mining ${resourceLabel(structure.resource)}`,1.25,"#d5a3ff");
+        showWorldActivity(structure,`Mined ${resourceLabel(structure.resource)}`,1.25);
       }
     }
     for(const structure of state.structures.values()){
       if(structure.type!=="turret")continue;
-      const train=nearestTrain(structure,1);
+      const train=nearestStoppedLoco(structure,1);
       if(!train)continue;
       const energyRoom=Math.max(0,structure.maxEnergy-structure.energy);
       const moved=removeCargo(train,"energy",Math.min(energyRoom,totalCargo(train,"energy")));
@@ -668,9 +860,19 @@
 
   function handleAction(action, element) {
     element?.blur();
-    if (action === "make-track" && payBase(COSTS.trackPack)) { state.trackInventory += 10; sounds.place(); toast("Fabricated 10 Track sections."); }
-    if (action === "make-train" && payBase(COSTS.train)) { state.trainInventory++; sounds.place(); toast("Complete Train Set Added to Inventory."); }
-    if (action === "deploy-train") { if (state.trainInventory < 1) fail("No complete Train Set is available in Base inventory."); else setMode("deploy"); }
+    const selected=getSelected();
+    if(action==="fabricate-place-train"){
+      if(state.nextTrainIndex>=26)return fail("No more than 26 trains can be built.");
+      if(payBase(COSTS.train,"Train Set")){state.deploymentPaid=true;sounds.place();setMode("deploy");toast("Click an empty Track hex for the Train Head, then click a highlighted Tail point.","info");}
+    }
+    if(action==="add-schedule"&&selected?.wagons){
+      if(!trainStopped(selected))return fail("Clear the current schedule and wait for the train to stop first.");
+      if(selected.schedule?.length)return fail("Use Clear Schedule before creating a new schedule.");
+      selected.schedule=[];selected.scheduleComplete=false;selected.scheduleTargetIndex=0;selected.servicingStop=false;selected.stopHoldUntil=0;
+      state.scheduleTrainId=selected.id;state.mode="schedule";canvas.style.cursor="crosshair";
+      document.querySelectorAll("[data-mode]").forEach(button=>button.classList.remove("active"));
+    }
+    if(action==="clear-schedule"&&selected?.wagons)clearTrainSchedule(selected);
     updateUI(true);
   }
 
@@ -701,7 +903,12 @@
         });
         train.route.shift(); train.progress = 0; train.fuel = Math.max(0,train.fuel - .18);
         train.stepFrom = null; train.stepTo = null;
-        if (!train.route.length) train.status = "Arrived";
+        if (!train.route.length) {
+          if(train.scheduleComplete){
+            const reached=train.scheduleTargetIndex;
+            train.servicingStop=true;train.stopHoldUntil=state.elapsed+1;train.scheduleTargetIndex=(reached+1)%train.schedule.length;train.status=`At Stop ${trainScheduleCode(train)}${reached+1}`;
+          }else train.status="Idle";
+        }
       }
     }
   }
@@ -732,30 +939,56 @@
         train.route=[]; train.status="Stuck — train is too long";
         fail(`${train.name} cannot move that way: every wagon needs track.`); return false;
       }
-      const occupant = trainAt(position.q,position.r);
-      if (occupant && occupant.id !== train.id) {
-        train.route=[]; train.status="Stuck — track occupied";
-        fail(`${train.name} is blocked by another train.`); return false;
-      }
     }
     train.stepFrom=from; train.stepTo=to; train.progress=0;
     train.status="En route";
     return true;
   }
 
-  function spawnWave() {
-    state.wave++;
-    const count = 3 + state.wave * 2;
-    const radius = 14 + Math.min(10,state.wave * .6);
-    for (let i=0;i<count;i++) {
-      let angle = (i/count) * Math.PI*2 + hash(state.wave,i,9)*.7;
-      let q = Math.round(Math.cos(angle)*radius), r = Math.round(Math.sin(angle)*radius);
-      for (let tries=0;tries<8 && !isPassable(q,r);tries++) { q += DIRECTIONS[tries%6][0]; r += DIRECTIONS[tries%6][1]; }
-      const p = axialToWorld(q,r);
-      state.enemies.push({ id:`enemy-${state.nextId++}`, q,r,x:p.x,y:p.y,fromQ:q,fromR:r,toQ:q,toR:r,progress:1,speed:.38+Math.min(.28,state.wave*.014),attackClock:0,phase:hash(q,r,i)*Math.PI*2 });
+  function hiveReplicationRoll(hive,spawnNumber=hive.spawnCount,rate=hiveSpawnRate()){
+    return hash(hive.q,hive.r,(state.mapSeed+spawnNumber*7919)|0)<1/rate;
+  }
+
+  function hiveSpawnCandidates(hive,spawnNumber=hive.spawnCount){
+    const candidates=[];
+    for(let dq=-4;dq<=4;dq++){
+      const r0=Math.max(-4,-dq-4),r1=Math.min(4,-dq+4);
+      for(let dr=r0;dr<=r1;dr++){
+        const distance=hexDistance({q:0,r:0},{q:dq,r:dr});
+        if(distance<1||distance>4)continue;
+        const q=hive.q+dq,r=hive.r+dr;
+        candidates.push({q,r,score:hash(q,r,(state.mapSeed+spawnNumber*3571)|0)});
+      }
     }
-    state.waveClock = Math.max(18,29-state.wave*.3);
-    sounds.wave(); toast(`Wave ${state.wave}: ${count} biomass contacts.`, "danger");
+    return candidates.sort((a,b)=>b.score-a.score);
+  }
+
+  function spawnHiveNear(hive,spawnNumber=hive.spawnCount){
+    const location=hiveSpawnCandidates(hive,spawnNumber).find(candidate=>hiveHexOpen(candidate.q,candidate.r));
+    return location?createHive(location.q,location.r):null;
+  }
+
+  function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
+    const claimed=enemyClaimedHexes();
+    const options=neighbors(hive.q,hive.r).filter(position=>isPassable(position.q,position.r)&&!hiveAt(position.q,position.r)&&!structureAt(position.q,position.r)&&!claimed.has(key(position.q,position.r)));
+    options.sort((a,b)=>hash(b.q,b.r,(state.mapSeed+spawnNumber)|0)-hash(a.q,a.r,(state.mapSeed+spawnNumber)|0));
+    const location=options[0];if(!location)return null;
+    const p=axialToWorld(location.q,location.r);
+    const enemy={id:`enemy-${state.nextId++}`,q:location.q,r:location.r,x:p.x,y:p.y,fromQ:location.q,fromR:location.r,toQ:location.q,toR:location.r,progress:1,speed:ENEMY_SPEED,attackClock:0,nextPathAt:0,phase:hash(location.q,location.r,spawnNumber)*Math.PI*2};
+    state.enemies.push(enemy);return enemy;
+  }
+
+  function updateHives(){
+    for(const hive of [...state.hives.values()]){
+      syncHiveHitPoints(hive);
+      for(let cycles=0;state.elapsed>=hive.nextSpawnAt&&cycles<32;cycles++){
+        const spawnTime=hive.nextSpawnAt;
+        const spawnNumber=hive.spawnCount++;
+        const rate=hiveSpawnRate(spawnTime);
+        if(spawnNumber===0||!hiveReplicationRoll(hive,spawnNumber,rate)||!spawnHiveNear(hive,spawnNumber))spawnEnemyFromHive(hive,spawnNumber);
+        hive.nextSpawnAt=spawnTime+60/rate;
+      }
+    }
   }
 
   function targetCandidates(enemy) {
@@ -782,10 +1015,116 @@
     return trainSegments(target).slice().sort((a,b)=>hexDistance(enemy,a)-hexDistance(enemy,b))[0];
   }
 
+  function enemyClaimedHexes(excludeId=null){
+    const claimed=new Set();
+    for(const enemy of state.enemies){
+      if(enemy.id===excludeId)continue;
+      claimed.add(key(enemy.q,enemy.r));
+      if(enemy.progress<1)claimed.add(key(enemy.toQ,enemy.toR));
+    }
+    return claimed;
+  }
+
+  function findEnemyStep(start,goal,passable=isPassable,stopRange=0){
+    const startKey=key(start.q,start.r),goalKey=key(goal.q,goal.r);
+    if(hexDistance(start,goal)<=stopRange)return null;
+    const distance=hexDistance(start,goal);
+    const maxNodes=Math.min(60000,Math.max(20000,Math.ceil((distance+40)*(distance+40)*12)));
+    const open=[],cameFrom=new Map(),gScore=new Map([[startKey,0]]),closed=new Set();
+    let order=0;
+    const compare=(a,b)=>a.f-b.f||a.h-b.h||a.order-b.order;
+    const push=node=>{open.push(node);let index=open.length-1;while(index>0){const parent=(index-1)>>1;if(compare(open[parent],node)<=0)break;open[index]=open[parent];index=parent;}open[index]=node;};
+    const pop=()=>{const root=open[0],tail=open.pop();if(open.length&&tail){let index=0;while(true){const left=index*2+1,right=left+1;if(left>=open.length)break;let child=right<open.length&&compare(open[right],open[left])<0?right:left;if(compare(open[child],tail)>=0)break;open[index]=open[child];index=child;}open[index]=tail;}return root;};
+    push({q:start.q,r:start.r,g:0,h:distance,f:distance,order:order++});
+    for(let explored=0;open.length&&explored<maxNodes;){
+      const current=pop(),currentKey=key(current.q,current.r);
+      if(closed.has(currentKey))continue;
+      closed.add(currentKey);explored++;
+      if(currentKey===goalKey||hexDistance(current,goal)<=stopRange){
+        let stepKey=currentKey,parentKey=cameFrom.get(stepKey);
+        while(parentKey&&parentKey!==startKey){stepKey=parentKey;parentKey=cameFrom.get(stepKey);}
+        return parentKey===startKey?fromKey(stepKey):null;
+      }
+      for(const next of neighbors(current.q,current.r)){
+        const nextKey=key(next.q,next.r);
+        if(closed.has(nextKey)||(!passable(next.q,next.r)&&nextKey!==goalKey))continue;
+        const tentative=current.g+1;
+        if(tentative>=(gScore.get(nextKey)??Infinity))continue;
+        cameFrom.set(nextKey,currentKey);gScore.set(nextKey,tentative);
+        const h=hexDistance(next,goal);push({q:next.q,r:next.r,g:tentative,h,f:tentative+h,order:order++});
+      }
+    }
+    return null;
+  }
+
+  function leaveGhost(target,objectType){
+    const ghost={id:key(target.q,target.r),type:"ghost",objectType,q:target.q,r:target.r};
+    if(objectType==="track")ghost.links=[...target.links];
+    if(objectType==="mine")ghost.resource=target.resource;
+    state.ghosts.set(ghost.id,ghost);
+    return ghost;
+  }
+
+  function rebuiltLabel(ghost){
+    if(ghost.objectType==="track")return "Track";
+    if(ghost.objectType==="turret")return "Defense Turret";
+    return `${resourceLabel(ghost.resource)} Mine`;
+  }
+
+  function rebuildGhost(ghost,train){
+    const cost=REBUILD_COSTS[ghost.objectType];
+    if(totalCargo(train,"material")<cost)return false;
+    removeCargo(train,"material",cost);
+    let rebuilt;
+    if(ghost.objectType==="track"){
+      rebuilt={q:ghost.q,r:ghost.r,hp:10,maxHp:10,links:new Set()};
+      state.tracks.set(ghost.id,rebuilt);
+      for(const linkedKey of ghost.links||[]){
+        const neighbor=state.tracks.get(linkedKey);
+        if(neighbor){rebuilt.links.add(linkedKey);neighbor.links.add(ghost.id);}
+      }
+    }else if(ghost.objectType==="turret"){
+      rebuilt={id:`turret-${state.nextId++}`,type:"turret",q:ghost.q,r:ghost.r,hp:18,maxHp:18,energy:0,maxEnergy:20,cooldown:0,showRangeUntil:state.elapsed+3.5};
+      state.structures.set(ghost.id,rebuilt);
+    }else{
+      rebuilt={id:`mine-${state.nextId++}`,type:"mine",resource:ghost.resource,q:ghost.q,r:ghost.r,hp:22,maxHp:22};
+      state.structures.set(ghost.id,rebuilt);
+    }
+    state.ghosts.delete(ghost.id);
+    if(state.selected?.type==="ghost"&&state.selected.id===ghost.id)state.selected=ghost.objectType==="track"?{type:"track",id:ghost.id}:{type:"structure",id:rebuilt.id};
+    sounds.place();burst(ghost.q,ghost.r,ghost.objectType==="turret"?"#65dbe0":"#d9bd78",8);
+    showWorldActivity(rebuilt,`Rebuilt ${rebuiltLabel(ghost)}`,1.4);
+    return true;
+  }
+
+  function updateAutomaticRebuild(){
+    for(const ghost of [...state.ghosts.values()]){
+      const train=nearestStoppedLoco(ghost,1);
+      if(train)rebuildGhost(ghost,train);
+    }
+  }
+
+  function showDefeatScreen(){
+    ui.survivalTime.textContent=formatSurvivalTime(state.elapsed);
+    ui.defeatHivesNeutralized.textContent=state.hivesNeutralized;
+    ui.defeatCreepsNeutralized.textContent=state.creepsNeutralized;
+    ui.defeatTracksLaid.textContent=state.stats.tracksLaid;
+    ui.defeatMinesBuilt.textContent=state.stats.minesBuilt;
+    ui.defeatTurretsBuilt.textContent=state.stats.turretsBuilt;
+    ui.defeatTrainsBuilt.textContent=state.stats.trainsBuilt;
+    ui.gameOver.hidden=false;ui.gameOver.classList.remove("d-none");
+  }
+
   function damageTarget(target, amount) {
     target.hp -= amount;
     sounds.hit();
     if (target.hp > 0) return;
+    if(target.type==="hive"){
+      state.hives.delete(key(target.q,target.r));
+      state.hivesNeutralized++;
+      if(state.selected?.type==="hive"&&state.selected.id===target.id)state.selected=null;
+      burst(target.q,target.r,"#d94a4a",16);updateUI(true);return;
+    }
     if(target.kind==="wagon"){
       const train=state.trains.find(candidate=>candidate.wagons.includes(target));
       if(train){
@@ -796,18 +1135,21 @@
       burst(target.q,target.r,"#d94a4a",12);updateUI(true);return;
     }
     if (target.type === "base") {
-      target.hp = 0; state.gameOver = true; ui.survivalTime.textContent = formatTime(state.elapsed); ui.gameOver.hidden=false; ui.gameOver.classList.remove("d-none");
+      target.hp = 0; state.gameOver = true; showDefeatScreen();
       return;
     }
     if (target.wagons) {
       state.trains = state.trains.filter(t => t.id !== target.id);
       if (state.selected?.id === target.id) state.selected = null;
+      if(state.scheduleTrainId===target.id){state.scheduleTrainId=null;state.mode="select";canvas.style.cursor="default";document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));}
       toast(`${target.name} was consumed.`, "danger");
     } else if (target.type === "turret" || target.type === "mine") {
+      leaveGhost(target,target.type);
       state.structures.delete(key(target.q,target.r));
       if (state.selected?.id === target.id) state.selected = null;
       toast(`${capitalize(target.type)} destroyed.`, "danger");
     } else {
+      leaveGhost(target,"track");
       deleteTrack(target.q,target.r);
       if (state.selected?.type === "track" && state.selected.id === key(target.q,target.r)) state.selected = null;
     }
@@ -819,22 +1161,17 @@
       enemy.phase += dt*2.2;
       const target = enemyTarget(enemy);
       const targetHex = targetHexFor(enemy,target);
-      if (enemy.progress >= 1 && hexDistance(enemy,targetHex) === 0) {
+      if (enemy.progress >= 1 && hexDistance(enemy,targetHex) <= 1) {
         enemy.attackClock += dt;
         damageTarget(target.wagons?targetHex:target,dt*2.1);
         continue;
       }
-      if (enemy.progress >= 1) {
-        const options = neighbors(enemy.q,enemy.r).filter(n => isPassable(n.q,n.r));
-        options.sort((a,b) => {
-          const da = hexDistance(a,targetHex) + hash(a.q,a.r,enemy.id.length)*.16;
-          const db = hexDistance(b,targetHex) + hash(b.q,b.r,enemy.id.length)*.16;
-          return da-db;
-        });
-        const next = options[0];
+      if (enemy.progress >= 1 && state.elapsed >= (enemy.nextPathAt||0)) {
+        const claimed=enemyClaimedHexes(enemy.id);
+        const next=findEnemyStep(enemy,targetHex,(q,r)=>isPassable(q,r)&&!claimed.has(key(q,r)),1);
         if (next) {
           enemy.fromQ=enemy.q; enemy.fromR=enemy.r; enemy.toQ=next.q; enemy.toR=next.r; enemy.progress=0;
-        }
+        }else enemy.nextPathAt=state.elapsed+.25;
       }
       if (enemy.progress < 1) {
         enemy.progress = Math.min(1,enemy.progress + dt*enemy.speed);
@@ -851,12 +1188,18 @@
       if (structure.type === "turret") {
         structure.cooldown -= dt;
         if (structure.energy >= 1 && structure.cooldown <= 0) {
-          const targets = state.enemies.filter(e => hexDistance(structure,worldToAxial(e.x,e.y)) <= 4).sort((a,b)=>hexDistance(structure,a)-hexDistance(structure,b));
-          if (targets.length) {
-            const enemy=targets[0], from=axialToWorld(structure.q,structure.r);
+          const hive=[...state.hives.values()].filter(candidate=>hexDistance(structure,candidate)<=4).sort((a,b)=>hexDistance(structure,a)-hexDistance(structure,b))[0];
+          const enemy=!hive?state.enemies.filter(e => hexDistance(structure,worldToAxial(e.x,e.y)) <= 4).sort((a,b)=>hexDistance(structure,a)-hexDistance(structure,b))[0]:null;
+          if(hive){
+            const from=axialToWorld(structure.q,structure.r),to=axialToWorld(hive.q,hive.r);
+            state.projectiles.push({x1:from.x,y1:from.y,x2:to.x,y2:to.y,life:.12,maxLife:.12});
+            structure.energy--;structure.cooldown=.48;damageTarget(hive,1);sounds.shot();
+          }else if (enemy) {
+            const from=axialToWorld(structure.q,structure.r);
             state.projectiles.push({x1:from.x,y1:from.y,x2:enemy.x,y2:enemy.y,life:.12,maxLife:.12});
             structure.energy--; structure.cooldown=.48;
             state.enemies=state.enemies.filter(e=>e.id!==enemy.id);
+            state.creepsNeutralized++;
             burst(enemy.q,enemy.r,"#e35050",7); sounds.shot();
           }
         }
@@ -877,9 +1220,29 @@
     if(state.gameOver)return;
     state.elapsed+=dt;
     state.worldMessages=state.worldMessages.filter(item=>item.until>state.elapsed);
-    state.waveClock-=dt;if(state.waveClock<=0)spawnWave();
-    updateTrains(dt); updateAutomaticLogistics(dt); updateEnemies(dt); updateStructures(dt);
+    updateTrains(dt);updateAutomaticLogistics(dt);updateTrainSchedules();updateHives(dt);updateEnemies(dt);updateStructures(dt);
     state.uiClock-=dt;if(state.uiClock<=0){state.uiClock=.15;updateUI();}
+  }
+
+  function advanceSimulation(seconds){
+    simulationAccumulator+=Math.max(0,seconds);
+    let ticks=0;
+    while(simulationAccumulator+1e-9>=SIMULATION_STEP&&!state.gameOver){update(SIMULATION_STEP);simulationAccumulator-=SIMULATION_STEP;ticks++;}
+    if(simulationAccumulator<0)simulationAccumulator=0;
+    return ticks;
+  }
+
+  function resetPerformanceMetrics(now=performance.now()){
+    performanceWindowStart=now;performanceTicks=0;performanceFrames=0;
+  }
+
+  function recordPerformance(now,ticks,rendered){
+    performanceTicks+=ticks;if(rendered)performanceFrames++;
+    const elapsed=now-performanceWindowStart;
+    if(elapsed<1000)return;
+    ui.tpsValue.textContent=Math.round(performanceTicks*1000/elapsed);
+    ui.fpsValue.textContent=Math.round(performanceFrames*1000/elapsed);
+    resetPerformanceMetrics(now);
   }
 
   function hexPath(q,r,scale=.94){
@@ -896,14 +1259,18 @@
       hexPath(q,r,.975);
       if(terrain.type==="water")ctx.fillStyle=shade>.5?"#102b35":"#0e2630";
       else if(terrain.type==="rock")ctx.fillStyle=shade>.5?"#252d31":"#20282c";
-      else ctx.fillStyle=shade>.5?"#151f23":"#131c20";
-      ctx.fill();ctx.strokeStyle="rgba(91,112,119,.13)";ctx.lineWidth=.7;ctx.stroke();
+      else if(terrain.type==="trees")ctx.fillStyle=shade>.5?"#1d2922":"#19231e";
+      else ctx.fillStyle=shade>.5?"#232527":"#1d1f21";
+      ctx.fill();ctx.strokeStyle="rgba(132,136,139,.13)";ctx.lineWidth=.7;ctx.stroke();
       const p=axialToWorld(q,r);
       if(terrain.type==="water"){
-        ctx.strokeStyle="rgba(79,157,177,.22)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x-12,p.y-4);ctx.lineTo(p.x+10,p.y-4);ctx.moveTo(p.x-6,p.y+5);ctx.lineTo(p.x+14,p.y+5);ctx.stroke();
+        ctx.strokeStyle="rgba(83,174,198,.34)";ctx.lineWidth=1.2;
+        for(const offset of [-6,4]){ctx.beginPath();ctx.moveTo(p.x-15,p.y+offset);ctx.bezierCurveTo(p.x-10,p.y+offset-4,p.x-5,p.y+offset+4,p.x,p.y+offset);ctx.bezierCurveTo(p.x+5,p.y+offset-4,p.x+10,p.y+offset+4,p.x+15,p.y+offset);ctx.stroke();}
       }else if(terrain.type==="rock"){
-        ctx.fillStyle="#3c474c";ctx.beginPath();ctx.moveTo(p.x-14,p.y+11);ctx.lineTo(p.x-3,p.y-15);ctx.lineTo(p.x+6,p.y+4);ctx.lineTo(p.x+14,p.y+12);ctx.closePath();ctx.fill();
-        ctx.fillStyle="#526066";ctx.beginPath();ctx.moveTo(p.x-3,p.y-15);ctx.lineTo(p.x+6,p.y+4);ctx.lineTo(p.x-7,p.y+5);ctx.closePath();ctx.fill();
+        ctx.fillStyle="#41484b";ctx.beginPath();ctx.moveTo(p.x-21,p.y+13);ctx.lineTo(p.x-10,p.y-13);ctx.lineTo(p.x-2,p.y-3);ctx.lineTo(p.x+6,p.y-16);ctx.lineTo(p.x+21,p.y+13);ctx.closePath();ctx.fill();
+        ctx.fillStyle="#596267";ctx.beginPath();ctx.moveTo(p.x-10,p.y-13);ctx.lineTo(p.x-2,p.y-3);ctx.lineTo(p.x-13,p.y+5);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(p.x+6,p.y-16);ctx.lineTo(p.x+13,p.y+2);ctx.lineTo(p.x+1,p.y-7);ctx.closePath();ctx.fill();
+      }else if(terrain.type==="trees"){
+        for(const [ox,oy,scale] of [[-10,7,.78],[8,8,.88],[0,-5,.94]]){ctx.fillStyle="#4b3827";ctx.fillRect(p.x+ox-1.5*scale,p.y+oy,3*scale,8*scale);ctx.fillStyle=shade>.5?"#3f8154":"#356f49";ctx.beginPath();ctx.moveTo(p.x+ox,p.y+oy-15*scale);ctx.lineTo(p.x+ox-9*scale,p.y+oy+5*scale);ctx.lineTo(p.x+ox+9*scale,p.y+oy+5*scale);ctx.closePath();ctx.fill();ctx.fillStyle="#285c3c";ctx.beginPath();ctx.moveTo(p.x+ox,p.y+oy-9*scale);ctx.lineTo(p.x+ox-7*scale,p.y+oy+8*scale);ctx.lineTo(p.x+ox+7*scale,p.y+oy+8*scale);ctx.closePath();ctx.fill();}
       }else if(terrain.type==="resource")drawResourceNode(q,r,p,terrain.resource);
     }
   }
@@ -941,6 +1308,36 @@
     }
   }
 
+  function drawTrainStops(){
+    for(const train of state.trains){
+      const code=trainScheduleCode(train);
+      (train.schedule||[]).forEach((stop,index)=>{
+        const p=axialToWorld(stop.q,stop.r),label=`${code}${index+1}`;
+        ctx.save();ctx.font="900 10px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";
+        const width=Math.max(22,ctx.measureText(label).width+8);
+        roundedRectPath(p.x-width/2,p.y+14,width,14,5);ctx.fillStyle="rgba(8,13,16,.94)";ctx.fill();ctx.strokeStyle="#f4cf69";ctx.lineWidth=1;ctx.stroke();
+        ctx.fillStyle="#fff1b4";ctx.fillText(label,p.x,p.y+21);ctx.restore();
+      });
+    }
+  }
+
+  function drawGhosts(){
+    for(const ghost of state.ghosts.values()){
+      const p=axialToWorld(ghost.q,ghost.r),focused=(state.selected?.type==="ghost"&&state.selected.id===ghost.id)||(state.hover?.q===ghost.q&&state.hover?.r===ghost.r);
+      ctx.save();ctx.globalAlpha=focused?.42:.22;ctx.setLineDash([5,4]);ctx.strokeStyle="#b7c6c9";ctx.fillStyle="#718087";
+      if(ghost.objectType==="track"){
+        for(const linkedKey of ghost.links||[]){const n=fromKey(linkedKey),np=axialToWorld(n.q,n.r);ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(np.x,np.y);ctx.stroke();}
+        ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,7,0,Math.PI*2);ctx.stroke();
+      }else if(ghost.objectType==="turret"){
+        ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,13,0,Math.PI*2);ctx.stroke();ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+17,p.y-8);ctx.stroke();
+        ctx.font="900 10px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("T",p.x,p.y+.5);
+      }else{
+        ctx.lineWidth=2;ctx.strokeRect(p.x-15,p.y-15,30,30);ctx.fillRect(p.x-4,p.y-20,8,13);ctx.fillStyle="#dce6e8";ctx.font="900 11px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(ghost.resource==="energy"?"M:E":"M:C",p.x,p.y+.5);
+      }
+      hexPath(ghost.q,ghost.r,.72);ctx.lineWidth=1;ctx.stroke();ctx.restore();
+    }
+  }
+
   function drawTurretRange(center,preview=false){
     ctx.save();ctx.fillStyle=preview?"rgba(230,185,74,.06)":"rgba(96,213,219,.055)";ctx.strokeStyle=preview?"rgba(230,185,74,.5)":"rgba(96,213,219,.34)";ctx.lineWidth=1.4;ctx.setLineDash([5,4]);
     for(let dq=-4;dq<=4;dq++){
@@ -969,12 +1366,22 @@
     if((state.selected?.type==="base")||(state.hover?.q===0&&state.hover?.r===0))drawMiniBar(p.x-18,p.y-25,36,state.base.hp/state.base.maxHp,state.base.hp<20?"#e34747":"#70bd77");
   }
 
+  function drawHives(){
+    for(const hive of state.hives.values()){
+      const p=axialToWorld(hive.q,hive.r),pulse=.5+.5*Math.sin(state.elapsed*3+hive.q-hive.r);
+      ctx.save();ctx.shadowBlur=14+pulse*7;ctx.shadowColor="#a71932";hexPath(hive.q,hive.r,.62);ctx.fillStyle="#481522";ctx.fill();ctx.strokeStyle="#d33a51";ctx.lineWidth=2.2;ctx.stroke();ctx.shadowBlur=0;
+      ctx.fillStyle="#ff8793";ctx.font="900 18px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("H",p.x,p.y+1);ctx.restore();
+      const focused=(state.selected?.type==="hive"&&state.selected.id===hive.id)||(state.hover?.q===hive.q&&state.hover?.r===hive.r);
+      if(focused)drawMiniBar(p.x-17,p.y-25,34,hive.hp/hive.maxHp,hive.hp<=2?"#e34747":"#70bd77");
+    }
+  }
+
   function drawStructures(){
     for(const s of state.structures.values()){
       const p=axialToWorld(s.q,s.r);ctx.save();
       if(s.type==="turret"){
         if(s.energy<=s.maxEnergy*.2){const pulse=.5+.5*Math.sin(state.elapsed*6);ctx.shadowBlur=20+pulse*12;ctx.shadowColor="#ff3848";ctx.strokeStyle=`rgba(255,56,72,${.65+pulse*.35})`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,18+pulse*2,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;}
-        ctx.shadowBlur=s.energy>=1?12:0;ctx.shadowColor="#60d5db";ctx.fillStyle="#26353a";ctx.strokeStyle=s.energy>=1?"#60d5db":"#59676c";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,13,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.strokeStyle="#b7c6c9";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+17,p.y-8);ctx.stroke();ctx.fillStyle="#0d1215";ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();
+        ctx.shadowBlur=s.energy>=1?12:0;ctx.shadowColor="#60d5db";ctx.fillStyle="#26353a";ctx.strokeStyle=s.energy>=1?"#60d5db":"#59676c";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,13,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;ctx.strokeStyle="#b7c6c9";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+17,p.y-8);ctx.stroke();ctx.fillStyle="#0d1215";ctx.beginPath();ctx.arc(p.x,p.y,7,0,Math.PI*2);ctx.fill();ctx.fillStyle="#f3f7f8";ctx.font="900 10px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("T",p.x,p.y+.5);
       }else{
         ctx.fillStyle="#273239";ctx.strokeStyle=s.resource==="energy"?"#60d5db":"#e6b94a";ctx.lineWidth=2;ctx.beginPath();ctx.rect(p.x-15,p.y-15,30,30);ctx.fill();ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.fillRect(p.x-4,p.y-20,8,13);
         ctx.fillStyle="#091014";ctx.fillRect(p.x-13,p.y-7,26,14);ctx.fillStyle="#f3f7f8";ctx.font="900 11px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(s.resource==="energy"?"M:E":"M:C",p.x,p.y+.5);
@@ -994,16 +1401,51 @@
     ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
   }
 
+  function worldMessagePriority(message){
+    if(message.startsWith("Rebuilt "))return 0;
+    if(message.startsWith("Repairing "))return 1;
+    if(message==="Mined Construction Material")return 2;
+    if(message==="Mined Energy")return 3;
+    if(message.startsWith("Mined "))return 4;
+    if(message.startsWith("Loaded Turret"))return 5;
+    if(message.startsWith("Unloaded "))return 6;
+    return 7;
+  }
+
+  function worldMessageLayout(){
+    const pending=state.worldMessages.filter(item=>item.until>state.elapsed),clusters=[];
+    while(pending.length){
+      const cluster=[pending.shift()];
+      for(let changed=true;changed;){
+        changed=false;
+        for(let i=pending.length-1;i>=0;i--)if(cluster.some(item=>hexDistance(item,pending[i])<=5)){
+          cluster.push(pending.splice(i,1)[0]);changed=true;
+        }
+      }
+      clusters.push(cluster);
+    }
+    const layout=[],height=20,gap=4;
+    ctx.save();ctx.font="700 11px ui-monospace, monospace";
+    for(const cluster of clusters){
+      cluster.sort((a,b)=>worldMessagePriority(a.message)-worldMessagePriority(b.message)||a.message.localeCompare(b.message)||a.targetKey.localeCompare(b.targetKey));
+      const points=cluster.map(item=>({item,p:axialToWorld(item.q,item.r)}));
+      const centerX=points.reduce((sum,entry)=>sum+entry.p.x,0)/points.length;
+      const bottom=Math.min(...points.map(entry=>entry.p.y-(entry.item.targetType==="track"?23:35)))-6;
+      const top=bottom-(cluster.length*height+(cluster.length-1)*gap);
+      cluster.forEach((item,index)=>{
+        const width=Math.ceil(ctx.measureText(item.message).width)+18,y=top+index*(height+gap);
+        layout.push({item,x:centerX-width/2,y,width,height,textX:centerX,textY:y+height/2+.5});
+      });
+    }
+    ctx.restore();return layout;
+  }
+
   function drawWorldMessages(){
-    const offsets=new Map();
-    for(const item of state.worldMessages){
-      if(item.until<=state.elapsed)continue;
-      const index=offsets.get(item.targetKey)||0;offsets.set(item.targetKey,index+1);
-      const p=axialToWorld(item.q,item.r),clearance=item.targetType==="track"?23:35;
+    for(const entry of worldMessageLayout()){
+      const {item,x,y,width,height,textX,textY}=entry;
       ctx.save();ctx.font="700 11px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";
-      const width=Math.ceil(ctx.measureText(item.message).width)+18,height=20,bottom=p.y-clearance-index*23,x=p.x-width/2,y=bottom-height;
       roundedRectPath(x,y,width,height,10);ctx.fillStyle="rgba(8,13,16,.92)";ctx.fill();ctx.strokeStyle=item.color;ctx.lineWidth=1;ctx.stroke();
-      ctx.fillStyle=item.color;ctx.fillText(item.message,p.x,y+height/2+.5);ctx.restore();
+      ctx.fillStyle=item.color;ctx.fillText(item.message,textX,textY);ctx.restore();
     }
   }
 
@@ -1049,9 +1491,8 @@
       hexPath(state.deploymentHead.q,state.deploymentHead.r,.68);ctx.strokeStyle="#fff1b4";ctx.lineWidth=3;ctx.stroke();
       for(const path of state.deploymentPaths){const tail=path[2];hexPath(tail.q,tail.r,.58);ctx.strokeStyle="#60d5db";ctx.lineWidth=3;ctx.stroke();}
     }
-    if(!state.hover)return;const {q,r}=state.hover;hexPath(q,r,.9);let color="#aebabe";if(state.mode==="track"||state.mode==="turret"||state.mode==="mine"||state.mode==="deploy")color="#e6b94a";if(state.mode==="salvage")color="#e34747";ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
+    if(!state.hover)return;const {q,r}=state.hover;hexPath(q,r,.9);let color="#aebabe";if(state.mode==="track"||state.mode==="turret"||state.mode==="mine"||state.mode==="deploy"||state.mode==="schedule")color="#e6b94a";if(state.mode==="salvage")color="#e34747";ctx.strokeStyle=color;ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.stroke();ctx.setLineDash([]);
     if(state.mode==="track"&&state.trackStart){hexPath(state.trackStart.q,state.trackStart.r,.78);ctx.strokeStyle="#fff1b4";ctx.lineWidth=3;ctx.stroke();if(hexDistance(state.trackStart,{q,r})===1){const a=axialToWorld(state.trackStart.q,state.trackStart.r),b=axialToWorld(q,r);ctx.strokeStyle="rgba(230,185,74,.45)";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}}
-    const selected=getSelected();if(selected?.wagons&&state.mode==="select"&&isRailHex(q,r)){const path=findPath(selected,{q,r});if(path){ctx.strokeStyle="rgba(230,185,74,.38)";ctx.lineWidth=7;ctx.beginPath();let p=axialToWorld(selected.q,selected.r);ctx.moveTo(p.x,p.y);for(const h of path){p=axialToWorld(h.q,h.r);ctx.lineTo(p.x,p.y);}ctx.stroke();}}
   }
 
   function drawSelection(){
@@ -1060,33 +1501,34 @@
 
   function render(){
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ctx.save();ctx.translate(width/2,height/2);ctx.scale(state.camera.zoom,state.camera.zoom);ctx.translate(-state.camera.x,-state.camera.y);
-    drawTerrain();drawTurretRanges();drawTracks();drawBase();drawStructures();drawSelection();drawTrains();drawEnemies();drawEffects();drawHover();drawWorldMessages();ctx.restore();
+    drawTerrain();drawTurretRanges();drawTracks();drawTrainStops();drawGhosts();drawHives();drawBase();drawStructures();drawSelection();drawTrains();drawEnemies();drawEffects();drawHover();drawWorldMessages();ctx.restore();
   }
 
   function hpBlock(object){const ratio=clamp(object.hp/object.maxHp*100,0,100);return `<div class="status-bar"><span style="width:${ratio}%"></span></div><div class="status-caption"><span>HIT POINTS</span><span>${Math.ceil(object.hp)} / ${object.maxHp}</span></div>`;}
   function energyBlock(object){const ratio=clamp(object.energy/object.maxEnergy*100,0,100);return `<div class="status-bar energy"><span style="width:${ratio}%"></span></div><div class="status-caption"><span>ENERGY</span><span>${Math.floor(object.energy)} / ${object.maxEnergy}</span></div>`;}
   function resourceBlock(node){const ratio=clamp(node.amount/node.maxAmount*100,0,100);return `<div class="status-bar resource"><span style="width:${ratio}%"></span></div><div class="status-caption"><span>RESOURCE UNITS</span><span>${Math.floor(node.amount)} / ${node.maxAmount}</span></div>`;}
   function cargoHtml(train){if(!train.wagons.length)return `<div class="action-note">No cargo wagons attached.</div>`;return `<div class="cargo-list">${train.wagons.map((w,i)=>`<div class="cargo-row ${w.type||"empty"}"><i></i><span>Wagon ${i+1} · ${w.type?resourceLabel(w.type).toUpperCase():"EMPTY"}</span><strong>${Math.floor(w.amount)} / ${w.capacity}</strong></div>`).join("")}</div>`;}
-  function baseInventoryHtml(){return `<div class="cargo-list"><div class="cargo-row material"><i></i><span>CONSTRUCTION MATERIAL</span><strong>${Math.floor(state.baseMaterial)}</strong></div><div class="cargo-row energy"><i></i><span>ENERGY</span><strong>${Math.floor(state.baseEnergy)}</strong></div><div class="cargo-row stock"><i></i><span>TRACK</span><strong>${state.trackInventory}</strong></div><div class="cargo-row loco"><i></i><span>TRAIN SETS</span><strong>${state.trainInventory}</strong></div></div>`;}
+  function baseInventoryHtml(){return `<div class="cargo-list"><div class="cargo-row material"><i></i><span>CONSTRUCTION MATERIAL</span><strong>${Math.floor(state.baseMaterial)}</strong></div><div class="cargo-row energy"><i></i><span>ENERGY</span><strong>${Math.floor(state.baseEnergy)}</strong></div></div>`;}
   function capitalize(value){return value.charAt(0).toUpperCase()+value.slice(1);}
   function resourceLabel(value){return value==="material"?"Construction Material":"Energy";}
   function button(action,label,cls="btn-quiet",tooltip="",disabled=false){return `<button class="btn ${cls}" data-action="${action}" ${disabled?"disabled aria-disabled=\"true\"":""} ${tooltip?`data-bs-toggle="tooltip" data-bs-placement="left" title="${tooltip}"`:""}>${label}</button>`;}
 
   function selectionHtml(){
     const selected=getSelected();
-    if(!selected)return `<div class="selection-empty">Select the Base, a Train, Track, Turret, Mine, or Resource Node on the map.</div>`;
-    if(selected.type==="base"){const canFabricateTrack=canBaseAfford(COSTS.trackPack),canFabricateTrain=canBaseAfford(COSTS.train);return `<div class="selection-title"><h2>Base</h2></div>${hpBlock(selected)}${baseInventoryHtml()}${state.mode==="deploy"?`<div class="action-note">${state.deploymentHead?"Head selected. Click a highlighted Tail point exactly two connected Track hexes away.":"Click an empty Track hex for the Head, then click a highlighted Tail point. Three connected Track hexes must be clear."}</div>`:""}<div class="panel-actions two">${button("make-track","Fabricate Track Pack",canFabricateTrack?"btn-command":"btn-quiet","Cost: 10 Construction Material. Adds 10 Track to inventory.",!canFabricateTrack)}${button("make-train","Fabricate Train Set",canFabricateTrain?"btn-command":"btn-quiet","Cost: 40 Construction Material. Adds one Locomotive with a Construction Material Wagon and an Energy Wagon.",!canFabricateTrain)}${button("deploy-train","Deploy Train Set",state.trainInventory>0?"btn-command":"btn-quiet","Requires one Train Set and three connected empty Track hexes. Click once for the Head, then click a highlighted point for the Tail.",state.trainInventory<1)}</div>`;}
-    if(selected.wagons){return `<div class="selection-title"><h2>${selected.name}</h2></div>${hpBlock(selected)}<div class="status-bar energy"><span style="width:${selected.fuel/selected.maxFuel*100}%"></span></div><div class="status-caption"><span>LOCOMOTIVE ENERGY</span><span>${selected.fuel.toFixed(1)} / ${selected.maxFuel}</span></div>${cargoHtml(selected)}`;}
-    if(selected.type==="turret")return `<div class="selection-title"><h2>Defense Turret</h2></div><div class="selection-subtitle">Range 4 hexes · Instantly refills from an adjacent stopped train</div>${hpBlock(selected)}${energyBlock(selected)}`;
+    if(!selected)return "";
+    if(selected.type==="base"){const canPlaceTrain=canBaseAfford(COSTS.train)&&state.mode!=="deploy"&&state.nextTrainIndex<26;return `<div class="selection-title"><h2>Base</h2></div>${hpBlock(selected)}${baseInventoryHtml()}${state.mode==="deploy"?`<div class="action-note">${state.deploymentHead?"Head selected. Click a highlighted Tail point exactly two connected Track hexes away.":"Click an empty Track hex for the Head, then click a highlighted Tail point. Three connected Track hexes must be clear."}</div>`:""}<div class="panel-actions">${button("fabricate-place-train","Fabricate and Place Train Set",canPlaceTrain?"btn-command":"btn-quiet","Places one Locomotive with an empty Construction Material Wagon and an empty Energy Wagon using two clicks: Head, then Tail. Maximum 26 trains.&#10;&#10;Costs 30 Construction Material.",!canPlaceTrain)}</div>`;}
+    if(selected.wagons){const adding=state.mode==="schedule"&&state.scheduleTrainId===selected.id,hasStops=(selected.schedule?.length||0)>0,canAdd=!hasStops&&trainStopped(selected)&&!adding;const code=trainScheduleCode(selected);const note=adding?`<div class="action-note">Click Track to add Stop ${code}${selected.schedule.length+1}. Add at least 3 stops, then click ${code}1 again to start.</div>`:"";return `<div class="selection-title"><h2>${selected.name}</h2></div>${hpBlock(selected)}<div class="status-bar energy"><span style="width:${selected.fuel/selected.maxFuel*100}%"></span></div><div class="status-caption"><span>ENERGY</span><span>${selected.fuel.toFixed(1)} / ${selected.maxFuel}</span></div>${cargoHtml(selected)}${note}<div class="panel-actions">${button("clear-schedule","Clear Schedule",hasStops||adding?"btn-danger":"btn-quiet","Clears every stop and stops the train at the next Track hex.",!hasStops&&!adding)}${button("add-schedule","Add Schedule",canAdd?"btn-command":"btn-quiet","Click at least 3 Track stops, then click the first stop again to complete the loop. Maximum 9 stops.",!canAdd)}</div>`;}
+    if(selected.type==="turret")return `<div class="selection-title"><h2>Defense Turret</h2></div><div class="selection-subtitle">Range 4 hexes · Instantly refills when a stopped locomotive is adjacent</div>${hpBlock(selected)}${energyBlock(selected)}`;
     if(selected.type==="mine"){const node=resourceNodeAt(selected.q,selected.r);return `<div class="selection-title"><h2>${resourceLabel(selected.resource)} Mine</h2></div><div class="selection-subtitle">An adjacent stopped locomotive instantly loads available output</div>${hpBlock(selected)}${resourceBlock(node)}`;}
     if(selected.type==="node")return `<div class="selection-title"><h2>${resourceLabel(selected.resource)} Node</h2></div>${resourceBlock(selected)}<div class="selection-subtitle">Build a Mine here to extract its resources</div>`;
+    if(selected.type==="hive"){const rate=hiveSpawnRate();return `<div class="selection-title"><h2>Hive</h2></div><div class="selection-subtitle">Produces ${rate} ${rate===1?"Creep":"Creeps"} per minute · Fibonacci rate increases at 2, 3, 5, 8, 13, and 21 minutes · Each scheduled spawn has a 1 in ${rate} chance to create a nearby Hive instead</div>${hpBlock(selected)}`;}
+    if(selected.type==="ghost"){const name=selected.objectType==="track"?"Track":selected.objectType==="turret"?"Defense Turret":`${resourceLabel(selected.resource)} Mine`;return `<div class="selection-title"><h2>Destroyed ${name}</h2></div><div class="selection-subtitle">Stops being a ghost when a locomotive carrying ${REBUILD_COSTS[selected.objectType]} Construction Material stops adjacent to it</div>`;}
     if(selected.maxHp===10)return `<div class="selection-title"><h2>Rail Section</h2></div>${hpBlock(selected)}`;
     return `<div class="selection-empty">Unknown selection.</div>`;
   }
 
   function updateUI(force=false){
-    ui.waveNumber.textContent=state.wave;ui.waveTimer.textContent=formatTime(Math.max(0,state.waveClock));ui.threatFill.style.width=`${Math.min(100,state.enemies.length*7)}%`;ui.soundToggle.textContent=state.sound?"SOUND":"MUTED";
-    const center=worldToAxial(state.camera.x,state.camera.y);ui.sectorLabel.textContent=`${center.q} · ${center.r}`;
+    ui.soundToggle.textContent=state.sound?"SOUND":"MUTED";ui.hivesNeutralized.textContent=state.hivesNeutralized;ui.creepsNeutralized.textContent=state.creepsNeutralized;ui.timeSurvived.textContent=formatSurvivalTime(state.elapsed);
     const selectionMarkup=selectionHtml();
     if(force||selectionMarkup!==selectionCache){disposeTooltips(selectionContent);selectionContent.innerHTML=selectionMarkup;selectionCache=selectionMarkup;initializeTooltips(selectionContent);}
   }
@@ -1106,12 +1548,16 @@
     if(structure){ui.hoverTitle.textContent=structure.type==="base"?"Base":structure.type==="turret"?"Defense Turret":`${resourceLabel(structure.resource)} Mine`;const node=structure.type==="mine"?resourceNodeAt(q,r):null;ui.hoverDetail.textContent=`Hit Points ${Math.ceil(structure.hp)}/${structure.maxHp}${structure.energy!==undefined?` · Energy ${Math.floor(structure.energy)}/${structure.maxEnergy}`:""}${node?` · Resource ${Math.floor(node.amount)}/${node.maxAmount}`:""}`;return;}
     const track=state.tracks.get(key(q,r));
     if(track){ui.hoverTitle.textContent="Track";ui.hoverDetail.textContent=`Hit Points ${Math.ceil(track.hp)}/${track.maxHp}`;return;}
+    const ghost=ghostAt(q,r);
+    if(ghost){const name=ghost.objectType==="track"?"Track":ghost.objectType==="turret"?"Defense Turret":`${resourceLabel(ghost.resource)} Mine`;ui.hoverTitle.textContent=`Destroyed ${name}`;ui.hoverDetail.textContent=`Requires ${REBUILD_COSTS[ghost.objectType]} Construction Material in an adjacent stopped locomotive to rebuild`;return;}
+    const hive=hiveAt(q,r);
+    if(hive){const rate=hiveSpawnRate();ui.hoverTitle.textContent="Hive";ui.hoverDetail.textContent=`Hit Points ${Math.ceil(hive.hp)}/${hive.maxHp} · ${rate} ${rate===1?"Creep":"Creeps"} per minute`;return;}
     const terrain=terrainAt(q,r);
     if(terrain.type==="resource"){const node=resourceNodeAt(q,r);ui.hoverTitle.textContent=`${resourceLabel(terrain.resource)} Node`;ui.hoverDetail.textContent=`${Math.floor(node.amount)} / ${node.maxAmount} Units Remaining`;return;}
-    ui.hoverTitle.textContent=terrain.type==="water"?"Body of Water":terrain.type==="rock"?"Mountain":capitalize(terrain.type);ui.hoverDetail.textContent=terrain.type==="ground"?"Clear · Passable And Buildable":"Impassable Terrain";
+    ui.hoverTitle.textContent=terrain.type==="water"?"Body of Water":terrain.type==="rock"?"Mountain":terrain.type==="trees"?"Trees":capitalize(terrain.type);ui.hoverDetail.textContent=terrain.type==="ground"?"Clear terrain":"Impassable terrain";
   }
 
-  function formatTime(seconds){const s=Math.max(0,Math.ceil(seconds)),m=Math.floor(s/60);return `${String(m).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;}
+  function formatSurvivalTime(seconds){const total=Math.max(0,Math.floor(seconds)),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60);return `${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}:${String(total%60).padStart(2,"0")}`;}
 
   canvas.addEventListener("pointerdown",e=>{sounds.init();canvas.setPointerCapture(e.pointerId);const p=state.pointer;p.down=true;p.moved=false;p.startX=p.x=e.clientX;p.startY=p.y=e.clientY;p.camX=state.camera.x;p.camY=state.camera.y;canvas.focus();});
   canvas.addEventListener("pointermove",e=>{state.hover=screenToHex(e.clientX,e.clientY);updateHoverStatus(state.hover);const p=state.pointer;if(!p.down)return;p.x=e.clientX;p.y=e.clientY;const dx=p.x-p.startX,dy=p.y-p.startY;if(Math.hypot(dx,dy)>4)p.moved=true;if(p.moved){state.camera.x=p.camX-dx/state.camera.zoom;state.camera.y=p.camY-dy/state.camera.zoom;canvas.style.cursor="grabbing";}});
@@ -1123,8 +1569,9 @@
   document.addEventListener("keydown",e=>{if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="5"){setMode(["select","track","turret","mine","salvage"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
   document.querySelectorAll("[data-mode]").forEach(button=>button.addEventListener("click",()=>sounds.init()));
   ui.soundToggle.addEventListener("click",()=>{state.sound=!state.sound;sounds.enabled=state.sound;if(state.sound)sounds.place();updateUI(true);});
-  ui.restartButton.addEventListener("click",()=>{state=makeInitialState();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");updateHoverStatus(null);setMode("select");toast("New Sector Initialized.","info");});
+  ui.restartButton.addEventListener("click",()=>{state=makeInitialState();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");updateHoverStatus(null);setMode("select");toast("New Game Started.","info");});
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden){const now=Date.now();advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;resetPerformanceMetrics();render();}});
   window.addEventListener("resize",resize);
   ui.gameOver.hidden=true;resize();initializeTooltips();updateHoverStatus(null);updateUI(true);
-  function frame(now){const dt=Math.min(.05,(now-lastTime)/1000);lastTime=now;update(dt);render();requestAnimationFrame(frame);}requestAnimationFrame(frame);
+  function frame(frameTime){const now=Date.now(),ticks=advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;const rendered=ticks>0;if(rendered)render();recordPerformance(frameTime,ticks,rendered);requestAnimationFrame(frame);}requestAnimationFrame(frame);
 })();

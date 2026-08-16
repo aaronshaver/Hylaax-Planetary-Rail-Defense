@@ -14,12 +14,13 @@
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
       <div class="hud top-left">
-        <div class="eyebrow">SECTOR <span id="sectorLabel">0 · 0</span></div>
-        <div class="d-flex align-items-baseline gap-3">
-          <div class="wave-label">WAVE <span id="waveNumber">0</span></div>
-          <div class="countdown" id="waveTimer">00:24</div>
-        </div>
-        <div class="threat-track"><span id="threatFill"></span></div>
+        <div class="hud-stat">Hives Neutralized: <strong id="hivesNeutralized">0</strong></div>
+        <div class="hud-stat">Creeps Neutralized: <strong id="creepsNeutralized">0</strong></div>
+        <div class="hud-stat">Time Survived: <strong id="timeSurvived">00:00:00</strong></div>
+      </div>
+
+      <div id="performanceStatus" class="hud performance-status bottom-left" aria-label="Simulation and rendering performance">
+        TPS <strong id="tpsValue">0</strong> · FPS <strong id="fpsValue">0</strong>
       </div>
 
       <div id="hoverStatus" class="hud hover-status bottom-right d-none" aria-live="polite">
@@ -32,8 +33,16 @@
         <div class="game-over-card">
           <div class="eyebrow text-danger">BASE LOST</div>
           <h1>THE BIOMASS BROKE THROUGH</h1>
-          <p>Sector Survival Time: <span id="survivalTime">0:00</span></p>
-          <button id="restartButton" class="btn btn-danger">Restart Sector</button>
+          <div class="defeat-stats">
+            <div><span>Survival Time</span><strong id="survivalTime">00:00:00</strong></div>
+            <div><span>Hives Neutralized</span><strong id="defeatHivesNeutralized">0</strong></div>
+            <div><span>Creeps Neutralized</span><strong id="defeatCreepsNeutralized">0</strong></div>
+            <div><span>Track Laid</span><strong id="defeatTracksLaid">0</strong></div>
+            <div><span>Mines Built</span><strong id="defeatMinesBuilt">0</strong></div>
+            <div><span>Turrets Built</span><strong id="defeatTurretsBuilt">0</strong></div>
+            <div><span>Train Sets Constructed</span><strong id="defeatTrainsBuilt">0</strong></div>
+          </div>
+          <button id="restartButton" class="btn btn-danger">Start New Game</button>
         </div>
       </div>
     </section>
@@ -52,10 +61,10 @@
       <section class="panel-section tools-section">
         <div class="section-label">ACTIONS</div>
         <div class="tool-grid" role="group" aria-label="Actions">
-          <button class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="Select units and structures. With a train selected, click connected track to dispatch it."><span class="keycap">1</span>Select Object</button>
-          <button class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Click existing Track to choose a start. Click adjacent empty hexes to add Track, or adjacent existing Track to connect and close loops. Click non-adjacent existing Track to choose a new start. Uses one Track per new hex. Tight triangles are not allowed."><span class="keycap">2</span>Build Track</button>
-          <button class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Build within three hexes of track. Costs 6 Construction Material and 6 Energy from Base inventory."><span class="keycap">3</span>Build Turret</button>
-          <button class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Place a Mine on top of an existing finite 1,000-unit Resource Node within three hexes of Track. Costs 8 Construction Material and 4 Energy from Base inventory."><span class="keycap">4</span>Build Mine</button>
+          <button class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="Select units and structures. Select a Train to create or clear its automatic schedule."><span class="keycap">1</span>Select Object</button>
+          <button class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Click existing Track to choose a start, then click adjacent empty hexes to build or adjacent existing Track to connect and close loops. Click non-adjacent existing Track to choose a new start. Tight triangles are not allowed.&#10;&#10;Costs 1 Construction Material per new Track hex."><span class="keycap">2</span>Build Track</button>
+          <button class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Build within three hexes of Track.&#10;&#10;Costs 6 Construction Material from Base inventory."><span class="keycap">3</span>Build Turret</button>
+          <button class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Place a Mine on top of an existing finite Resource Node within three hexes of Track.&#10;&#10;Costs 8 Construction Material from Base inventory."><span class="keycap">4</span>Build Mine</button>
           <button class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="Salvage track, turret, or mine. Recovered resources return to Base inventory."><span class="keycap">5</span>Salvage Object</button>
         </div>
       </section>
