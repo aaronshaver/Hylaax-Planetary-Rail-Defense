@@ -15,13 +15,15 @@
   const INITIAL_HIVE_COUNT = 2;
   const ENEMY_SPEED = .38;
   const SIMULATION_STEP = 1 / 60;
+  const TRACK_HIT_POINTS = 1;
+  const REPAIR_PAUSE_SECONDS = 1;
   const TURRET_RANGE = 4;
   const COMBAT_TRAIN_RANGE = 6;
   const HIVE_LEVELS = [2,3,5,8,13,21];
   const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
   const COSTS = {
     train: { material: 30, energy: 0 },
-    turret: { material: 10, energy: 0 },
+    turret: { material: 10, energy: 5 },
     mine: { material: 8, energy: 0 }
   };
   const REBUILD_COSTS = { track: 1, turret: 10, mine: 8 };
@@ -31,7 +33,7 @@
     "hivesNeutralized", "creepsNeutralized", "timeSurvived", "hivesInWorld", "creepsInWorld",
     "pauseToggle", "soundToggle",
     "hoverStatus", "hoverTitle", "hoverDetail", "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
-    "confirmDialog", "confirmMessage", "confirmYes", "confirmNo",
+    "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersContinue",
     "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt"
   ].map(id => [id, document.getElementById(id)]));
 
@@ -148,7 +150,7 @@
     const [dq,dr]=DIRECTIONS[mapSeed%DIRECTIONS.length];
     const initialTrack=[1,2,3].map(distance=>({q:dq*distance,r:dr*distance}));
     const tracks = new Map();
-    initialTrack.forEach(({q,r}) => tracks.set(key(q,r), { q, r, hp: 10, maxHp: 10, links: new Set() }));
+    initialTrack.forEach(({q,r}) => tracks.set(key(q,r), { q, r, hp: TRACK_HIT_POINTS, maxHp: TRACK_HIT_POINTS, links: new Set() }));
     for(let index=0;index<initialTrack.length-1;index++){
       tracks.get(key(initialTrack[index].q,initialTrack[index].r)).links.add(key(initialTrack[index+1].q,initialTrack[index+1].r));
       tracks.get(key(initialTrack[index+1].q,initialTrack[index+1].r)).links.add(key(initialTrack[index].q,initialTrack[index].r));
@@ -180,8 +182,8 @@
       worldMessages: [],
       trains: [{
         id: "train-1", name: trainName(0,"builder"), code: trainCode(0), trainType: "builder", q: locoPosition.q, r: locoPosition.r, x: p.x, y: p.y,
-        route: [], progress: 0, speed: 2.25, stepFrom: null, stepTo: null,
-        schedule: [], scheduleComplete: false, scheduleTargetIndex: 0, servicingStop: false, stopHoldUntil: 0, scheduleRetryAt: 0, energyDepleted: false,
+        route: [], routePurpose: null, progress: 0, speed: 2.25, stepFrom: null, stepTo: null,
+        schedule: [], scheduleComplete: false, scheduleTargetIndex: 0, servicingStop: false, stopHoldUntil: 0, scheduleRetryAt: 0, repairHoldUntil: 0, repairResumeStatus: null, energyDepleted: false, nextEnergyWarningAt: 0,
         forwardDirection: { q: dq, r: dr },
         fuel: 20, maxFuel: 20, hp: 28, maxHp: 28, status: "Idle",
         wagons: [
@@ -193,7 +195,7 @@
       enemies: [],
       projectiles: [],
       particles: [],
-      baseMaterial: 70,
+      baseMaterial: 100,
       baseEnergy: 48,
       selected: { type: "base", id: "base" },
       trackStart: null,
@@ -267,6 +269,7 @@
   let selectionCache = "";
   let enemyNavigationVersion=0;
   let enemyNavigationCache={signature:"",distances:new Map(),targetKeys:new Set(),bounds:null,builds:0};
+  let remindersOpen=true;
 
   class SoundBank {
     constructor() { this.audio = null; this.enabled = true; this.lastShot = 0; this.lastHit = 0; }
@@ -340,6 +343,8 @@
   }
 
   function ghostAt(q,r){return state.ghosts.get(key(q,r))||null;}
+
+  function trackGhostAt(q,r){const ghost=ghostAt(q,r);return ghost?.objectType==="track"?ghost:null;}
 
   function resourceNodeAt(q,r) {
     const terrain=terrainAt(q,r);
@@ -424,6 +429,15 @@
     return track ? [...track.links].map(fromKey) : [];
   }
 
+  function conceptualTrackNeighbors(q,r){
+    const positionKey=key(q,r),linked=new Set();
+    const track=state.tracks.get(positionKey),ghost=trackGhostAt(q,r);
+    for(const linkedKey of track?.links||[])linked.add(linkedKey);
+    for(const linkedKey of ghost?.links||[])linked.add(linkedKey);
+    for(const candidate of state.ghosts.values())if(candidate.objectType==="track"&&(candidate.links||[]).includes(positionKey))linked.add(candidate.id);
+    return [...linked].filter(linkedKey=>state.tracks.has(linkedKey)||state.ghosts.get(linkedKey)?.objectType==="track").map(fromKey);
+  }
+
   function tracksAreLinked(a, b) {
     return state.tracks.get(key(a.q,a.r))?.links.has(key(b.q,b.r)) || false;
   }
@@ -448,6 +462,14 @@
     return state.trains.find(train=>train.id!==excludeTrainId&&(train.schedule||[]).some(stop=>stop.q===q&&stop.r===r))||null;
   }
 
+  function scheduleStopAt(q,r){
+    for(const train of state.trains){
+      const index=(train.schedule||[]).findIndex(stop=>stop.q===q&&stop.r===r);
+      if(index>=0)return {train,index};
+    }
+    return null;
+  }
+
   function curveIsExtreme(start, end) {
     return connectedTrackNeighbors(start.q,start.r).some(neighbor=>tracksAreLinked(neighbor,end));
   }
@@ -464,9 +486,9 @@
 
   function placeTrackOverGhost(ghost){
     if(!payBase({material:1,energy:0},"Track"))return null;
-    const ghostKey=key(ghost.q,ghost.r),rebuilt={q:ghost.q,r:ghost.r,hp:10,maxHp:10,links:new Set()};
+    const ghostKey=key(ghost.q,ghost.r),rebuilt={q:ghost.q,r:ghost.r,hp:TRACK_HIT_POINTS,maxHp:TRACK_HIT_POINTS,links:new Set()};
     state.tracks.set(ghostKey,rebuilt);
-    for(const linkedKey of ghost.links||[]){const neighbor=state.tracks.get(linkedKey);if(neighbor){rebuilt.links.add(linkedKey);neighbor.links.add(ghostKey);}}
+    for(const linkedKey of ghost.links||[]){const neighbor=state.tracks.get(linkedKey);if(neighbor){rebuilt.links.add(linkedKey);neighbor.links.add(ghostKey);}else{const neighborGhost=state.ghosts.get(linkedKey);if(neighborGhost?.objectType==="track"&&!neighborGhost.links.includes(ghostKey))neighborGhost.links.push(ghostKey);}}
     state.ghosts.delete(ghostKey);
     invalidateEnemyNavigation();
     if(state.selected?.type==="ghost"&&state.selected.id===ghostKey)state.selected={type:"track",id:ghostKey};
@@ -511,7 +533,7 @@
     if(curveIsExtreme(start,destination))return fail("Train curves cannot be that extreme");
     if(isNew){
       if(isTrackGhost){if(!placeTrackOverGhost(destinationGhost))return;}
-      else {if(!payBase({material:1,energy:0},"Track"))return;state.tracks.set(destinationKey,{q,r,hp:10,maxHp:10,links:new Set()});state.stats.tracksLaid++;invalidateEnemyNavigation();}
+      else {if(!payBase({material:1,energy:0},"Track"))return;state.tracks.set(destinationKey,{q,r,hp:TRACK_HIT_POINTS,maxHp:TRACK_HIT_POINTS,links:new Set()});state.stats.tracksLaid++;invalidateEnemyNavigation();}
     }
     linkTracks(start,destination);
     state.trackStart=destination;
@@ -667,7 +689,7 @@
     const [head,firstWagon]=path,hp=axialToWorld(head.q,head.r),firstPoint=axialToWorld(firstWagon.q,firstWagon.r);
     const heading=Math.atan2(hp.y-firstPoint.y,hp.x-firstPoint.x),trainIndex=state.nextTrainIndex++,code=trainCode(trainIndex),roles=trainType==="combat"?["energy"]:["material","energy"];
     const wagons=roles.map((role,index)=>{const position=path[index+1],point=axialToWorld(position.q,position.r);return {id:`wagon-${state.nextId++}`,kind:"wagon",q:position.q,r:position.r,x:point.x,y:point.y,heading,role,type:role,amount:0,capacity:30,hp:18,maxHp:18};});
-    const train={id:`train-${state.nextId++}`,name:trainName(trainIndex,trainType),code,trainType,q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,energyDepleted:false,forwardDirection:{q:head.q-firstWagon.q,r:head.r-firstWagon.r},fuel:10,maxFuel:20,hp:28,maxHp:28,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
+    const train={id:`train-${state.nextId++}`,name:trainName(trainIndex,trainType),code,trainType,q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],routePurpose:null,progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,repairHoldUntil:0,repairResumeStatus:null,energyDepleted:false,nextEnergyWarningAt:0,forwardDirection:{q:head.q-firstWagon.q,r:head.r-firstWagon.r},fuel:10,maxFuel:20,hp:28,maxHp:28,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
     state.trains.push(train);state.stats.trainsBuilt++;clearDeploymentReservation();sounds.place();select("train",train.id);setMode("select");toast(`${train.name} Deployed.`,"info");
   }
 
@@ -697,6 +719,37 @@
     const path=[];
     for (let index=goalIndex; nodes[index].parent>=0; index=nodes[index].parent) path.push({q:nodes[index].q,r:nodes[index].r});
     return path.reverse();
+  }
+
+  function findConceptualTrackPath(start,goal){
+    if(!isRailHex(goal.q,goal.r)&&!trackGhostAt(goal.q,goal.r))return null;
+    const initialDirection=start.wagons?.length?{q:start.q-start.wagons[0].q,r:start.r-start.wagons[0].r}:start.forwardDirection;
+    const nodes=[{q:start.q,r:start.r,parent:-1,dq:initialDirection?.q??null,dr:initialDirection?.r??null}],queue=[0];
+    const visited=new Set([`${start.q},${start.r}|${initialDirection?.q??"x"},${initialDirection?.r??"x"}`]);
+    let cursor=0,goalIndex=-1;
+    while(cursor<queue.length&&nodes.length<3500){
+      const nodeIndex=queue[cursor++],current=nodes[nodeIndex];
+      if(current.q===goal.q&&current.r===goal.r){goalIndex=nodeIndex;break;}
+      for(const next of conceptualTrackNeighbors(current.q,current.r)){
+        const dq=next.q-current.q,dr=next.r-current.r;
+        if(current.dq!==null&&dq===-current.dq&&dr===-current.dr)continue;
+        const visitKey=`${next.q},${next.r}|${dq},${dr}`;
+        if(visited.has(visitKey))continue;
+        visited.add(visitKey);nodes.push({q:next.q,r:next.r,parent:nodeIndex,dq,dr});queue.push(nodes.length-1);
+      }
+    }
+    if(goalIndex<0)return null;
+    const path=[];
+    for(let index=goalIndex;nodes[index].parent>=0;index=nodes[index].parent)path.push({q:nodes[index].q,r:nodes[index].r});
+    return path.reverse();
+  }
+
+  function repairApproachFor(train,target){
+    const conceptualPath=findConceptualTrackPath(train,target);
+    if(!conceptualPath)return null;
+    const breakIndex=conceptualPath.findIndex(position=>trackGhostAt(position.q,position.r));
+    if(breakIndex<0)return null;
+    return {ghost:trackGhostAt(conceptualPath[breakIndex].q,conceptualPath[breakIndex].r),path:conceptualPath.slice(0,breakIndex)};
   }
 
   function scheduleLoopIsReachable(train){
@@ -737,8 +790,8 @@
   }
 
   function clearTrainSchedule(train){
-    train.schedule=[];train.scheduleComplete=false;train.scheduleTargetIndex=0;train.servicingStop=false;train.stopHoldUntil=0;train.scheduleRetryAt=0;
-    if(train.stepFrom&&train.route.length)train.route=[train.route[0]];else train.route=[];
+    train.schedule=[];train.scheduleComplete=false;train.scheduleTargetIndex=0;train.servicingStop=false;train.stopHoldUntil=0;train.scheduleRetryAt=0;train.repairHoldUntil=0;train.repairResumeStatus=null;
+    if(train.stepFrom&&train.route.length)train.route=[train.route[0]];else train.route=[];train.routePurpose=null;
     train.status=train.stepFrom?"Stopping at next hex":"Idle";
     if(state.scheduleTrainId===train.id)state.scheduleTrainId=null;
     state.mode="select";
@@ -747,7 +800,7 @@
   }
 
   function startScheduledLeg(train){
-    if(!train.scheduleComplete||!trainStopped(train)||state.elapsed<train.scheduleRetryAt)return false;
+    if(!train.scheduleComplete||!trainStopped(train)||state.elapsed<train.scheduleRetryAt||state.elapsed<(train.repairHoldUntil||0))return false;
     if(train.energyDepleted){
       if(train.fuel<=.15&&totalCargo(train,"energy")<=0){train.status="Stuck — no Energy";return false;}
       train.energyDepleted=false;
@@ -760,14 +813,22 @@
       return true;
     }
     const path=findPath(train,target);
-    if(!path?.length){train.status="Schedule blocked";train.scheduleRetryAt=state.elapsed+1;return false;}
-    train.route=path;train.progress=0;train.stepFrom=null;train.stepTo=null;train.servicingStop=false;train.status="En route";
+    if(!path?.length){
+      const approach=repairApproachFor(train,target);
+      if(!approach){train.status="Schedule blocked";train.scheduleRetryAt=state.elapsed+1;return false;}
+      if(totalCargo(train,"material")<REBUILD_COSTS.track){train.status="Schedule blocked — needs Construction Material";train.scheduleRetryAt=state.elapsed+1;return false;}
+      if(!approach.path.length){train.status="Waiting to rebuild Track";train.scheduleRetryAt=state.elapsed+.1;return false;}
+      train.route=approach.path;train.routePurpose="repair";train.progress=0;train.stepFrom=null;train.stepTo=null;train.servicingStop=false;train.status="En route to repair Track";
+      sounds.dispatch();return true;
+    }
+    train.route=path;train.routePurpose="schedule";train.progress=0;train.stepFrom=null;train.stepTo=null;train.servicingStop=false;train.status="En route";
     sounds.dispatch();return true;
   }
 
   function updateTrainSchedules(){
     for(const train of state.trains){
       if(!train.scheduleComplete||!trainStopped(train))continue;
+      if(state.elapsed<(train.repairHoldUntil||0))continue;
       if(train.servicingStop){if(state.elapsed<train.stopHoldUntil)continue;train.servicingStop=false;}
       startScheduledLeg(train);
     }
@@ -873,7 +934,8 @@
     if(activity==="Loaded Turret with Energy")return "#60d5db";
     if(activity==="Mined Construction Material")return "#e6b94a";
     if(activity==="Mined Energy")return "#8aa6ff";
-    if(activity.startsWith("Repairing "))return "#70bd77";
+    if(activity.startsWith("Repaired "))return "#70bd77";
+    if(activity.startsWith("Partially Repaired: "))return "#f0a65a";
     if(activity.startsWith("Rebuilt "))return "#d5a3ff";
     if(activity.startsWith("Unloaded "))return "#ff8b3d";
     return "#bafcff";
@@ -887,34 +949,48 @@
     else state.worldMessages.push({targetKey,q:target.q,r:target.r,targetType:target.type,message,color,until:state.elapsed+duration});
   }
 
+  function showTrainEnergyWarning(train){
+    if(!train.energyDepleted||train.fuel>.15||totalCargo(train,"energy")>0)return false;
+    if(state.elapsed<(train.nextEnergyWarningAt??0))return false;
+    showWorldActivity(train,"Train Out of Energy",1.35,"#e34747");
+    train.nextEnergyWarningAt=state.elapsed+2.5;
+    return true;
+  }
+
+  function updateTrainEnergyWarnings(){for(const train of state.trains)showTrainEnergyWarning(train);}
+
   function repairLabel(target) {
     if(target.type==="base")return "Base";
     if(target.type==="turret")return "Turret";
-    if(target.type==="mine")return `${resourceLabel(target.resource)} Mine`;
+    if(target.type==="mine")return "Mine";
     return "Track";
   }
 
   function repairPriority(target){return state.tracks.get(key(target.q,target.r))===target?0:1;}
 
   function updateAutomaticRepair(train) {
-    if(!trainStopped(train)||totalCargo(train,"material")<=0)return;
+    if(train.stepFrom||state.elapsed<(train.repairHoldUntil||0)||totalCargo(train,"material")<=0)return false;
+    if(!train.route.length&&!train.scheduleComplete)return false;
+    const nextTrackKey=train.route[0]?key(train.route[0].q,train.route[0].r):null;
     const targets=[state.base,...state.structures.values(),...state.tracks.values()]
       .filter(target=>target.hp<target.maxHp&&hexDistance(train,target)<=1)
-      .sort((a,b)=>repairPriority(a)-repairPriority(b)||hexDistance(train,a)-hexDistance(train,b)||(a.hp/a.maxHp)-(b.hp/b.maxHp));
-    for(const target of targets){
-      const repaired=Math.min(target.maxHp-target.hp,totalCargo(train,"material"));
-      if(repaired<=0)break;
-      removeCargo(train,"material",repaired);target.hp+=repaired;
-      showWorldActivity(target,`${trainActivityName(train)} Repairing ${repairLabel(target)}`,1.25);
-    }
+      .sort((a,b)=>Number(key(b.q,b.r)===nextTrackKey&&repairPriority(b)===0)-Number(key(a.q,a.r)===nextTrackKey&&repairPriority(a)===0)||repairPriority(a)-repairPriority(b)||hexDistance(train,a)-hexDistance(train,b)||(a.hp/a.maxHp)-(b.hp/b.maxHp));
+    const target=targets[0];
+    if(!target)return false;
+    const isTrack=state.tracks.get(key(target.q,target.r))===target;
+    const missing=target.maxHp-target.hp,available=totalCargo(train,"material");
+    const materialCost=isTrack?1:Math.min(missing,available);
+    if(materialCost<=0)return false;
+    removeCargo(train,"material",materialCost);target.hp=isTrack?target.maxHp:Math.min(target.maxHp,target.hp+materialCost);
+    const fullyRepaired=target.hp>=target.maxHp-.0001,label=repairLabel(target);
+    train.repairResumeStatus=train.status;train.repairHoldUntil=state.elapsed+REPAIR_PAUSE_SECONDS;train.status=`Repairing ${label}`;
+    showWorldActivity(target,`${trainActivityName(train)} ${fullyRepaired?`Repaired ${label}`:`Partially Repaired: ${label}`}`,1.25);
+    return true;
   }
 
   function updateAutomaticLogistics() {
     const cargoChangedTrains=new Set();
     updateAutomaticRebuild();
-    for(const train of state.trains){
-      updateAutomaticRepair(train);
-    }
     for(const structure of state.structures.values()){
       if(structure.type!=="mine")continue;
       const train=nearestStoppedLoco(structure,1,candidate=>candidate.trainType!=="combat");
@@ -969,14 +1045,16 @@
 
   function updateTrains(dt) {
     for (const train of state.trains) {
+      if(state.elapsed<(train.repairHoldUntil||0))continue;
+      if(train.repairHoldUntil){train.repairHoldUntil=0;train.status=train.repairResumeStatus||(train.route.length?"En route":"Idle");train.repairResumeStatus=null;}
+      if(!train.stepFrom&&updateAutomaticRepair(train))continue;
       if (!train.route.length) continue;
       if (!train.stepFrom && train.fuel <= .15) {
         const pulled = removeCargo(train,"energy",1);
         if (pulled > 0) {train.fuel += pulled;train.energyDepleted=false;}
         else {
-          train.route = []; train.stepFrom = null; train.stepTo = null; train.status = "Stuck — no Energy";
-          if(!train.energyDepleted)fail(`${train.name} is out of Energy.`);
-          train.energyDepleted=true;
+          train.route = []; train.routePurpose=null; train.stepFrom = null; train.stepTo = null; train.status = "Stuck — no Energy";
+          train.energyDepleted=true;showTrainEnergyWarning(train);
           continue;
         }
       }
@@ -1000,7 +1078,10 @@
         train.route.shift(); train.progress = 0; train.fuel = Math.max(0,train.fuel - .18);
         train.stepFrom = null; train.stepTo = null;
         if (!train.route.length) {
-          if(train.scheduleComplete){
+          const completedPurpose=train.routePurpose;train.routePurpose=null;
+          if(completedPurpose==="repair"){
+            train.status="Waiting to rebuild Track";train.scheduleRetryAt=state.elapsed;
+          }else if(train.scheduleComplete){
             const reached=train.scheduleTargetIndex;
             train.servicingStop=true;train.stopHoldUntil=state.elapsed+1;train.scheduleTargetIndex=(reached+1)%train.schedule.length;train.status=`At Stop ${trainScheduleCode(train)}${reached+1}`;
           }else train.status="Idle";
@@ -1030,9 +1111,13 @@
       train.route=[]; train.status="Stuck — train blocks itself";
       fail(`${train.name} cannot enter a hex occupied by its own wagons.`); return false;
     }
+    const occupiedBefore=new Set(from.map(position=>key(position.q,position.r)));
     for (const position of to) {
       if (!isRailHex(position.q,position.r)) {
-        train.route=[]; train.status="Stuck — train is too long";
+        if(trackGhostAt(position.q,position.r)&&occupiedBefore.has(key(position.q,position.r)))continue;
+        train.route=[];train.routePurpose=null;
+        if(trackGhostAt(position.q,position.r)){train.status="Waiting to rebuild Track";train.scheduleRetryAt=state.elapsed+.1;return false;}
+        train.status="Stuck — train is too long";
         fail(`${train.name} cannot move that way: every wagon needs track.`); return false;
       }
     }
@@ -1222,7 +1307,10 @@
 
   function leaveGhost(target,objectType){
     const ghost={id:key(target.q,target.r),type:"ghost",objectType,q:target.q,r:target.r};
-    if(objectType==="track")ghost.links=[...target.links];
+    if(objectType==="track"){
+      ghost.links=[...target.links];
+      for(const neighborGhost of state.ghosts.values())if(neighborGhost.objectType==="track"&&(neighborGhost.links||[]).includes(ghost.id)&&!ghost.links.includes(neighborGhost.id))ghost.links.push(neighborGhost.id);
+    }
     if(objectType==="mine")ghost.resource=target.resource;
     state.ghosts.set(ghost.id,ghost);
     return ghost;
@@ -1240,11 +1328,11 @@
     removeCargo(train,"material",cost);
     let rebuilt;
     if(ghost.objectType==="track"){
-      rebuilt={q:ghost.q,r:ghost.r,hp:10,maxHp:10,links:new Set()};
+      rebuilt={q:ghost.q,r:ghost.r,hp:TRACK_HIT_POINTS,maxHp:TRACK_HIT_POINTS,links:new Set()};
       state.tracks.set(ghost.id,rebuilt);
       for(const linkedKey of ghost.links||[]){
         const neighbor=state.tracks.get(linkedKey);
-        if(neighbor){rebuilt.links.add(linkedKey);neighbor.links.add(ghost.id);}
+        if(neighbor){rebuilt.links.add(linkedKey);neighbor.links.add(ghost.id);}else{const neighborGhost=state.ghosts.get(linkedKey);if(neighborGhost?.objectType==="track"&&!neighborGhost.links.includes(ghost.id))neighborGhost.links.push(ghost.id);}
       }
     }else if(ghost.objectType==="turret"){
       rebuilt={id:`turret-${state.nextId++}`,type:"turret",q:ghost.q,r:ghost.r,hp:18,maxHp:18,energy:0,maxEnergy:20,cooldown:0,showRangeUntil:state.elapsed+3.5};
@@ -1425,15 +1513,15 @@
   }
 
   function update(dt) {
-    if(state.gameOver||state.paused)return;
+    if(state.gameOver||state.paused||remindersOpen)return;
     state.elapsed+=dt;
     state.worldMessages=state.worldMessages.filter(item=>item.until>state.elapsed);
-    updateTrains(dt);updateAutomaticLogistics(dt);updateTrainSchedules();updateHives(dt);updateEnemies(dt);if(state.gameOver)return;updateCombatTrains(dt);updateStructures(dt);
+    updateTrains(dt);updateAutomaticLogistics(dt);updateTrainEnergyWarnings();updateTrainSchedules();updateHives(dt);updateEnemies(dt);if(state.gameOver)return;updateCombatTrains(dt);updateStructures(dt);
     state.uiClock-=dt;if(state.uiClock<=0){state.uiClock=.15;updateUI();}
   }
 
   function advanceSimulation(seconds){
-    if(state.gameOver||state.paused){simulationAccumulator=0;return 0;}
+    if(state.gameOver||state.paused||remindersOpen){simulationAccumulator=0;return 0;}
     simulationAccumulator+=Math.max(0,seconds);
     let ticks=0;
     while(simulationAccumulator+1e-9>=SIMULATION_STEP&&!state.gameOver){update(SIMULATION_STEP);simulationAccumulator-=SIMULATION_STEP;ticks++;}
@@ -1532,16 +1620,36 @@
         const np=axialToWorld(n.q,n.r);
         const dx=np.x-p.x,dy=np.y-p.y,length=Math.hypot(dx,dy),nx=-dy/length,ny=dx/length;
         ctx.strokeStyle="#0a0d0f";ctx.lineWidth=15;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(np.x,np.y);ctx.stroke();
-        ctx.strokeStyle=track.hp<4?"#743b40":"#4b5559";ctx.lineWidth=3;
+        ctx.strokeStyle=track.hp<track.maxHp?"#743b40":"#4b5559";ctx.lineWidth=3;
         for(let t=.12;t<.9;t+=.16){const x=lerp(p.x,np.x,t),y=lerp(p.y,np.y,t);ctx.beginPath();ctx.moveTo(x-nx*7,y-ny*7);ctx.lineTo(x+nx*7,y+ny*7);ctx.stroke();}
-        ctx.strokeStyle=track.hp<4?"#a84c52":"#aeb9bc";ctx.lineWidth=2.6;
+        ctx.strokeStyle=track.hp<track.maxHp?"#a84c52":"#aeb9bc";ctx.lineWidth=2.6;
         for(const offset of [-4.5,4.5]){ctx.beginPath();ctx.moveTo(p.x+nx*offset,p.y+ny*offset);ctx.lineTo(np.x+nx*offset,np.y+ny*offset);ctx.stroke();}
       }
       ctx.fillStyle="#0a0d0f";ctx.beginPath();ctx.arc(p.x,p.y,7.5,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle=track.hp<4?"#a84c52":"#8f9b9f";ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=track.hp<track.maxHp?"#a84c52":"#8f9b9f";ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,Math.PI*2);ctx.fill();
       const focused=(state.selected?.type==="track"&&state.selected.id===key(track.q,track.r))||(state.hover?.q===track.q&&state.hover?.r===track.r&&!trainAt(track.q,track.r));
-      if(focused)drawMiniBar(p.x-15,p.y-15,30,track.hp/track.maxHp,track.hp<4?"#e34747":"#70bd77");
+      if(focused)drawMiniBar(p.x-15,p.y-15,30,track.hp/track.maxHp,track.hp<track.maxHp?"#e34747":"#70bd77");
     }
+  }
+
+  function drawBuildTrackGlow(){
+    if(state.mode!=="track")return;
+    const pulse=.5+.5*Math.sin(state.elapsed*5.5),color="#b879ff";
+    ctx.save();ctx.globalCompositeOperation="screen";ctx.lineCap="round";ctx.strokeStyle=color;ctx.fillStyle=color;ctx.globalAlpha=.22+pulse*.2;ctx.shadowColor=color;ctx.shadowBlur=12+pulse*12;
+    for(const track of state.tracks.values()){
+      const p=axialToWorld(track.q,track.r);
+      for(const linkedKey of track.links){
+        if(key(track.q,track.r)>linkedKey)continue;
+        const neighbor=fromKey(linkedKey),np=axialToWorld(neighbor.q,neighbor.r);
+        ctx.lineWidth=7+pulse*3;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(np.x,np.y);ctx.stroke();
+      }
+      ctx.beginPath();ctx.arc(p.x,p.y,8+pulse*2,0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=.6+pulse*.3;ctx.shadowBlur=0;ctx.lineWidth=1.4;const markerRadius=8;
+    for(const track of state.tracks.values()){
+      const p=axialToWorld(track.q,track.r);ctx.beginPath();ctx.arc(p.x,p.y,markerRadius,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.restore();
   }
 
   function activeScheduleStops(train){return (train.schedule||[]).map((stop,index)=>({stop,index})).filter(entry=>state.tracks.has(key(entry.stop.q,entry.stop.r)));}
@@ -1557,6 +1665,24 @@
         ctx.fillStyle="#fff1b4";ctx.fillText(label,p.x,p.y+21);ctx.restore();
       });
     }
+  }
+
+  function drawSelectedStopServiceRange(){
+    if(state.selected?.type!=="track")return;
+    const center=fromKey(state.selected.id);
+    if(!scheduleStopAt(center.q,center.r))return;
+    const cells=[center,...neighbors(center.q,center.r)],cellKeys=new Set(cells.map(cell=>key(cell.q,cell.r)));
+    const edgeDirections=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+    ctx.save();ctx.strokeStyle="#70bd77";ctx.lineWidth=1.35;
+    for(const cell of cells){
+      const p=axialToWorld(cell.q,cell.r);
+      edgeDirections.forEach(([dq,dr],side)=>{
+        if(cellKeys.has(key(cell.q+dq,cell.r+dr)))return;
+        const a=HEX_CORNERS[side],b=HEX_CORNERS[(side+1)%6];
+        ctx.beginPath();ctx.moveTo(p.x+HEX*a.x,p.y+HEX*a.y);ctx.lineTo(p.x+HEX*b.x,p.y+HEX*b.y);ctx.stroke();
+      });
+    }
+    ctx.restore();
   }
 
   function drawGhosts(){
@@ -1645,7 +1771,7 @@
   function worldMessagePriority(message){
     const activity=activityText(message);
     if(activity.startsWith("Rebuilt "))return 0;
-    if(activity.startsWith("Repairing "))return 1;
+    if(activity.startsWith("Repaired ")||activity.startsWith("Partially Repaired: "))return 1;
     if(activity==="Mined Construction Material")return 2;
     if(activity==="Mined Energy")return 3;
     if(activity.startsWith("Mined "))return 4;
@@ -1760,7 +1886,7 @@
 
   function render(){
     ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ensureTerrainLayer();ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,0,0,width,height);ctx.save();ctx.translate(width/2,height/2);ctx.scale(state.camera.zoom,state.camera.zoom);ctx.translate(-state.camera.x,-state.camera.y);
-    drawResourceNodes();drawTurretRanges();drawTracks();drawTrainStops();drawGhosts();drawHives();drawBase();drawStructures();drawSelection();drawTrains();drawEnemies();drawEffects();drawHover();drawWorldMessages();ctx.restore();
+    drawResourceNodes();drawTurretRanges();drawTracks();drawSelectedStopServiceRange();drawTrainStops();drawGhosts();drawHives();drawBase();drawStructures();drawSelection();drawTrains();drawBuildTrackGlow();drawEnemies();drawEffects();drawHover();drawWorldMessages();ctx.restore();
   }
 
   function hpBlock(object){const ratio=clamp(object.hp/object.maxHp*100,0,100);return `<div class="status-bar"><span style="width:${ratio}%"></span></div><div class="status-caption"><span>HIT POINTS</span><span>${Math.ceil(object.hp)} / ${object.maxHp}</span></div>`;}
@@ -1792,7 +1918,7 @@
     if(selected.type==="node")return `<div class="selection-title"><h2>${resourceLabel(selected.resource)} Node</h2></div>${resourceBlock(selected)}<div class="selection-subtitle">Build a Mine here to extract its resources</div>`;
     if(selected.type==="hive"){const rate=selected.level;const expansion=hiveExpansionLevel(selected);return `<div class="selection-title"><h2>Level ${rate} Hive</h2></div><div class="selection-subtitle">The two original Hives begin with one forced Creep batch · Expanded Hives immediately make the normal production choice · Each normal choice produces ${rate} Creeps as one batch or has a 1 in ${rate} chance to create one Hive instead · Repeats once per minute · A new Hive is Level ${expansion}, at most one Fibonacci step above its parent · Existing Hives never increase level</div>${hpBlock(selected)}`;}
     if(selected.type==="ghost"){const name=selected.objectType==="track"?"Track":selected.objectType==="turret"?"Turret":`${resourceLabel(selected.resource)} Mine`;return `<div class="selection-title"><h2>Destroyed ${name}</h2></div><div class="selection-subtitle">Stops being a ghost when a locomotive carrying ${REBUILD_COSTS[selected.objectType]} Construction Material stops adjacent to it</div>`;}
-    if(selected.maxHp===10)return `<div class="selection-title"><h2>Track</h2></div>${hpBlock(selected)}`;
+    if(state.tracks.get(key(selected.q,selected.r))===selected){const scheduled=scheduleStopAt(selected.q,selected.r),title=scheduled?`Track with Train Stop ${trainScheduleCode(scheduled.train)}${scheduled.index+1} (Train ${trainScheduleCode(scheduled.train)})`:"Track";return `<div class="selection-title"><h2>${title}</h2></div>${hpBlock(selected)}`;}
     return `<div class="selection-empty">Unknown selection.</div>`;
   }
 
@@ -1828,6 +1954,17 @@
 
   function formatSurvivalTime(seconds){const total=Math.max(0,Math.floor(seconds)),hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60);return `${String(hours).padStart(2,"0")}h${String(minutes).padStart(2,"0")}m${String(total%60).padStart(2,"0")}s`;}
 
+  function showReminders(){
+    remindersOpen=true;simulationAccumulator=0;
+    ui.remindersDialog.hidden=false;ui.remindersDialog.classList.remove("d-none");
+    setTimeout(()=>ui.remindersContinue.focus(),0);
+  }
+
+  function closeReminders(){
+    remindersOpen=false;ui.remindersDialog.hidden=true;ui.remindersDialog.classList.add("d-none");
+    lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();sounds.init();render();
+  }
+
   canvas.addEventListener("pointerdown",e=>{sounds.init();canvas.setPointerCapture(e.pointerId);const p=state.pointer;p.down=true;p.moved=false;p.startX=p.x=e.clientX;p.startY=p.y=e.clientY;p.camX=state.camera.x;p.camY=state.camera.y;canvas.focus();});
   canvas.addEventListener("pointermove",e=>{state.hover=screenToHex(e.clientX,e.clientY);updateHoverStatus(state.hover);const p=state.pointer;if(!p.down){if(state.paused||state.gameOver)render();return;}p.x=e.clientX;p.y=e.clientY;const dx=p.x-p.startX,dy=p.y-p.startY;if(Math.hypot(dx,dy)>4)p.moved=true;if(p.moved){state.camera.x=p.camX-dx/state.camera.zoom;state.camera.y=p.camY-dy/state.camera.zoom;canvas.style.cursor="grabbing";render();}});
   canvas.addEventListener("pointerup",e=>{const p=state.pointer;if(!p.down)return;p.down=false;canvas.style.cursor=state.mode==="select"?"default":"crosshair";if(!p.moved)handleHexClick(screenToHex(e.clientX,e.clientY));});
@@ -1835,17 +1972,18 @@
   canvas.addEventListener("wheel",e=>{e.preventDefault();const rect=canvas.getBoundingClientRect(),sx=e.clientX-rect.left,sy=e.clientY-rect.top;const beforeX=(sx-width/2)/state.camera.zoom+state.camera.x,beforeY=(sy-height/2)/state.camera.zoom+state.camera.y;const factor=Math.exp(-e.deltaY*.0012);state.camera.zoom=clamp(state.camera.zoom*factor,.42,2.15);state.camera.x=beforeX-(sx-width/2)/state.camera.zoom;state.camera.y=beforeY-(sy-height/2)/state.camera.zoom;render();},{passive:false});
 
   document.addEventListener("click",e=>{const modeButton=e.target.closest("[data-mode]");if(modeButton){setMode(modeButton.dataset.mode);return;}const actionButton=e.target.closest("[data-action]");if(actionButton&&!actionButton.disabled)handleAction(actionButton.dataset.action,actionButton);});
-  document.addEventListener("keydown",e=>{if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="5"){setMode(["select","track","turret","mine","salvage"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
+  document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e.key==="Enter")closeReminders();return;}if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="5"){setMode(["select","track","turret","mine","salvage"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
   document.querySelectorAll("[data-mode]").forEach(button=>button.addEventListener("click",()=>sounds.init()));
   ui.pauseToggle.addEventListener("click",()=>{if(state.gameOver)return;state.paused=!state.paused;simulationAccumulator=0;lastWallTime=Date.now();updateUI(true);render();});
   ui.soundToggle.addEventListener("click",()=>{state.sound=!state.sound;sounds.enabled=state.sound;if(state.sound)sounds.place();updateUI(true);});
+  ui.remindersContinue.addEventListener("click",closeReminders);
   ui.confirmNo.addEventListener("click",cancelTrainSalvage);
   ui.confirmYes.addEventListener("click",confirmTrainSalvage);
   ui.viewMapButton.addEventListener("click",showFinalMap);
   ui.viewFinalStats.addEventListener("click",showFinalStats);
-  ui.restartButton.addEventListener("click",()=>{state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");updateHoverStatus(null);setMode("select");toast("New Game Started.","info");});
+  ui.restartButton.addEventListener("click",()=>{state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");updateHoverStatus(null);setMode("select");showReminders();});
   document.addEventListener("visibilitychange",()=>{if(!document.hidden){const now=Date.now();advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;resetPerformanceMetrics();render();}});
   window.addEventListener("resize",resize);
-  ui.gameOver.hidden=true;ui.viewFinalStats.hidden=true;ui.confirmDialog.hidden=true;resize();initializeTooltips();updateHoverStatus(null);updateUI(true);
+  ui.gameOver.hidden=true;ui.viewFinalStats.hidden=true;ui.confirmDialog.hidden=true;resize();initializeTooltips();updateHoverStatus(null);updateUI(true);showReminders();
   function frame(frameTime){const now=Date.now(),ticks=advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;const rendered=ticks>0;if(rendered)render();recordPerformance(frameTime,ticks,rendered);requestAnimationFrame(frame);}requestAnimationFrame(frame);
 })();
