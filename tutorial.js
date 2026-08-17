@@ -4,7 +4,7 @@ const TUTORIAL_MESSAGES = [
   "",
   "Click Build Track in the Actions panel",
   "Click the existing Track (a light gray circle inside a purple outline)",
-  "Click nearby hex tiles to add one more Track segment.\n\nIf at any point you run out of Construction Material, simply use the Salvage Object tool to destroy and reclaim some of your constructions and try again with a more efficient layout.",
+  "Click nearby hex tiles to add one more Track segment.\n\nIf at any point you run out of Construction Material, simply use the Salvage/Clear Object tool to destroy and reclaim some of your constructions and try again with a more efficient layout.",
   "Keep adding Track until you have a complete loop that passes by the Base, an Energy node, and a Construction Material node; it must be a fully closed loop",
   "Click the Base",
   "Click Fabricate and Place Build/Mine Train",
@@ -15,7 +15,7 @@ const TUTORIAL_MESSAGES = [
   "Click on the C and E nodes to add Mines to them",
   "Click Build Turret",
   "Place a Turret one tile away from one of the Train Stops",
-  "That's it!\n\nYou now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to catch your breath at any time."
+  "That's it!\n\nYou now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to pause the game catch your breath at any time."
 ];
 
 function tutorialLocksPause(){return Boolean(state.tutorial?.active);}

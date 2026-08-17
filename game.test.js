@@ -37,17 +37,25 @@ describe("game bootstrap", () => {
     assert.doesNotMatch(html,/per new Track hex/);
   });
 
-  test("the Actions panel exposes Wall and Artillery and keeps Salvage on key 7",()=>{
+  test("the Actions panel exposes Wall and Artillery and keeps Salvage/Clear on key 7",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/data-mode="wall"[^>]*Costs 12 Construction Material and 1 Energy[^>]*><span class="keycap">5<\/span>Build Wall/);
     assert.match(html,/data-mode="artillery"[^>]*Costs 100 Construction Material and 100 Energy[^>]*><span class="keycap">6<\/span>Build Artillery/);
-    assert.match(html,/data-mode="salvage"[^>]*><span class="keycap">7<\/span>Salvage Object/);
+    assert.match(html,/data-mode="salvage"[^>]*Clear destroyed objects without recovering resources[^>]*><span class="keycap">7<\/span>Salvage\/Clear Object/);
     assert.equal((html.match(/Will run out of Energy if not supplied by a Train Stop\./g)||[]).length,2);
   });
 
-  test("the displayed and package versions are 2.5",()=>{
+  test("the small Debug toggle exposes the two Debug menu options",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+    assert.match(html,/id="debugToggle"[^>]*>D<\/button>/);
+    assert.match(html,/id="debugMenu"[^>]*hidden/);
+    assert.match(html,/id="debugDestroyObject"[^>]*data-mode="debug-destroy"[^>]*>Destroy Object<\/button>/);
+    assert.match(html,/id="debugAddBaseResources"[^>]*>Add Base Resources<\/button>/);
+  });
+
+  test("the displayed and package versions are 2.7",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 2\.5/);assert.match(html,/DEFENSE 2\.5/);assert.equal(packageJson.version,"2.5.0");
+    assert.match(html,/Planetary Rail Defense 2\.7/);assert.match(html,/DEFENSE 2\.7/);assert.equal(packageJson.version,"2.7.0");
   });
 });

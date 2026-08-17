@@ -70,6 +70,16 @@ function requireNearbyTrack(target, action) {
   return false;
 }
 
+function nonMineConstructionSite(q,r){
+  const terrain=terrainAt(q,r),node=terrain.type==="resource"?resourceNodeAt(q,r):null;
+  return {terrain:node?.amount<=0?{type:"ground"}:terrain,clearDepletedNode:Boolean(node&&node.amount<=0)};
+}
+
+function replaceDestroyedSite(ghost,site){
+  if(site?.clearDepletedNode)clearDepletedResourceNode(ghost.q,ghost.r);
+  state.ghosts.delete(ghost.id);
+}
+
 function placeTrackOverGhost(ghost){
   if(!payBase(COSTS.track,"Track"))return null;
   const ghostKey=key(ghost.q,ghost.r),rebuilt={q:ghost.q,r:ghost.r,hp:TRACK_HIT_POINTS,maxHp:TRACK_HIT_POINTS,links:new Set()};
@@ -97,6 +107,7 @@ function layTrack(q, r) {
   const destinationGhost=ghostAt(q,r);
   const isTrackGhost=destinationGhost?.objectType==="track";
   const isNew=!state.tracks.has(destinationKey);
+  const destinationSite=nonMineConstructionSite(q,r);
   if(!isNew&&hexDistance(start,destination)!==1){
     state.trackStart=destination;
     toast("New Track Start Selected. Click an adjacent hex to keep building.","info");
@@ -111,14 +122,13 @@ function layTrack(q, r) {
     return;
   }
   if(isNew){
-    if(!isPassable(q,r)||terrainAt(q,r).type==="resource")return fail("Track needs clear ground.");
-    if(destinationGhost&&!isTrackGhost)return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
+    if(!isPassable(q,r)||destinationSite.terrain.type==="resource")return fail("Track needs clear ground.");
     if(structureAt(q,r)||hiveAt(q,r)||trainAt(q,r))return fail("That hex is occupied.");
   }
   if(curveIsExtreme(start,destination))return fail("Train curves cannot be that extreme");
   if(isNew){
     if(isTrackGhost){if(!placeTrackOverGhost(destinationGhost))return;}
-    else {if(!payBase(COSTS.track,"Track"))return;state.tracks.set(destinationKey,{q,r,hp:TRACK_HIT_POINTS,maxHp:TRACK_HIT_POINTS,links:new Set()});state.stats.tracksLaid++;invalidateEnemyNavigation();}
+    else {if(!payBase(COSTS.track,"Track"))return;if(destinationGhost)replaceDestroyedSite(destinationGhost,destinationSite);state.tracks.set(destinationKey,{q,r,hp:TRACK_HIT_POINTS,maxHp:TRACK_HIT_POINTS,links:new Set()});state.stats.tracksLaid++;invalidateEnemyNavigation();}
   }
   linkTracks(start,destination);
   state.trackStart=destination;
@@ -138,6 +148,7 @@ function removeTrack(q, r) {
   if (state.selected?.type === "track" && state.selected.id === k) state.selected = null;
   sounds.remove();
   updateUI(true);
+  toast("Salvaged 1 Construction Material.");
 }
 
 function fail(message) { sounds.error(); toast(message, "danger"); }
@@ -175,10 +186,11 @@ function addCargo(train, type, amount) {
 
 function buildTurret(q, r) {
   if(!liveTrackWithinRange({q,r},3))return fail("Building a turret must be within three hexes of non-destroyed Track.");
-  if(ghostAt(q,r))return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
-  if (!isPassable(q, r) || terrainAt(q, r).type === "resource" || structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("Turrets need clear ground away from track.");
+  const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
+  if (!isPassable(q, r) || site.terrain.type === "resource" || structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("Turrets need clear ground away from track.");
   if(!payBase(COSTS.turret,"Turret"))return;
   const turret = { id: `turret-${state.nextId++}`, type: "turret", q, r, hp: 18, maxHp: 18, energy: 20, maxEnergy: 20, cooldown: 0, showRangeUntil: state.elapsed + 3.5 };
+  if(ghost)replaceDestroyedSite(ghost,site);
   state.structures.set(key(q,r), turret);
   invalidateEnemyNavigation();
   state.stats.turretsBuilt++;
@@ -187,10 +199,11 @@ function buildTurret(q, r) {
 
 function buildWall(q, r) {
   if(!liveTrackWithinRange({q,r},3))return fail("Building a wall must be within three hexes of non-destroyed Track.");
-  if(ghostAt(q,r))return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
-  if(!isPassable(q,r)||terrainAt(q,r).type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Walls need clear ground away from Track.");
+  const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
+  if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Walls need clear ground away from Track.");
   if(!payBase(COSTS.wall,"Wall"))return;
   const wall={id:`wall-${state.nextId++}`,type:"wall",q,r,hp:WALL_HIT_POINTS,maxHp:WALL_HIT_POINTS};
+  if(ghost)replaceDestroyedSite(ghost,site);
   state.structures.set(key(q,r),wall);
   invalidateEnemyNavigation();
   sounds.place();burst(q,r,"#b7c1c5",10);select("structure",wall.id);
@@ -198,45 +211,60 @@ function buildWall(q, r) {
 
 function buildArtillery(q,r){
   if(!liveTrackWithinRange({q,r},3))return fail("Building Artillery must be within three hexes of non-destroyed Track.");
-  if(ghostAt(q,r))return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
-  if(!isPassable(q,r)||terrainAt(q,r).type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Artillery needs clear ground away from Track.");
+  const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
+  if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Artillery needs clear ground away from Track.");
   if(!payBase(COSTS.artillery,"Artillery"))return;
   const artillery={id:`artillery-${state.nextId++}`,type:"artillery",q,r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:ARTILLERY_MAX_ENERGY,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
+  if(ghost)replaceDestroyedSite(ghost,site);
   state.structures.set(key(q,r),artillery);invalidateEnemyNavigation();sounds.place();burst(q,r,"#ef9b54",12);select("structure",artillery.id);
 }
 
 function buildMine(q, r) {
   const terrain = terrainAt(q, r);
   if(!requireNearbyTrack({q,r},"building a mine"))return;
-  if(ghostAt(q,r))return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
+  const ghost=ghostAt(q,r);
   if (terrain.type !== "resource") return fail("Mines must be placed on a resource node.");
   if (structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("That resource node is occupied.");
   if(!payBase(COSTS.mine,"Mine"))return;
   const mine = { id: `mine-${state.nextId++}`, type: "mine", resource: terrain.resource, q, r, hp: 22, maxHp: 22 };
+  if(ghost)state.ghosts.delete(ghost.id);
   state.structures.set(key(q,r), mine);
   invalidateEnemyNavigation();
   state.stats.minesBuilt++;
   sounds.place(); burst(q, r, terrain.resource === "energy" ? "#60d5db" : "#e6b94a", 10); select("structure", mine.id);tutorialEvent("mine-built",{mine});
 }
 
+function clearDepletedResourceNode(q,r){
+  const node=resourceNodeAt(q,r);
+  if(!node||node.amount>0)return false;
+  const nodeKey=key(q,r);
+  state.clearedResourceNodes.add(nodeKey);state.nodeResources.delete(nodeKey);terrainCache.delete(nodeKey);
+  terrainRevision++;invalidateTerrainLayer();
+  return true;
+}
+
 function salvageStructure(structure) {
   if(!requireNearbyTrack(structure,`salvaging the ${structure.type}`))return;
+  if(structure.hp<1)return fail("Destroyed objects can only be cleared and do not return resources.");
   const mat = structure.type === "artillery" ? 12 : structure.type === "turret" ? 4 : structure.type === "wall" ? 8 : 6;
   const energy = ["turret","artillery"].includes(structure.type)?Math.floor(structure.energy):0;
-  if(structure.type==="mine"){
-    const node=resourceNodeAt(structure.q,structure.r);
-    if(node?.amount<=0){
-      const nodeKey=key(structure.q,structure.r);
-      state.clearedResourceNodes.add(nodeKey);state.nodeResources.delete(nodeKey);terrainCache.delete(nodeKey);
-      terrainRevision++;invalidateTerrainLayer();
-    }
-  }
+  if(structure.type==="mine")clearDepletedResourceNode(structure.q,structure.r);
   state.baseMaterial+=mat;state.baseEnergy+=energy;
   state.structures.delete(key(structure.q, structure.r));
   invalidateEnemyNavigation();
   state.selected = { type: "base", id: "base" };
   sounds.remove(); burst(structure.q, structure.r, "#9ba9ad", 8); updateUI(true);
   toast(["turret","artillery"].includes(structure.type)?`Salvaged ${mat} Construction Material and ${energy} Energy.`:`Salvaged ${mat} Construction Material.`);
+}
+
+function clearGhost(ghost){
+  const label=ghost.objectType==="mine"?`${resourceLabel(ghost.resource)} Mine`:capitalize(ghost.objectType),mineNode=ghost.objectType==="mine"?resourceNodeAt(ghost.q,ghost.r):null;
+  if(ghost.objectType==="mine"&&mineNode?.amount<=0)clearDepletedResourceNode(ghost.q,ghost.r);
+  state.ghosts.delete(ghost.id);
+  if(state.selected?.type==="ghost"&&state.selected.id===ghost.id)state.selected=null;
+  invalidateEnemyNavigation();sounds.remove();burst(ghost.q,ghost.r,"#9ba9ad",8);updateUI(true);
+  toast(`Cleared destroyed ${label}. No resources were returned${ghost.objectType==="mine"&&mineNode?.amount>0?"; the Resource Node remains":""}.`);
+  return true;
 }
 
 function requestTrainSalvage(train){

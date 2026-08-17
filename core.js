@@ -35,7 +35,7 @@ const ARTILLERY_SPLASH_DAMAGE = 5;
 const CREEP_HEX_CAPACITY = 7;
 const CREEP_SLOT_RADIUS = 17;
 const CREEP_RENDER_SCALE = .64;
-const BASE_UNLOAD_TARGET = 100;
+const BASE_UNLOAD_TARGET = 110;
 const HIVE_LEVELS = [2,3,5,8,13,21];
 const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const COSTS = {
@@ -47,6 +47,10 @@ const COSTS = {
   artillery: { material: 100, energy: 100 }
 };
 const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, artillery: 30 };
+const BASE_RESOURCE_TYPES = [
+  { key: "material", stateKey: "baseMaterial", label: "Construction Material" },
+  { key: "energy", stateKey: "baseEnergy", label: "Energy" }
+];
 const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*(60*index-30);return {x:Math.cos(angle),y:Math.sin(angle)};});
 
 const ui = Object.fromEntries([
@@ -56,6 +60,7 @@ const ui = Object.fromEntries([
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart",
+  "debugToggle", "debugMenu", "debugDestroyObject", "debugAddBaseResources",
   "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt", "defeatEnergyMined", "defeatMaterialMined"
 ].map(id => [id, document.getElementById(id)]));
 

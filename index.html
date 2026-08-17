@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 2.5</title>
+  <title>Planetary Rail Defense 2.7</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 2.5 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 2.7 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -62,7 +62,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 2.5</span></h1>
+          <h1>RAIL<br><span>DEFENSE 2.7</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" title="Pause simulation" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -79,7 +79,7 @@
           <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Place a Mine on top of an existing finite Resource Node within three hexes of Track.&#10;&#10;Costs 8 Construction Material from Base inventory."><span class="keycap">4</span>Build Mine</button>
           <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="Build on clear ground within three hexes of non-destroyed Track.&#10;&#10;Costs 12 Construction Material and 1 Energy from Base inventory."><span class="keycap">5</span>Build Wall</button>
           <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="Build within three hexes of non-destroyed Track. Will run out of Energy if not supplied by a Train Stop. Targets Hives only. Range 12 hexes; lobs a shell every 3 seconds for 20 Energy. Deals 8 damage in the target hex and 5 damage in its six neighboring hexes; Creeps can take splash damage. Stores 40 Energy.&#10;&#10;Costs 100 Construction Material and 100 Energy from Base inventory."><span class="keycap">6</span>Build Artillery</button>
-          <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="Salvage Track, Turrets, Artillery, Mines, Walls, or Trains. Salvaging a Train requires confirmation, removes its schedule, and returns its Construction Material plus carried resources to Base inventory."><span class="keycap">7</span>Salvage Object</button>
+          <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="Salvage healthy Track, Turrets, Artillery, Mines, Walls, or Trains to recover resources. Clear destroyed objects without recovering resources, even when there is nothing to salvage. Removing a Mine leaves any Resource Node with remaining resources in place. Salvaging a Train requires confirmation and removes its schedule."><span class="keycap">7</span>Salvage/Clear Object</button>
         </div>
       </section>
 
@@ -90,6 +90,15 @@
 
     </aside>
   </main>
+
+  <aside id="debugMenu" class="debug-menu d-none" hidden aria-label="Debug menu">
+    <div class="debug-menu-title">DEBUG</div>
+    <button id="debugDestroyObject" class="btn debug-action" data-mode="debug-destroy">Destroy Object</button>
+    <div class="debug-menu-note">Click a destructible object on the map to apply its normal destruction behavior instantly.</div>
+    <button id="debugAddBaseResources" class="btn debug-action">Add Base Resources</button>
+    <div class="debug-menu-note">Adds 1,000 of every Base resource.</div>
+  </aside>
+  <button id="debugToggle" class="debug-toggle" type="button" aria-label="Toggle Debug menu" aria-controls="debugMenu" aria-expanded="false" title="Debug">D</button>
 
   <div id="remindersDialog" class="reminders-overlay" role="dialog" aria-modal="true" aria-labelledby="remindersTitle" aria-describedby="remindersNotice">
     <div class="reminders-card">

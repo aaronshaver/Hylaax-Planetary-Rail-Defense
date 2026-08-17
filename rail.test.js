@@ -117,6 +117,81 @@ describe("repairs, ghosts, and schedules", () => {
     const rebuilt=state.structures.get("1,0");assert.equal(rebuilt.type,"artillery");assert.equal(rebuilt.hp,36);assert.equal(rebuilt.energy,0);
   });
 
+  test("the player can replace wreckage directly with any construction allowed on its terrain",()=>{
+    const cases=[
+      {type:"turret",ghostType:"wall",cost:{material:10,energy:5},build:api.buildTurret},
+      {type:"wall",ghostType:"artillery",cost:{material:12,energy:1},build:api.buildWall},
+      {type:"artillery",ghostType:"turret",cost:{material:100,energy:100},build:api.buildArtillery}
+    ];
+    for(const item of cases){
+      api.reset();const state=api.state;state.tracks.clear();state.structures.clear();state.ghosts.clear();state.trains=[];state.baseMaterial=500;state.baseEnergy=500;
+      let target=null;
+      for(let q=-15;q<=15&&!target;q++)for(let r=-15;r<=15&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
+      assert.ok(target);state.tracks.set(api.key(target.q+1,target.r),makeTrack(target.q+1,target.r));
+      const ghostKey=api.key(target.q,target.r);state.ghosts.set(ghostKey,{id:ghostKey,type:"ghost",objectType:item.ghostType,...target});
+      const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;item.build(target.q,target.r);
+      assert.equal(state.ghosts.has(ghostKey),false,`${item.type} wreckage should be replaced`);
+      assert.equal(state.structures.get(ghostKey).type,item.type);
+      assert.equal(state.baseMaterial,materialBefore-item.cost.material);assert.equal(state.baseEnergy,energyBefore-item.cost.energy);
+    }
+
+    api.reset();const state=api.state;state.tracks.clear();state.structures.clear();state.ghosts.clear();state.trains=[];
+    const node=api.resourceNodeAt(7,-2),mineKey=api.key(node.q,node.r);state.tracks.set("6,-2",makeTrack(6,-2));
+    state.ghosts.set(mineKey,{id:mineKey,type:"ghost",objectType:"wall",q:node.q,r:node.r});
+    const materialBefore=state.baseMaterial;api.buildMine(node.q,node.r);
+    assert.equal(state.ghosts.has(mineKey),false);assert.equal(state.structures.get(mineKey).type,"mine");assert.equal(state.baseMaterial,materialBefore-8);
+  });
+
+  test("a non-Mine cannot replace wreckage on a Resource Node that still has resources",()=>{
+    const state=api.state,node=api.resourceNodeAt(7,-2),nodeKey=api.key(node.q,node.r);state.trains=[];state.structures.clear();state.ghosts.clear();state.tracks.clear();state.baseMaterial=500;state.baseEnergy=500;
+    state.tracks.set("6,-2",makeTrack(6,-2));state.ghosts.set(nodeKey,{id:nodeKey,type:"ghost",objectType:"turret",q:node.q,r:node.r});
+    const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;api.buildArtillery(node.q,node.r);
+    assert.equal(state.structures.has(nodeKey),false);assert.equal(state.ghosts.has(nodeKey),true);assert.equal(state.baseMaterial,materialBefore);assert.equal(state.baseEnergy,energyBefore);
+    api.buildMine(node.q,node.r);assert.equal(state.ghosts.has(nodeKey),false);assert.equal(state.structures.get(nodeKey).type,"mine");
+  });
+
+  test("an exhausted Resource Node and its wreckage can be replaced by another construction",()=>{
+    const state=api.state,node=api.resourceNodeAt(7,-2),nodeKey=api.key(node.q,node.r);state.trains=[];state.structures.clear();state.ghosts.clear();state.tracks.clear();state.baseMaterial=500;state.baseEnergy=500;
+    api.setNodeAmount(node,0);state.tracks.set("6,-2",makeTrack(6,-2));state.ghosts.set(nodeKey,{id:nodeKey,type:"ghost",objectType:"mine",resource:node.resource,q:node.q,r:node.r});
+    api.buildArtillery(node.q,node.r);
+    assert.equal(state.ghosts.has(nodeKey),false);assert.equal(state.structures.get(nodeKey).type,"artillery");assert.equal(api.terrainAt(node.q,node.r).type,"ground");
+  });
+
+  test("Build Track can replace non-Track wreckage without a separate clear action",()=>{
+    const state=api.state;state.trains=[];state.tracks.clear();state.ghosts.clear();
+    state.tracks.set("0,0",makeTrack(0,0));state.ghosts.set("1,0",{id:"1,0",type:"ghost",objectType:"wall",q:1,r:0});state.trackStart={q:0,r:0};
+    api.layTrack(1,0);
+    assert.equal(state.ghosts.has("1,0"),false);assert.equal(state.tracks.has("1,0"),true);assert.equal(api.tracksAreLinked({q:0,r:0},{q:1,r:0}),true);
+  });
+
+  test("the player can rebuild destroyed Track directly without losing its links",()=>{
+    const state=api.state;state.tracks.clear();state.ghosts.clear();
+    state.tracks.set("0,0",makeTrack(0,0));state.tracks.set("2,0",makeTrack(2,0));
+    const ghost={id:"1,0",type:"ghost",objectType:"track",q:1,r:0,hp:0,maxHp:1,links:["0,0","2,0"]};state.ghosts.set(ghost.id,ghost);
+    const materialBefore=state.baseMaterial;api.placeTrackOverGhost(ghost);
+    assert.equal(state.ghosts.has("1,0"),false);assert.deepEqual([...state.tracks.get("1,0").links].sort(),["0,0","2,0"]);assert.equal(state.baseMaterial,materialBefore-1);
+  });
+
+  test("Salvage/Clear removes destroyed Walls without returning resources",()=>{
+    const state=api.state;state.structures.clear();state.ghosts.clear();state.trains=[];
+    const wall={id:"wall-to-clear",type:"wall",q:4,r:0,hp:1,maxHp:100};state.structures.set("4,0",wall);api.damageTarget(wall,1);
+    const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;api.setMode("salvage");api.handleHexClick({q:4,r:0});
+    assert.equal(state.ghosts.has("4,0"),false);assert.equal(state.baseMaterial,materialBefore);assert.equal(state.baseEnergy,energyBefore);
+  });
+
+  test("salvaging healthy Track reports its one Construction Material return",()=>{
+    const state=api.state;state.trains=[];state.tracks.clear();
+    state.tracks.set("4,0",makeTrack(4,0));const materialBefore=state.baseMaterial;
+    api.setMode("salvage");api.handleHexClick({q:4,r:0});
+    assert.equal(state.tracks.has("4,0"),false);assert.equal(state.baseMaterial,materialBefore+1);
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 1 Construction Material.");
+  });
+
+  test("invalid Salvage/Clear targets use the concise shared message",()=>{
+    const state=api.state;api.setMode("salvage");api.handleHexClick({q:state.base.q,r:state.base.r});
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot Salvage/Clear this type of Object");
+  });
+
   test("Track has no fractional damaged state and is destroyed by any damage",()=>{
     const state=api.state;state.tracks.clear();
     const track=makeTrack(4,0);state.tracks.set("4,0",track);

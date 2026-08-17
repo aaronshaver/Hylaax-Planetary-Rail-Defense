@@ -19,6 +19,7 @@ function handleHexClick(hex) {
     if(terrainAt(q,r).type==="resource")return select("node",key(q,r));
     state.selected=null;updateUI(true);return;
   }
+  if(state.mode==="debug-destroy")return debugDestroyAt(q,r);
   if (state.mode === "track") return layTrack(q,r);
   if(state.mode==="schedule"){
     const scheduleTrain=state.trains.find(candidate=>candidate.id===state.scheduleTrainId);
@@ -28,7 +29,8 @@ function handleHexClick(hex) {
     if(train)return requestTrainSalvage(train);
     if (state.tracks.has(key(q,r))) return removeTrack(q,r);
     if (structure && structure.type !== "base") return salvageStructure(structure);
-    return fail("There is no Track, Turret, Artillery, Mine, Wall, or Train to salvage here.");
+    if(ghost)return clearGhost(ghost);
+    return fail("Cannot Salvage/Clear this type of Object");
   }
   if (train) { select("train", train.id,{segmentId:trainPart.segment.id}); setMode("select"); return; }
   if (state.mode === "turret") return buildTurret(q,r);
@@ -54,6 +56,17 @@ function constructionModeAffordable(mode){const cost=constructionModeCost(mode);
 function constructionModeUnavailableMessage(mode){
   const cost=constructionModeCost(mode),label=CONSTRUCTION_MODE_LABELS[mode];
   return cost?`Needs ${cost.material} Construction Material${cost.energy?` and ${cost.energy} Energy`:""} for ${label}.`:"";
+}
+
+function addBaseResources(amount=1000){
+  const added={};
+  for(const resource of BASE_RESOURCE_TYPES){
+    state[resource.stateKey]=(Number(state[resource.stateKey])||0)+amount;
+    added[resource.key]=amount;
+  }
+  sounds.place();updateUI(true);
+  toast(`Debug: Added ${amount.toLocaleString()} of every Base resource.`,"info");
+  return added;
 }
 
 function trainFabricationDisabledReason(){

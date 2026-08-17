@@ -18,7 +18,7 @@ describe("resource logistics", () => {
     assert.ok(state.worldMessages.some(item=>item.message==="Train A: Loaded Energy from Base"));
   });
 
-  test("the Base accepts each resource only up to 100", () => {
+  test("the Base accepts each resource only up to 110", () => {
     const state = api.state;
     const train = state.trains[0];
     moveTrain(train, 1, 0);
@@ -31,11 +31,11 @@ describe("resource logistics", () => {
 
     api.updateAutomaticLogistics();
 
-    assert.equal(state.baseMaterial, 100);
-    assert.equal(state.baseEnergy, 100);
-    assert.equal(train.wagons[0].amount, 20);
-    assert.equal(train.wagons[1].amount, 29);
-    assert.equal(api.constants.BASE_UNLOAD_TARGET, 100);
+    assert.equal(state.baseMaterial, 110);
+    assert.equal(state.baseEnergy, 110);
+    assert.equal(train.wagons[0].amount, 10);
+    assert.equal(train.wagons[1].amount, 19);
+    assert.equal(api.constants.BASE_UNLOAD_TARGET, 110);
   });
 
   test("a Turret receives Energy before the nearby Base", () => {
@@ -53,8 +53,8 @@ describe("resource logistics", () => {
     api.updateAutomaticLogistics();
 
     assert.equal(turret.energy, 20);
-    assert.equal(state.baseEnergy, 100);
-    assert.equal(train.wagons[1].amount, 2);
+    assert.equal(state.baseEnergy, 102);
+    assert.equal(train.wagons[1].amount, 0);
   });
 
   test("Turret supply checks locomotive distance, not wagon distance", () => {

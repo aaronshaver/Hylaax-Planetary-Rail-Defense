@@ -73,4 +73,27 @@ describe("terrain generation", () => {
     assert.equal(api.terrainAt(7, -2).type, "ground");
     assert.deepEqual({ ...api.state.selected }, { type: "base", id: "base" });
   });
+
+  test("clearing a destroyed Mine returns nothing and preserves a Resource Node that still has resources",()=>{
+    const state=api.state,node=api.resourceNodeAt(7,-2);api.setNodeAmount(node,73);
+    const mine={id:"mine-destroyed",type:"mine",resource:node.resource,q:node.q,r:node.r,hp:1,maxHp:22};state.structures.set(node.id,mine);
+    api.damageTarget(mine,1);const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
+    api.setMode("salvage");api.handleHexClick({q:node.q,r:node.r});
+    assert.equal(state.ghosts.has(node.id),false);assert.equal(api.terrainAt(node.q,node.r).type,"resource");assert.equal(api.resourceNodeAt(node.q,node.r).amount,73);
+    assert.equal(state.baseMaterial,materialBefore);assert.equal(state.baseEnergy,energyBefore);
+  });
+
+  test("clearing a destroyed Mine on an exhausted node clears the ground",()=>{
+    const state=api.state,node=api.resourceNodeAt(7,-2);api.setNodeAmount(node,0);
+    const mine={id:"mine-destroyed-empty",type:"mine",resource:node.resource,q:node.q,r:node.r,hp:1,maxHp:22};state.structures.set(node.id,mine);
+    api.damageTarget(mine,1);api.setMode("salvage");api.handleHexClick({q:node.q,r:node.r});
+    assert.equal(state.ghosts.has(node.id),false);assert.equal(api.terrainAt(node.q,node.r).type,"ground");
+  });
+
+  test("salvaging a healthy Mine leaves a Resource Node that still has resources",()=>{
+    const state=api.state,node=api.resourceNodeAt(7,-2);api.setNodeAmount(node,51);
+    const mine={id:"mine-healthy",type:"mine",resource:node.resource,q:node.q,r:node.r,hp:22,maxHp:22};state.structures.set(node.id,mine);state.tracks.set("6,-2",{q:6,r:-2,hp:1,maxHp:1,links:new Set()});
+    const materialBefore=state.baseMaterial;api.salvageStructure(mine);
+    assert.equal(state.structures.has(node.id),false);assert.equal(api.terrainAt(node.q,node.r).type,"resource");assert.equal(api.resourceNodeAt(node.q,node.r).amount,51);assert.equal(state.baseMaterial,materialBefore+6);
+  });
 });

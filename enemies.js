@@ -344,6 +344,7 @@ function showFinalStats(){
 function trainPartDestroyed(train,partLabel){
   sounds.trainDestroyed();
   state.screenShakeUntil=Math.max(state.screenShakeUntil,state.elapsed+TRAIN_LOSS_SHAKE_SECONDS);
+  state.screenShakeUntilWallTime=Math.max(state.screenShakeUntilWallTime||0,Date.now()+TRAIN_LOSS_SHAKE_SECONDS*1000);
   toast(`${train.name}: ${partLabel} Destroyed.`,"danger");
 }
 
@@ -390,7 +391,8 @@ function damageTarget(target, amount) {
     deleteTrack(target.q,target.r);
     if (state.selected?.type === "track" && state.selected.id === key(target.q,target.r)) state.selected = null;
   }
-  burst(target.q,target.r,"#d94a4a",12); updateUI(true);
+  if(target.wagons)burst(target.q,target.r,"#d94a4a",12);
+  updateUI(true);
 }
 
 function updateEnemies(dt) {
@@ -457,6 +459,22 @@ function damageEnemy(enemy,amount){
   state.enemies=state.enemies.filter(candidate=>candidate.id!==enemy.id);
   if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;
   state.creepsNeutralized++;burstAt(enemy.x,enemy.y,"#e35050",7);return true;
+}
+
+function debugDestroyAt(q,r){
+  if(state.gameOver)return false;
+  const trainPart=trainSegmentAt(q,r);
+  if(trainPart){damageTarget(trainPart.segment,Math.max(1,trainPart.segment.hp));render();return true;}
+  const structure=structureAt(q,r);
+  if(structure){damageTarget(structure,Math.max(1,structure.hp));render();return true;}
+  const hive=hiveAt(q,r);
+  if(hive){damageTarget(hive,Math.max(1,hive.hp));render();return true;}
+  const enemy=state.enemies.find(candidate=>{const visible=worldToAxial(candidate.x,candidate.y);return visible.q===q&&visible.r===r;});
+  if(enemy){sounds.hit();damageEnemy(enemy,Math.max(1,enemy.hp));updateUI(true);render();return true;}
+  const track=state.tracks.get(key(q,r));
+  if(track){damageTarget(track,Math.max(1,track.hp));render();return true;}
+  if(ghostAt(q,r))return fail("That object is already destroyed.");
+  return fail("There is no destructible object on that hex.");
 }
 
 function resolveArtilleryImpact(projectile){

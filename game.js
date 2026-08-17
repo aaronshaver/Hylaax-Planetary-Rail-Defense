@@ -2,7 +2,7 @@
 
 if(window.__HYLAAX_TEST__){
   window.__HYLAAX_TEST_API__={
-    constants:{NODE_MIN_CAPACITY,NODE_MAX_CAPACITY,INITIAL_HIVE_COUNT,ENEMY_SPEED,CREEP_ATTACK_INTERVAL,CREEP_ATTACK_DAMAGE,SIMULATION_STEP,TRACK_HIT_POINTS,TRAIN_HIT_POINTS,WALL_HIT_POINTS,TRAIN_LOSS_SHAKE_SECONDS,ENEMY_SPAWN_BUFFER,REPAIR_PAUSE_SECONDS,TURRET_RANGE,COMBAT_TRAIN_RANGE,ARTILLERY_RANGE,ARTILLERY_HIT_POINTS,ARTILLERY_MAX_ENERGY,ARTILLERY_FIRE_INTERVAL,ARTILLERY_SHELL_FLIGHT_SECONDS,ARTILLERY_SHOT_ENERGY,ARTILLERY_CENTER_DAMAGE,ARTILLERY_SPLASH_DAMAGE,CREEP_HEX_CAPACITY,CREEP_SLOT_RADIUS,CREEP_RENDER_SCALE,BASE_UNLOAD_TARGET,HIVE_LEVELS,COSTS,REBUILD_COSTS,DIRECTIONS},
+    constants:{NODE_MIN_CAPACITY,NODE_MAX_CAPACITY,INITIAL_HIVE_COUNT,ENEMY_SPEED,CREEP_ATTACK_INTERVAL,CREEP_ATTACK_DAMAGE,SIMULATION_STEP,TRACK_HIT_POINTS,TRAIN_HIT_POINTS,WALL_HIT_POINTS,TRAIN_LOSS_SHAKE_SECONDS,ENEMY_SPAWN_BUFFER,REPAIR_PAUSE_SECONDS,TURRET_RANGE,COMBAT_TRAIN_RANGE,ARTILLERY_RANGE,ARTILLERY_HIT_POINTS,ARTILLERY_MAX_ENERGY,ARTILLERY_FIRE_INTERVAL,ARTILLERY_SHELL_FLIGHT_SECONDS,ARTILLERY_SHOT_ENERGY,ARTILLERY_CENTER_DAMAGE,ARTILLERY_SPLASH_DAMAGE,CREEP_HEX_CAPACITY,CREEP_SLOT_RADIUS,CREEP_RENDER_SCALE,BASE_UNLOAD_TARGET,HIVE_LEVELS,COSTS,REBUILD_COSTS,BASE_RESOURCE_TYPES,DIRECTIONS},
     get state(){return state;},
     sounds,
     reset({mapSeed=123456789,seedHives=false}={}){
@@ -13,15 +13,15 @@ if(window.__HYLAAX_TEST__){
     key,fromKey,hexDistance,neighbors,axialToWorld,worldToAxial,hexLineBetween,hasClearShot,baseTerrainAt,resourceHasOpenApproach,terrainAt,isPassable,resourceNodeAt,setNodeAmount,
     getSelected,setMode,select,structureAt,ghostAt,trainAt,trainSegmentAt,handleHexClick,
     trainCode,trainName,trainSegments,trainStopped,totalCargo,cargoSpace,removeCargo,addCargo,fillBaseCargo,refuelAtBase,serviceBaseLogistics,
-    connectedTrackNeighbors,conceptualTrackNeighbors,tracksAreLinked,linkTracks,deleteTrack,curveIsExtreme,liveTrackWithinRange,layTrack,placeTrackOverGhost,buildTurret,buildWall,buildArtillery,salvageStructure,deploymentPathsFrom,deployTrain,
+    connectedTrackNeighbors,conceptualTrackNeighbors,tracksAreLinked,linkTracks,deleteTrack,curveIsExtreme,liveTrackWithinRange,layTrack,placeTrackOverGhost,buildTurret,buildMine,buildWall,buildArtillery,clearDepletedResourceNode,salvageStructure,clearGhost,deploymentPathsFrom,deployTrain,
     scheduleStopAt,addScheduleStop,clearTrainSchedule,findPath,findConceptualTrackPath,repairApproachFor,scheduleLoopIsReachable,startScheduledLeg,updateTrainSchedules,
     hiveUnlockedLevel,nextHiveLevel,hiveExpansionLevel,createHive,hiveHexOpen,hiveReplicationRoll,hiveSpawnCandidates,spawnHiveNear,spawnEnemyFromHive,playerConstructionAnchors,outsidePlayerConstructionBuffer,encroachingHiveLocation,spawnEncroachingHive,encroachingHiveCount,updateEncroachingHives,updateHives,
-    showTrainEnergyWarning,updateTrainEnergyWarnings,repairPriority,updateAutomaticRepair,updateAutomaticLogistics,updateAutomaticRebuild,leaveGhost,rebuildGhost,trainPartDestroyed,damageTarget,
+    showTrainEnergyWarning,updateTrainEnergyWarnings,repairPriority,updateAutomaticRepair,updateAutomaticLogistics,updateAutomaticRebuild,leaveGhost,rebuildGhost,trainPartDestroyed,damageTarget,damageEnemy,debugDestroyAt,
     enemySlotOffset,enemyWorldPosition,reserveEnemySpace,releaseEnemySpace,enemySpaceReservations,enemyHexHasRoom,chooseEnemySpaceSlot,resetEnemyNavigation,rebuildEnemyNavigation,ensureEnemyNavigation,nextEnemyNavigationStep,enemyNavigationStats,findEnemyStep,updateEnemies,
     updateTrains,updateCombatTrains,fireArtillery,resolveArtilleryImpact,updateProjectiles,updateStructures,update,advanceSimulation,
-    showWorldActivity,showTrainActivity,worldMessagePriority,worldMessageLayout,terrainLayerStats,ensureTerrainLayer,drawTurretRanges,drawBase,drawHives,drawStructures,drawTrains,drawEnemies,drawEffects,drawWorldMessages,screenShakeOffset,render,
-    canBaseAfford,constructionModeCost,constructionModeAffordable,constructionModeUnavailableMessage,
-    selectedTrainPartLabel,selectionHtml,setStatusButtonMarkup,updateConstructionToolAvailability,updateUI,formatSurvivalTime,
+    showWorldActivity,showTrainActivity,worldMessagePriority,worldMessageLayout,terrainLayerStats,ensureTerrainLayer,drawTurretRanges,drawBase,drawHives,drawGhosts,drawStructures,drawTrains,drawEnemies,drawEffects,drawWorldMessages,screenShakeOffset,screenShakeActive,render,
+    canBaseAfford,constructionModeCost,constructionModeAffordable,constructionModeUnavailableMessage,addBaseResources,
+    selectedTrainPartLabel,selectionHtml,setStatusButtonMarkup,updateConstructionToolAvailability,setDebugMenuOpen,updateDebugUI,updateUI,formatSurvivalTime,
     tutorialMessage,tutorialLoopTargets,tutorialScheduleTargets,tutorialTargetsHaveMines,tutorialTurretIsByStop,tutorialEvent,startTutorial,finishTutorial,restartTutorial,startGame,resetGameState
   };
 }
@@ -37,6 +37,8 @@ document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e
 document.querySelectorAll("[data-mode]").forEach(button=>button.addEventListener("click",()=>sounds.init()));
 ui.pauseToggle.addEventListener("click",()=>{if(state.gameOver||tutorialLocksPause())return;state.paused=!state.paused;simulationAccumulator=0;lastWallTime=Date.now();updateUI(true);render();});
 ui.soundToggle.addEventListener("click",()=>{state.sound=!state.sound;sounds.enabled=state.sound;if(state.sound)sounds.place();updateUI(true);});
+ui.debugToggle.addEventListener("click",()=>setDebugMenuOpen(ui.debugMenu.hidden));
+ui.debugAddBaseResources.addEventListener("click",()=>{if(!state.gameOver)addBaseResources();});
 ui.remindersTutorial.addEventListener("click",()=>startGame(true));
 ui.remindersContinue.addEventListener("click",()=>startGame(false));
 ui.tutorialOkay.addEventListener("click",finishTutorial);
@@ -45,9 +47,9 @@ ui.confirmNo.addEventListener("click",cancelTrainSalvage);
 ui.confirmYes.addEventListener("click",confirmTrainSalvage);
 ui.viewMapButton.addEventListener("click",showFinalMap);
 ui.viewFinalStats.addEventListener("click",showFinalStats);
-function resetGameState(){state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");document.querySelectorAll("[data-mode]").forEach(button=>button.disabled=false);syncTutorialUI();setMode("select");}
+function resetGameState(){state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");setDebugMenuOpen(false);document.querySelectorAll("[data-mode]").forEach(button=>button.disabled=false);syncTutorialUI();setMode("select");}
 ui.restartButton.addEventListener("click",()=>{resetGameState();showReminders();});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){const now=Date.now();advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;resetPerformanceMetrics();render();}});
 window.addEventListener("resize",resize);
 ui.gameOver.hidden=true;ui.viewFinalStats.hidden=true;ui.confirmDialog.hidden=true;resize();initializeTooltips();updateUI(true);showReminders();
-function frame(frameTime){const now=Date.now(),ticks=advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;const rendered=ticks>0;if(rendered)render();recordPerformance(frameTime,ticks,rendered);requestAnimationFrame(frame);}requestAnimationFrame(frame);
+function frame(frameTime){const now=Date.now(),ticks=advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;const rendered=ticks>0||screenShakeActive();if(rendered)render();recordPerformance(frameTime,ticks,rendered);requestAnimationFrame(frame);}requestAnimationFrame(frame);

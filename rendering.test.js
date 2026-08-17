@@ -98,6 +98,25 @@ describe("rendering caches", () => {
     assert.equal(context.fillRectCalls.some(call=>call.x===minePoint.x-13&&call.y===minePoint.y-7&&call.width===26&&call.height===14),false,"Mine must not have a center rectangle");
   });
 
+  test("destroyed graphics mirror live silhouettes and use a tiny lower X marker",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state;
+    const turret={id:"2,1",type:"ghost",objectType:"turret",q:2,r:1},artillery={id:"4,1",type:"ghost",objectType:"artillery",q:4,r:1},track={id:"6,1",type:"ghost",objectType:"track",q:6,r:1,links:["7,1"]};
+    state.ghosts.set(turret.id,turret);state.ghosts.set(artillery.id,artillery);state.ghosts.set(track.id,track);context.strokeCalls.length=0;context.fillCalls.length=0;context.textCalls.length=0;
+    api.drawGhosts();
+    const turretPoint=api.axialToWorld(turret.q,turret.r),artilleryPoint=api.axialToWorld(artillery.q,artillery.r);
+    assert.ok(context.fillCalls.some(call=>call.path.some(item=>item.command==="arc"&&item.x===turretPoint.x&&item.y===turretPoint.y&&item.r===13)),"destroyed Turret should retain the live circular body");
+    assert.equal(context.strokeCalls.some(call=>call.path.some(item=>item.command==="lineTo"&&item.x===turretPoint.x+17&&item.y===turretPoint.y-8)),false,"destroyed Turret must not restore the obsolete gun arm");
+    const turretLabel=context.textCalls.find(call=>call.text==="T"&&call.x===turretPoint.x&&call.y===turretPoint.y+.5);
+    assert.equal(turretLabel.fillStyle,"#c2cbcd","destroyed Turret should retain a visible gray T with no cyan center effect");
+    assert.equal([...context.fillCalls,...context.strokeCalls,...context.textCalls].some(call=>call.fillStyle==="#60d5db"||call.strokeStyle==="#60d5db"),false,"destroyed graphics must not add cyan center effects");
+    assert.ok(context.textCalls.some(call=>call.text==="A"&&call.x===artilleryPoint.x&&call.y===artilleryPoint.y+.5));
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#697276"&&call.lineWidth===3),"destroyed Track should retain its cross ties");
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#a3adaf"&&call.lineWidth===2.6),"destroyed Track should retain its two rails");
+    assert.ok(context.fillCalls.some(call=>call.fillStyle==="#252a2c"&&call.path.some(item=>item.command==="arc"&&item.r===7.5)),"destroyed Track should retain its circular rail hub");
+    const markers=context.strokeCalls.filter(call=>call.strokeStyle==="#d77a7f"&&call.lineWidth===1);
+    assert.equal(markers.length,3);assert.ok(markers.every(call=>call.path.every(item=>item.y>=Math.min(turretPoint.y,artilleryPoint.y)+18)),"wreckage markers should stay below center labels");
+  });
+
   test("Train cars render without brown connector strokes",()=>{
     const context=elements.get("gameCanvas").context;
     const { addTestTrain }=require("./harness.js");addTestTrain("builder");

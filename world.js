@@ -32,6 +32,7 @@ function makeInitialState() {
     projectiles: [],
     particles: [],
     screenShakeUntil: 0,
+    screenShakeUntilWallTime: 0,
     baseMaterial: 150,
     baseEnergy: 48,
     selected: { type: "base", id: "base" },

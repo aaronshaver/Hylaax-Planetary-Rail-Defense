@@ -54,7 +54,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.tutorial.step,2);
     api.tutorialEvent("track-selected");
     assert.equal(api.state.tutorial.step,3);
-    assert.equal(api.tutorialMessage(),"Step 3: Click nearby hex tiles to add one more Track segment.\n\nIf at any point you run out of Construction Material, simply use the Salvage Object tool to destroy and reclaim some of your constructions and try again with a more efficient layout.");
+    assert.equal(api.tutorialMessage(),"Step 3: Click nearby hex tiles to add one more Track segment.\n\nIf at any point you run out of Construction Material, simply use the Salvage/Clear Object tool to destroy and reclaim some of your constructions and try again with a more efficient layout.");
     api.state.tracks.set("2,0",makeTrack(2,0));
     api.tutorialEvent("track-built");
     assert.equal(api.state.tutorial.step,4);
@@ -99,7 +99,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.paused,true,"the final step must remain paused until Okay is clicked");
     assert.equal(elements.get("pauseToggle").disabled,true);
     assert.equal(elements.get("tutorialOkay").hidden,false);
-    assert.equal(elements.get("tutorialText").textContent,"Step 14: That's it!\n\nYou now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to catch your breath at any time.");
+    assert.equal(elements.get("tutorialText").textContent,"Step 14: That's it!\n\nYou now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to pause the game catch your breath at any time.");
 
     api.finishTutorial();
     assert.equal(api.state.tutorial,null);

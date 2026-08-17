@@ -68,6 +68,12 @@ describe("interface formatting", () => {
     assert.doesNotMatch(html, /production choice/);
   });
 
+  test("destroyed selections identify the wreckage and explain rebuild and clearing options",()=>{
+    const state=api.state,ghost={id:"3,2",type:"ghost",objectType:"wall",q:3,r:2};state.ghosts.set(ghost.id,ghost);state.selected={type:"ghost",id:ghost.id};
+    const ghostHtml=api.selectionHtml();assert.match(ghostHtml,/Destroyed Wall/);assert.match(ghostHtml,/Any construction normally allowed on this terrain can replace this wreckage directly/);assert.match(ghostHtml,/Salvage\/Clear Object/);
+    state.base.hp=0;state.selected={type:"base",id:"base"};const baseHtml=api.selectionHtml();assert.match(baseHtml,/Destroyed Base/);assert.match(baseHtml,/cannot be rebuilt or salvaged/);
+  });
+
   test("Mine selection describes Train service at an adjacent Stop",()=>{
     const materialMine={id:"material-mine-copy",type:"mine",resource:"material",q:7,r:-2,hp:22,maxHp:22};
     api.state.structures.set(api.key(materialMine.q,materialMine.r),materialMine);
