@@ -7,6 +7,144 @@ const { api, moveTrain, makeTrack, addTestTrain } = require("./harness.js");
 beforeEach(() => { api.reset(); addTestTrain(); });
 
 describe("repairs, ghosts, and schedules", () => {
+  test("a fixed Turret requires non-destroyed Track within three hexes",()=>{
+    const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
+    let target=null;
+    for(let q=-10;q<=10&&!target;q++)for(let r=-10;r<=10&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>4)target={q,r};
+    assert.ok(target);
+    const trackPosition={q:target.q+3,r:target.r},trackKey=api.key(trackPosition.q,trackPosition.r);
+    state.ghosts.set(trackKey,{id:trackKey,type:"ghost",objectType:"track",...trackPosition,hp:0,maxHp:1,links:[]});
+    const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
+
+    api.buildTurret(target.q,target.r);
+
+    assert.equal(state.structures.size,0,"destroyed Track must not enable Turret placement");
+    assert.equal(state.baseMaterial,materialBefore);assert.equal(state.baseEnergy,energyBefore);
+
+    state.ghosts.clear();state.tracks.set(trackKey,makeTrack(trackPosition.q,trackPosition.r));
+    assert.equal(api.liveTrackWithinRange(target),true,"three hexes is allowed");
+    assert.equal(api.liveTrackWithinRange({q:target.q-1,r:target.r}),false,"four hexes is outside the limit");
+    api.buildTurret(target.q,target.r);
+
+    assert.equal(state.structures.size,1);
+    assert.equal([...state.structures.values()][0].type,"turret");
+  });
+
+  test("a Wall costs 12 Construction Material and 1 Energy and requires live Track within three hexes",()=>{
+    const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();state.trains=[];
+    let target=null;
+    for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
+    assert.ok(target);
+    const trackPosition={q:target.q+3,r:target.r},trackKey=api.key(trackPosition.q,trackPosition.r),materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
+    state.ghosts.set(trackKey,{id:trackKey,type:"ghost",objectType:"track",...trackPosition,hp:0,maxHp:1,links:[]});
+
+    api.buildWall(target.q,target.r);
+    assert.equal(state.structures.size,0,"destroyed Track must not enable Wall placement");
+    assert.equal(state.baseMaterial,materialBefore);assert.equal(state.baseEnergy,energyBefore);
+
+    state.ghosts.clear();state.tracks.set(trackKey,makeTrack(trackPosition.q,trackPosition.r));api.buildWall(target.q,target.r);
+    const wall=[...state.structures.values()][0];
+    assert.equal(wall.type,"wall");assert.equal(wall.hp,100);assert.equal(wall.maxHp,100);
+    assert.equal(state.baseMaterial,materialBefore-12);assert.equal(state.baseEnergy,energyBefore-1);
+  });
+
+  test("Artillery costs 30 Construction Material and 20 Energy and is built with 36 HP and 30 stored Energy",()=>{
+    const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();state.trains=[];
+    let target=null;
+    for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
+    assert.ok(target);
+    const trackPosition={q:target.q+3,r:target.r},trackKey=api.key(trackPosition.q,trackPosition.r),materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
+    state.tracks.set(trackKey,makeTrack(trackPosition.q,trackPosition.r));
+
+    api.buildArtillery(target.q,target.r);
+
+    const artillery=[...state.structures.values()][0];
+    assert.equal(artillery.type,"artillery");assert.equal(artillery.hp,36);assert.equal(artillery.maxHp,36);
+    assert.equal(artillery.energy,30);assert.equal(artillery.maxEnergy,30);
+    assert.equal(state.baseMaterial,materialBefore-30);assert.equal(state.baseEnergy,energyBefore-20);
+  });
+
+  test("a Train at its own Stop instantly repairs a damaged Wall within three hexes",()=>{
+    const state=api.state,train=state.trains[0];moveTrain(train,0,0);train.schedule=[{q:0,r:0}];train.scheduleComplete=true;train.route=[];train.wagons[0].amount=20;
+    const wall={id:"damaged-wall",type:"wall",q:0,r:3,hp:80,maxHp:100};state.structures.set(api.key(wall.q,wall.r),wall);
+
+    assert.equal(api.updateAutomaticRepair(train),true);
+    assert.equal(wall.hp,100);assert.equal(train.wagons[0].amount,0);
+    assert.ok(state.worldMessages.some(item=>item.message==="Train A: Repaired Wall"));
+
+    wall.hp=90;train.wagons[0].amount=10;train.repairHoldUntil=0;train.schedule=[];
+    assert.equal(api.updateAutomaticRepair(train),false,"an idle Train that is not at its Stop must not use the extended Wall range");
+    assert.equal(wall.hp,90);
+  });
+
+  test("automatic repair priority is Track, Base, Turret, Artillery, Mine, then Wall",()=>{
+    const state=api.state,train=state.trains[0];moveTrain(train,0,0);train.schedule=[{q:0,r:0}];train.scheduleComplete=true;train.route=[];train.wagons[0].amount=6;
+    state.tracks.clear();state.structures.clear();state.base.hp=99;
+    const track=makeTrack(1,0);track.hp=0;state.tracks.set("1,0",track);
+    const turret={id:"priority-turret",type:"turret",q:0,r:1,hp:17,maxHp:18,energy:0,maxEnergy:20,cooldown:0};
+    const artillery={id:"priority-artillery",type:"artillery",q:-1,r:1,hp:35,maxHp:36,energy:0,maxEnergy:30,cooldown:0};
+    const mine={id:"priority-mine",type:"mine",resource:"material",q:-1,r:0,hp:21,maxHp:22};
+    const wall={id:"priority-wall",type:"wall",q:0,r:-1,hp:99,maxHp:100};
+    for(const structure of [turret,artillery,mine,wall])state.structures.set(api.key(structure.q,structure.r),structure);
+
+    const expected=[track,state.base,turret,artillery,mine,wall];
+    for(const target of expected){
+      const before=target.hp;train.repairHoldUntil=0;
+      assert.equal(api.updateAutomaticRepair(train),true);
+      assert.equal(target.hp,before+1);
+    }
+    assert.deepEqual(expected.map(api.repairPriority),[0,1,2,3,4,5]);
+  });
+
+  test("destroyed Walls leave rebuildable 100 HP Wall ghosts",()=>{
+    const state=api.state,train=state.trains[0];moveTrain(train,0,0);train.wagons[0].amount=12;
+    const wall={id:"wall-doomed",type:"wall",q:1,r:0,hp:1,maxHp:100};state.structures.set("1,0",wall);
+
+    api.damageTarget(wall,1);
+    assert.equal(state.structures.has("1,0"),false);assert.equal(state.ghosts.get("1,0").objectType,"wall");
+    api.updateAutomaticRebuild();
+    const rebuilt=state.structures.get("1,0");assert.equal(rebuilt.type,"wall");assert.equal(rebuilt.hp,100);assert.equal(rebuilt.maxHp,100);
+  });
+
+  test("destroyed Artillery leaves a rebuildable 36 HP unpowered ghost",()=>{
+    const state=api.state,train=state.trains[0];moveTrain(train,0,0);train.wagons[0].amount=30;
+    const artillery={id:"artillery-doomed",type:"artillery",q:1,r:0,hp:36,maxHp:36,energy:30,maxEnergy:30,cooldown:0};state.structures.set("1,0",artillery);
+
+    api.damageTarget(artillery,36);
+    assert.equal(state.structures.has("1,0"),false);assert.equal(state.ghosts.get("1,0").objectType,"artillery");
+    api.updateAutomaticRebuild();
+    const rebuilt=state.structures.get("1,0");assert.equal(rebuilt.type,"artillery");assert.equal(rebuilt.hp,36);assert.equal(rebuilt.energy,0);
+  });
+
+  test("Track has no fractional damaged state and is destroyed by any damage",()=>{
+    const state=api.state;state.tracks.clear();
+    const track=makeTrack(4,0);state.tracks.set("4,0",track);
+
+    api.damageTarget(track,.01);
+
+    assert.equal(track.hp,0);
+    assert.equal(state.tracks.has("4,0"),false);
+    assert.equal(state.ghosts.get("4,0").objectType,"track");
+    assert.equal(state.ghosts.get("4,0").hp,0);
+  });
+
+  test("a newly deployed Turret Train starts with 10 Energy in its wagon",()=>{
+    const state=api.state;state.trains=[];state.tracks.clear();
+    state.tracks.set("1,0",makeTrack(1,0,["2,0"]));state.tracks.set("2,0",makeTrack(2,0,["1,0"]));
+    state.deploymentPaid=true;state.deploymentTrainType="combat";
+
+    api.deployTrain(2,0);api.deployTrain(1,0);
+
+    assert.equal(state.trains.length,1);
+    assert.equal(state.trains[0].trainType,"combat");
+    assert.equal(state.trains[0].wagons.length,1);
+    assert.equal(state.trains[0].wagons[0].type,"energy");
+    assert.equal(state.trains[0].wagons[0].amount,10);
+    assert.equal(state.trains[0].hp,50);
+    assert.equal(state.trains[0].maxHp,50);
+    assert.ok(state.trains[0].wagons.every(wagon=>wagon.hp===50&&wagon.maxHp===50));
+  });
+
   test("Track costs one carried Construction Material and repairs to 1 HP", () => {
     const state = api.state;
     const train = state.trains[0];
@@ -102,6 +240,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(api.showTrainEnergyWarning(train), true);
     assert.equal(api.showTrainEnergyWarning(train), false);
     assert.equal(state.worldMessages.length, 1);
+    assert.equal(state.worldMessages[0].message,"Train A: Ran Out of Energy");
     assert.equal(train.nextEnergyWarningAt, 2.5);
     state.elapsed = 2.4;
     assert.equal(api.showTrainEnergyWarning(train), false);

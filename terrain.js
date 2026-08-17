@@ -43,7 +43,43 @@ const guaranteedNodes = new Map([
   [key(13, 3), "energy"],
   [key(-12, -4), "material"]
 ]);
+const guaranteedResourceCorridors=new Set();
+for(const nodeKey of guaranteedNodes.keys()){
+  const target=fromKey(nodeKey);
+  for(const position of [{q:0,r:0},...hexLineBetween({q:0,r:0},target),target])guaranteedResourceCorridors.add(key(position.q,position.r));
+}
 let terrainCacheSeed=null,terrainCache=new Map();
+
+function baseTerrainAt(q,r){
+  const d = hexDistance({ q, r }, { q: 0, r: 0 });
+  const corridorA = q >= 0 && q <= 7 && r >= -2 && r <= 0;
+  const corridorB = q >= -4 && q <= 0 && r >= 0 && r <= 7;
+  if (d < 6 || corridorA || corridorB||guaranteedResourceCorridors.has(key(q,r)))return {type:"ground"};
+  if(inWaterBlob(q,r))return {type:"water",variant:1+Math.min(2,Math.floor(terrainHash(q,r,105)*3))};
+  if(inTreeGrove(q,r))return {type:"trees",variant:1+Math.min(2,Math.floor(terrainHash(q,r,305)*3))};
+  const ridge=terrainNoise(q,r,11,201),ridgeDetail=terrainNoise(q,r,3.4,202);
+  return Math.abs(ridge-.5)<.034&&ridgeDetail>.3
+    ?{type:"rock",variant:1+Math.min(1,Math.floor(terrainHash(q,r,205)*2))}
+    :{type:"ground"};
+}
+
+function resourceHasOpenApproach(q,r){
+  const origin={q,r},visited=new Set([key(q,r)]),queue=[];
+  for(const position of neighbors(q,r)){
+    if(baseTerrainAt(position.q,position.r).type!=="ground")continue;
+    visited.add(key(position.q,position.r));queue.push(position);
+  }
+  for(let cursor=0;cursor<queue.length;cursor++){
+    const current=queue[cursor];
+    if(hexDistance(origin,current)>=4)return true;
+    for(const next of neighbors(current.q,current.r)){
+      const nextKey=key(next.q,next.r);
+      if(visited.has(nextKey)||baseTerrainAt(next.q,next.r).type!=="ground")continue;
+      visited.add(nextKey);queue.push(next);
+    }
+  }
+  return false;
+}
 
 function terrainAt(q, r) {
   if(terrainCacheSeed!==state.mapSeed){terrainCacheSeed=state.mapSeed;terrainCache=new Map();}
@@ -52,17 +88,8 @@ function terrainAt(q, r) {
   const cached=terrainCache.get(terrainKey);if(cached)return cached;
   const guaranteed = guaranteedNodes.get(terrainKey);
   if (guaranteed){const terrain={type:"resource",resource:guaranteed};terrainCache.set(terrainKey,terrain);return terrain;}
-  const d = hexDistance({ q, r }, { q: 0, r: 0 });
-  const corridorA = q >= 0 && q <= 7 && r >= -2 && r <= 0;
-  const corridorB = q >= -4 && q <= 0 && r >= 0 && r <= 7;
-  let terrain;
-  if (d < 6 || corridorA || corridorB)terrain={type:"ground"};
-  else if(inWaterBlob(q,r))terrain={type:"water",variant:1+Math.min(2,Math.floor(terrainHash(q,r,105)*3))};
-  else if(inTreeGrove(q,r))terrain={type:"trees",variant:1+Math.min(2,Math.floor(terrainHash(q,r,305)*3))};
-  else{
-  const ridge=terrainNoise(q,r,11,201),ridgeDetail=terrainNoise(q,r,3.4,202);
-    if(Math.abs(ridge-.5)<.034&&ridgeDetail>.3)terrain={type:"rock",variant:1+Math.min(1,Math.floor(terrainHash(q,r,205)*2))};
-    else {const v=terrainHash(q,r,17);terrain=v>.986?{type:"resource",resource:terrainHash(q,r,31)>.5?"material":"energy"}:{type:"ground"};}
-  }
+  let terrain=baseTerrainAt(q,r);
+  const d=hexDistance({q,r},{q:0,r:0}),corridorA=q>=0&&q<=7&&r>=-2&&r<=0,corridorB=q>=-4&&q<=0&&r>=0&&r<=7;
+  if(terrain.type==="ground"&&d>=6&&!corridorA&&!corridorB&&!guaranteedResourceCorridors.has(terrainKey)&&terrainHash(q,r,17)>.986&&resourceHasOpenApproach(q,r))terrain={type:"resource",resource:terrainHash(q,r,31)>.5?"material":"energy"};
   terrainCache.set(terrainKey,terrain);return terrain;
 }

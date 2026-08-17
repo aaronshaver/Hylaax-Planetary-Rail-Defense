@@ -19,12 +19,12 @@ function hiveSpawnCandidates(hive,spawnNumber=hive.spawnCount){
 }
 
 function spawnHiveNear(hive,spawnNumber=hive.spawnCount,level=hiveExpansionLevel(hive,state.elapsed)){
-  const location=hiveSpawnCandidates(hive,spawnNumber).find(candidate=>hiveHexOpen(candidate.q,candidate.r));
+  const constructionAnchors=playerConstructionAnchors(),location=hiveSpawnCandidates(hive,spawnNumber).find(candidate=>hiveHexOpen(candidate.q,candidate.r,constructionAnchors));
   return location?createHive(location.q,location.r,level,true):null;
 }
 
 function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
-  const claimed=enemyClaimedHexes();
+  const reservations=enemySpaceReservations(),constructionAnchors=playerConstructionAnchors(),enemyId=`enemy-${state.nextId}`;
   const options=[];
   for(let dq=-4;dq<=4;dq++){
     const r0=Math.max(-4,-dq-4),r1=Math.min(4,-dq+4);
@@ -32,17 +32,62 @@ function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
       const distance=hexDistance({q:0,r:0},{q:dq,r:dr});
       if(distance<1||distance>4)continue;
       const position={q:hive.q+dq,r:hive.r+dr};
-      if(isPassable(position.q,position.r)&&!hiveAt(position.q,position.r)&&!structureAt(position.q,position.r)&&!claimed.has(key(position.q,position.r)))options.push(position);
+      if(isPassable(position.q,position.r)&&outsidePlayerConstructionBuffer(position.q,position.r,ENEMY_SPAWN_BUFFER,constructionAnchors)&&!hiveAt(position.q,position.r)&&!structureAt(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r))options.push(position);
     }
   }
   options.sort((a,b)=>hash(b.q,b.r,(state.mapSeed+spawnNumber)|0)-hash(a.q,a.r,(state.mapSeed+spawnNumber)|0));
   const location=options[0];if(!location)return null;
-  const p=axialToWorld(location.q,location.r);
-  const enemy={id:`enemy-${state.nextId++}`,type:"enemy",q:location.q,r:location.r,x:p.x,y:p.y,fromQ:location.q,fromR:location.r,toQ:location.q,toR:location.r,progress:1,speed:ENEMY_SPEED,hp:1,maxHp:1,attackClock:0,nextPathAt:0,phase:hash(location.q,location.r,spawnNumber)*Math.PI*2};
+  const slot=chooseEnemySpaceSlot(reservations,location.q,location.r,{id:enemyId,moveCount:spawnNumber}),p=enemyWorldPosition(location.q,location.r,slot);
+  const enemy={id:`enemy-${state.nextId++}`,type:"enemy",q:location.q,r:location.r,slot,x:p.x,y:p.y,fromQ:location.q,fromR:location.r,fromSlot:slot,toQ:location.q,toR:location.r,toSlot:slot,progress:1,moveCount:0,speed:ENEMY_SPEED,hp:1,maxHp:1,attackClock:0,nextPathAt:0,phase:hash(location.q,location.r,spawnNumber)*Math.PI*2};
   state.enemies.push(enemy);return enemy;
 }
 
+function encroachingHiveLocation(spawnTime=state.nextEncroachmentAt){
+  const minute=Math.floor(spawnTime/60),anchors=playerConstructionAnchors().sort((a,b)=>hash(b.q,b.r,state.mapSeed+minute*1223)-hash(a.q,a.r,state.mapSeed+minute*1223));
+  for(const anchor of anchors){
+    const preferred=4+Math.floor(hash(anchor.q,anchor.r,state.mapSeed+minute*2371)*7);
+    const distances=Array.from({length:7},(_,index)=>4+index).sort((a,b)=>Math.abs(a-preferred)-Math.abs(b-preferred)||hash(anchor.q,a,state.mapSeed+minute)-hash(anchor.q,b,state.mapSeed+minute));
+    for(const distance of distances){
+      const candidates=[];
+      for(let dq=-distance;dq<=distance;dq++)for(let dr=Math.max(-distance,-dq-distance);dr<=Math.min(distance,-dq+distance);dr++){
+        if(hexDistance({q:0,r:0},{q:dq,r:dr})!==distance)continue;
+        const q=anchor.q+dq,r=anchor.r+dr;
+        candidates.push({q,r,score:hash(q,r,state.mapSeed+minute*3571)});
+      }
+      candidates.sort((a,b)=>b.score-a.score);
+      const open=candidates.find(candidate=>hiveHexOpen(candidate.q,candidate.r,anchors));
+      if(open)return {...open,anchor,distance};
+    }
+  }
+  return null;
+}
+
+function spawnEncroachingHive(spawnTime=state.nextEncroachmentAt){
+  const location=encroachingHiveLocation(spawnTime);
+  if(!location)return null;
+  const hive=createHive(location.q,location.r,hiveUnlockedLevel(spawnTime),true,true);
+  hive.encroaching=true;hive.encroachmentMinute=Math.floor(spawnTime/60);
+  return hive;
+}
+
+function encroachingHiveCount(spawnTime=state.nextEncroachmentAt){
+  const elapsedMinutes=Math.max(1,Math.floor(spawnTime/60));
+  const thresholds=[[1,0],[2,1],[3,2],[5,3],[8,5],[13,8],[21,13]];
+  let count=0;
+  for(const [minute,value] of thresholds)if(elapsedMinutes>=minute)count=value;
+  return Math.min(13,count);
+}
+
+function updateEncroachingHives(){
+  for(let cycles=0;state.elapsed>=state.nextEncroachmentAt&&cycles<64;cycles++){
+    const spawnTime=state.nextEncroachmentAt,count=encroachingHiveCount(spawnTime);
+    for(let index=0;index<count;index++)spawnEncroachingHive(spawnTime);
+    state.nextEncroachmentAt+=60;
+  }
+}
+
 function updateHives(){
+  updateEncroachingHives();
   for(const hive of [...state.hives.values()]){
     for(let cycles=0;state.elapsed>=hive.nextSpawnAt&&cycles<32;cycles++){
       const spawnTime=hive.nextSpawnAt;
@@ -50,9 +95,11 @@ function updateHives(){
       const rate=hive.level;
       const forceCreepBatch=hive.forceFirstCreepBatch&&spawnNumber===0;
       if(forceCreepBatch)hive.forceFirstCreepBatch=false;
-      if(forceCreepBatch||!hiveReplicationRoll(hive,spawnNumber,rate)||!spawnHiveNear(hive,spawnNumber,hiveExpansionLevel(hive,spawnTime))){
-        for(let creep=0;creep<rate;creep++)spawnEnemyFromHive(hive,spawnNumber*32+creep);
-      }
+      let produced=false,spawnedHive=null;
+      if(!forceCreepBatch&&hiveReplicationRoll(hive,spawnNumber,rate))spawnedHive=spawnHiveNear(hive,spawnNumber,hiveExpansionLevel(hive,spawnTime));
+      if(spawnedHive)produced=true;
+      else for(let creep=0;creep<rate;creep++)produced=Boolean(spawnEnemyFromHive(hive,spawnNumber*32+creep))||produced;
+      if(produced)hive.productionPulseUntil=state.elapsed+.75;
       hive.nextSpawnAt=(Math.floor(spawnTime/60)+1)*60;
     }
   }
@@ -63,14 +110,43 @@ function targetHexFor(enemy,target) {
   return trainSegments(target).slice().sort((a,b)=>hexDistance(enemy,a)-hexDistance(enemy,b))[0];
 }
 
-function enemyClaimedHexes(excludeId=null){
-  const claimed=new Set();
+function enemySlotOffset(slot=0){
+  if(slot===0)return {x:0,y:0};
+  const angle=-Math.PI/2+(slot-1)*Math.PI/3;
+  return {x:Math.cos(angle)*CREEP_SLOT_RADIUS,y:Math.sin(angle)*CREEP_SLOT_RADIUS};
+}
+
+function enemyWorldPosition(q,r,slot=0){const center=axialToWorld(q,r),offset=enemySlotOffset(slot);return {x:center.x+offset.x,y:center.y+offset.y};}
+
+function reserveEnemySpace(reservations,q,r,slot){
+  const positionKey=key(q,r),slots=reservations.get(positionKey)||new Set();
+  slots.add(slot);reservations.set(positionKey,slots);
+}
+
+function releaseEnemySpace(reservations,q,r,slot){
+  const positionKey=key(q,r),slots=reservations.get(positionKey);if(!slots)return;
+  slots.delete(slot);if(!slots.size)reservations.delete(positionKey);
+}
+
+function enemySpaceReservations(excludeId=null){
+  const reservations=new Map();
   for(const enemy of state.enemies){
     if(enemy.id===excludeId)continue;
-    claimed.add(key(enemy.q,enemy.r));
-    if(enemy.progress<1)claimed.add(key(enemy.toQ,enemy.toR));
+    const slot=Number.isInteger(enemy.slot)?enemy.slot:0;
+    reserveEnemySpace(reservations,enemy.q,enemy.r,slot);
+    if(enemy.progress<1)reserveEnemySpace(reservations,enemy.toQ,enemy.toR,Number.isInteger(enemy.toSlot)?enemy.toSlot:slot);
   }
-  return claimed;
+  return reservations;
+}
+
+function enemyHexHasRoom(reservations,q,r){return (reservations.get(key(q,r))?.size||0)<CREEP_HEX_CAPACITY;}
+
+function chooseEnemySpaceSlot(reservations,q,r,enemy,salt=0){
+  const occupied=reservations.get(key(q,r))||new Set(),available=[];
+  for(let slot=0;slot<CREEP_HEX_CAPACITY;slot++)if(!occupied.has(slot))available.push(slot);
+  if(!available.length)return null;
+  const enemyNumber=Number(enemy.id?.replace(/\D/g,""))||0,roll=hash(q,r,(state.mapSeed+enemyNumber*7919+(enemy.moveCount||0)*3571+salt)|0);
+  return available[Math.min(available.length-1,Math.floor(roll*available.length))];
 }
 
 function invalidateEnemyNavigation(){enemyNavigationVersion++;}
@@ -121,14 +197,14 @@ function ensureEnemyNavigation(){
   return signature!==enemyNavigationCache.signature||outsideBounds?rebuildEnemyNavigation():enemyNavigationCache;
 }
 
-function nextEnemyNavigationStep(enemy,claimed){
+function nextEnemyNavigationStep(enemy,reservations){
   const navigation=enemyNavigationCache,currentDistance=navigation.distances.get(key(enemy.q,enemy.r));
   if(currentDistance===undefined)return null;
   const enemyNumber=Number(enemy.id.replace(/\D/g,""))||0;
   const options=neighbors(enemy.q,enemy.r).filter(position=>{
     const positionKey=key(position.q,position.r);
-    return !claimed.has(positionKey)&&!navigation.targetKeys.has(positionKey)&&navigation.distances.has(positionKey);
-  }).map(position=>({...position,distance:navigation.distances.get(key(position.q,position.r)),score:hash(position.q,position.r,(state.mapSeed+enemyNumber*7919)|0)}));
+    return enemyHexHasRoom(reservations,position.q,position.r)&&!navigation.targetKeys.has(positionKey)&&navigation.distances.has(positionKey);
+  }).map(position=>({...position,slot:chooseEnemySpaceSlot(reservations,position.q,position.r,enemy),distance:navigation.distances.get(key(position.q,position.r)),score:hash(position.q,position.r,(state.mapSeed+enemyNumber*7919)|0)}));
   options.sort((a,b)=>a.distance-b.distance||a.score-b.score);
   const forward=options.find(option=>option.distance<currentDistance);
   if(forward)return forward;
@@ -182,6 +258,7 @@ function findEnemyStep(start,goal,passable=isPassable,stopRange=0){
 function leaveGhost(target,objectType){
   const ghost={id:key(target.q,target.r),type:"ghost",objectType,q:target.q,r:target.r};
   if(objectType==="track"){
+    ghost.hp=0;ghost.maxHp=TRACK_HIT_POINTS;
     ghost.links=[...target.links];
     for(const neighborGhost of state.ghosts.values())if(neighborGhost.objectType==="track"&&(neighborGhost.links||[]).includes(ghost.id)&&!ghost.links.includes(neighborGhost.id))ghost.links.push(neighborGhost.id);
   }
@@ -193,6 +270,8 @@ function leaveGhost(target,objectType){
 function rebuiltLabel(ghost){
   if(ghost.objectType==="track")return "Track";
   if(ghost.objectType==="turret")return "Turret";
+  if(ghost.objectType==="artillery")return "Artillery";
+  if(ghost.objectType==="wall")return "Wall";
   return `${resourceLabel(ghost.resource)} Mine`;
 }
 
@@ -211,6 +290,12 @@ function rebuildGhost(ghost,train){
   }else if(ghost.objectType==="turret"){
     rebuilt={id:`turret-${state.nextId++}`,type:"turret",q:ghost.q,r:ghost.r,hp:18,maxHp:18,energy:0,maxEnergy:20,cooldown:0,showRangeUntil:state.elapsed+3.5};
     state.structures.set(ghost.id,rebuilt);
+  }else if(ghost.objectType==="wall"){
+    rebuilt={id:`wall-${state.nextId++}`,type:"wall",q:ghost.q,r:ghost.r,hp:WALL_HIT_POINTS,maxHp:WALL_HIT_POINTS};
+    state.structures.set(ghost.id,rebuilt);
+  }else if(ghost.objectType==="artillery"){
+    rebuilt={id:`artillery-${state.nextId++}`,type:"artillery",q:ghost.q,r:ghost.r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:0,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
+    state.structures.set(ghost.id,rebuilt);
   }else{
     rebuilt={id:`mine-${state.nextId++}`,type:"mine",resource:ghost.resource,q:ghost.q,r:ghost.r,hp:22,maxHp:22};
     state.structures.set(ghost.id,rebuilt);
@@ -218,8 +303,8 @@ function rebuildGhost(ghost,train){
   invalidateEnemyNavigation();
   state.ghosts.delete(ghost.id);
   if(state.selected?.type==="ghost"&&state.selected.id===ghost.id)state.selected=ghost.objectType==="track"?{type:"track",id:ghost.id}:{type:"structure",id:rebuilt.id};
-  sounds.place();burst(ghost.q,ghost.r,ghost.objectType==="turret"?"#65dbe0":"#d9bd78",8);
-  showWorldActivity(rebuilt,`${trainActivityName(train)} Rebuilt ${rebuiltLabel(ghost)}`,1.4);
+  sounds.place();burst(ghost.q,ghost.r,ghost.objectType==="turret"?"#65dbe0":ghost.objectType==="artillery"?"#ef9b54":ghost.objectType==="wall"?"#b7c1c5":"#d9bd78",8);
+  showTrainActivity(train,rebuilt,`Rebuilt ${rebuiltLabel(ghost)}`,1.4);
   return true;
 }
 
@@ -240,13 +325,15 @@ function showDefeatScreen(){
   ui.defeatMinesBuilt.textContent=state.stats.minesBuilt;
   ui.defeatTurretsBuilt.textContent=state.stats.turretsBuilt;
   ui.defeatTrainsBuilt.textContent=state.stats.trainsBuilt;
+  ui.defeatEnergyMined.textContent=Math.floor(state.stats.energyMined);
+  ui.defeatMaterialMined.textContent=Math.floor(state.stats.materialMined);
   ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");
   ui.gameOver.hidden=false;ui.gameOver.classList.remove("d-none");updateUI(true);
 }
 
 function showFinalMap(){
   if(!state.gameOver)return;
-  state.finalMapView=true;ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=false;ui.viewFinalStats.classList.remove("d-none");render();
+  state.finalMapView=true;state.mode="select";canvas.style.cursor="default";document.querySelectorAll("[data-mode]").forEach(button=>{const selectButton=button.dataset.mode==="select";button.classList.toggle("active",selectButton);button.disabled=!selectButton;});ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=false;ui.viewFinalStats.classList.remove("d-none");updateUI(true);render();
 }
 
 function showFinalStats(){
@@ -254,9 +341,19 @@ function showFinalStats(){
   state.finalMapView=false;ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.gameOver.hidden=false;ui.gameOver.classList.remove("d-none");
 }
 
+function trainPartDestroyed(train,partLabel){
+  sounds.trainDestroyed();
+  state.screenShakeUntil=Math.max(state.screenShakeUntil,state.elapsed+TRAIN_LOSS_SHAKE_SECONDS);
+  toast(`${train.name}: ${partLabel} Destroyed.`,"danger");
+}
+
+function supplyLabel(supply){return `${resourceLabel(supply.role||supply.type)} Supply`;}
+
 function damageTarget(target, amount) {
-  target.hp -= amount;
-  sounds.hit();
+  const targetIsTrack=state.tracks.get(key(target.q,target.r))===target;
+  target.hp=targetIsTrack&&amount>0?0:target.hp-amount;
+  const fatalTrainPart=target.hp<=0&&(target.kind==="wagon"||Boolean(target.wagons));
+  if(!fatalTrainPart)sounds.hit();
   if (target.hp > 0) return;
   if(target.type==="hive"){
     state.hives.delete(key(target.q,target.r));
@@ -267,9 +364,9 @@ function damageTarget(target, amount) {
   if(target.kind==="wagon"){
     const train=state.trains.find(candidate=>candidate.wagons.includes(target));
     if(train){
-      const index=train.wagons.indexOf(target),lost=train.wagons.length-index;
+      const index=train.wagons.indexOf(target),destroyed=train.wagons.slice(index);
       train.wagons.splice(index);
-      toast(`${train.name} lost ${lost} ${lost===1?"Wagon":"Wagons"}.`,"danger");
+      trainPartDestroyed(train,destroyed.map(supplyLabel).join(" and "));
     }
     burst(target.q,target.r,"#d94a4a",12);updateUI(true);return;
   }
@@ -281,8 +378,8 @@ function damageTarget(target, amount) {
     state.trains = state.trains.filter(t => t.id !== target.id);
     if (state.selected?.id === target.id) state.selected = null;
     if(state.scheduleTrainId===target.id){state.scheduleTrainId=null;state.mode="select";canvas.style.cursor="default";document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));}
-    toast(`${target.name} was consumed.`, "danger");
-  } else if (target.type === "turret" || target.type === "mine") {
+    trainPartDestroyed(target,"Locomotive");
+  } else if (target.type === "turret" || target.type === "artillery" || target.type === "mine" || target.type === "wall") {
     leaveGhost(target,target.type);
     state.structures.delete(key(target.q,target.r));
     invalidateEnemyNavigation();
@@ -299,38 +396,39 @@ function damageTarget(target, amount) {
 function updateEnemies(dt) {
   if(state.gameOver||!state.enemies.length)return;
   ensureEnemyNavigation();
-  const claimed=enemyClaimedHexes();
+  const reservations=enemySpaceReservations();
   for (const enemy of state.enemies) {
     if(state.gameOver)break;
     enemy.phase += dt*2.2;
     const target=enemy.progress>=1?adjacentEnemyTarget(enemy):null;
     if (target) {
       enemy.attackClock += dt;
-      enemy.attackFlashClock=(enemy.attackFlashClock??.3)+dt;
-      if(enemy.attackFlashClock>=.3){
-        enemy.attackFlashClock%=.3;
+      const shots=Math.floor((enemy.attackClock+1e-9)/CREEP_ATTACK_INTERVAL);
+      if(shots>0){
+        enemy.attackClock-=shots*CREEP_ATTACK_INTERVAL;
         const targetPoint=axialToWorld(target.q,target.r);
-        state.projectiles.push({x1:enemy.x,y1:enemy.y,x2:targetPoint.x,y2:targetPoint.y,life:.09,maxLife:.09,color:"#ff3348",width:1.7,impactColor:"#ff8790"});
+        for(let shot=0;shot<shots;shot++)state.projectiles.push({x1:enemy.x,y1:enemy.y,x2:targetPoint.x,y2:targetPoint.y,life:.09,maxLife:.09,color:"#ff3348",width:1.7,impactColor:"#ff8790"});
+        damageTarget(target,shots*CREEP_ATTACK_DAMAGE);
       }
-      damageTarget(target,dt*2.1);
       continue;
     }
     if (enemy.progress >= 1 && state.elapsed >= (enemy.nextPathAt||0)) {
-      const currentKey=key(enemy.q,enemy.r);claimed.delete(currentKey);
-      const next=nextEnemyNavigationStep(enemy,claimed);
-      claimed.add(currentKey);
+      const currentSlot=Number.isInteger(enemy.slot)?enemy.slot:0;
+      releaseEnemySpace(reservations,enemy.q,enemy.r,currentSlot);
+      const next=nextEnemyNavigationStep(enemy,reservations);
+      reserveEnemySpace(reservations,enemy.q,enemy.r,currentSlot);
       if (next) {
         enemy.previousQ=enemy.q;enemy.previousR=enemy.r;
-        enemy.fromQ=enemy.q; enemy.fromR=enemy.r; enemy.toQ=next.q; enemy.toR=next.r; enemy.progress=0;enemy.nextPathAt=0;
-        claimed.add(key(next.q,next.r));
+        enemy.fromQ=enemy.q;enemy.fromR=enemy.r;enemy.fromSlot=currentSlot;enemy.toQ=next.q;enemy.toR=next.r;enemy.toSlot=next.slot;enemy.progress=0;enemy.nextPathAt=0;enemy.moveCount=(enemy.moveCount||0)+1;
+        reserveEnemySpace(reservations,next.q,next.r,next.slot);
       }else enemy.nextPathAt=state.elapsed+.25;
     }
     if (enemy.progress < 1) {
       enemy.progress = Math.min(1,enemy.progress + dt*enemy.speed);
-      const a=axialToWorld(enemy.fromQ,enemy.fromR), b=axialToWorld(enemy.toQ,enemy.toR);
+      const a=enemyWorldPosition(enemy.fromQ,enemy.fromR,enemy.fromSlot),b=enemyWorldPosition(enemy.toQ,enemy.toR,enemy.toSlot);
       const eased=enemy.progress*enemy.progress*(3-2*enemy.progress);
       enemy.x=lerp(a.x,b.x,eased); enemy.y=lerp(a.y,b.y,eased);
-      if (enemy.progress>=1) { enemy.q=enemy.toQ; enemy.r=enemy.toR; }
+      if (enemy.progress>=1) { enemy.q=enemy.toQ;enemy.r=enemy.toR;enemy.slot=enemy.toSlot; }
     }
   }
 }
@@ -341,43 +439,84 @@ function updateCombatTrains(dt){
     train.combatCooldown=(train.combatCooldown||0)-dt;
     if(train.combatCooldown>0||totalCargo(train,"energy")<1)continue;
     const center=worldToAxial(train.x,train.y);
-    const hive=[...state.hives.values()].filter(candidate=>hexDistance(center,candidate)<=COMBAT_TRAIN_RANGE).sort((a,b)=>hexDistance(center,a)-hexDistance(center,b))[0];
-    const enemy=!hive?state.enemies.filter(candidate=>hexDistance(center,worldToAxial(candidate.x,candidate.y))<=COMBAT_TRAIN_RANGE).sort((a,b)=>hexDistance(center,a)-hexDistance(center,b))[0]:null;
+    const hive=[...state.hives.values()].filter(candidate=>hexDistance(center,candidate)<=COMBAT_TRAIN_RANGE&&hasClearShot(center,candidate)).sort((a,b)=>hexDistance(center,a)-hexDistance(center,b))[0];
+    const enemy=!hive?state.enemies.filter(candidate=>{const position=worldToAxial(candidate.x,candidate.y);return hexDistance(center,position)<=COMBAT_TRAIN_RANGE&&hasClearShot(center,position);}).sort((a,b)=>hexDistance(center,worldToAxial(a.x,a.y))-hexDistance(center,worldToAxial(b.x,b.y)))[0]:null;
     if(!hive&&!enemy)continue;
     const targetPoint=hive?axialToWorld(hive.q,hive.r):{x:enemy.x,y:enemy.y};
     removeCargo(train,"energy",1);train.combatCooldown=.48;train.gunAngle=Math.atan2(targetPoint.y-train.y,targetPoint.x-train.x);
     state.projectiles.push({x1:train.x,y1:train.y,x2:targetPoint.x,y2:targetPoint.y,life:.12,maxLife:.12});
     if(hive)damageTarget(hive,1);
-    else {state.enemies=state.enemies.filter(candidate=>candidate.id!==enemy.id);if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;state.creepsNeutralized++;burst(enemy.q,enemy.r,"#e35050",7);}
+    else {state.enemies=state.enemies.filter(candidate=>candidate.id!==enemy.id);if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;state.creepsNeutralized++;burstAt(enemy.x,enemy.y,"#e35050",7);}
     sounds.shot();
   }
+}
+
+function damageEnemy(enemy,amount){
+  enemy.hp-=amount;
+  if(enemy.hp>0)return false;
+  state.enemies=state.enemies.filter(candidate=>candidate.id!==enemy.id);
+  if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;
+  state.creepsNeutralized++;burstAt(enemy.x,enemy.y,"#e35050",7);return true;
+}
+
+function resolveArtilleryImpact(projectile){
+  const center={q:projectile.centerQ,r:projectile.centerR},affected=[center,...neighbors(center.q,center.r)];
+  for(const position of affected){
+    const damage=position.q===center.q&&position.r===center.r?ARTILLERY_CENTER_DAMAGE:ARTILLERY_SPLASH_DAMAGE;
+    const targetHive=state.hives.get(key(position.q,position.r));if(targetHive)damageTarget(targetHive,damage);
+    for(const targetEnemy of [...state.enemies]){const visible=worldToAxial(targetEnemy.x,targetEnemy.y);if(visible.q===position.q&&visible.r===position.r)damageEnemy(targetEnemy,damage);}
+    burst(position.q,position.r,"#ff9d58",4);
+  }
+}
+
+function updateProjectiles(dt){
+  const active=[];
+  for(const projectile of state.projectiles){
+    projectile.life-=dt;
+    if(projectile.kind==="artillery-shell"&&projectile.life<=0){
+      resolveArtilleryImpact(projectile);
+      active.push({kind:"artillery-blast",q:projectile.centerQ,r:projectile.centerR,life:.4,maxLife:.4});
+    }else if(projectile.life>0)active.push(projectile);
+  }
+  state.projectiles=active;
+}
+
+function fireArtillery(artillery){
+  if(artillery.energy<ARTILLERY_SHOT_ENERGY||artillery.cooldown>1e-9)return false;
+  const hive=[...state.hives.values()].filter(candidate=>hexDistance(artillery,candidate)<=ARTILLERY_RANGE).sort((a,b)=>hexDistance(artillery,a)-hexDistance(artillery,b))[0];
+  if(!hive)return false;
+  const center={q:hive.q,r:hive.r},from=axialToWorld(artillery.q,artillery.r),to=axialToWorld(center.q,center.r);
+  artillery.energy-=ARTILLERY_SHOT_ENERGY;artillery.cooldown=ARTILLERY_FIRE_INTERVAL;
+  state.projectiles.push({kind:"artillery-shell",x1:from.x,y1:from.y,x2:to.x,y2:to.y,centerQ:center.q,centerR:center.r,life:ARTILLERY_SHELL_FLIGHT_SECONDS,maxLife:ARTILLERY_SHELL_FLIGHT_SECONDS});
+  sounds.shot();return true;
 }
 
 function updateStructures(dt) {
   for (const structure of state.structures.values()) {
     if (structure.type === "turret") {
       structure.cooldown -= dt;
-      if (structure.energy >= 1 && structure.cooldown <= 0) {
-        const hive=[...state.hives.values()].filter(candidate=>hexDistance(structure,candidate)<=4).sort((a,b)=>hexDistance(structure,a)-hexDistance(structure,b))[0];
-        const enemy=!hive?state.enemies.filter(e => hexDistance(structure,worldToAxial(e.x,e.y)) <= 4).sort((a,b)=>hexDistance(structure,a)-hexDistance(structure,b))[0]:null;
+      if (structure.energy >= 1 && structure.cooldown <= 1e-9) {
+        const hive=[...state.hives.values()].filter(candidate=>hexDistance(structure,candidate)<=TURRET_RANGE&&hasClearShot(structure,candidate)).sort((a,b)=>hexDistance(structure,a)-hexDistance(structure,b))[0];
+        const enemy=!hive?state.enemies.filter(candidate=>{const position=worldToAxial(candidate.x,candidate.y);return hexDistance(structure,position)<=TURRET_RANGE&&hasClearShot(structure,position);}).sort((a,b)=>hexDistance(structure,worldToAxial(a.x,a.y))-hexDistance(structure,worldToAxial(b.x,b.y)))[0]:null;
         if(hive){
           const from=axialToWorld(structure.q,structure.r),to=axialToWorld(hive.q,hive.r);
           state.projectiles.push({x1:from.x,y1:from.y,x2:to.x,y2:to.y,life:.12,maxLife:.12});
-          structure.energy--;structure.cooldown=.48;damageTarget(hive,1);sounds.shot();
+          structure.energy--;structure.cooldown=1;damageTarget(hive,1);sounds.shot();
         }else if (enemy) {
           const from=axialToWorld(structure.q,structure.r);
           state.projectiles.push({x1:from.x,y1:from.y,x2:enemy.x,y2:enemy.y,life:.12,maxLife:.12});
-          structure.energy--; structure.cooldown=.48;
+          structure.energy--; structure.cooldown=1;
           state.enemies=state.enemies.filter(e=>e.id!==enemy.id);
           if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;
           state.creepsNeutralized++;
-          burst(enemy.q,enemy.r,"#e35050",7); sounds.shot();
+          burstAt(enemy.x,enemy.y,"#e35050",7); sounds.shot();
         }
       }
+    }else if(structure.type==="artillery"){
+      structure.cooldown-=dt;fireArtillery(structure);
     }
   }
-  state.projectiles.forEach(p=>p.life-=dt);
-  state.projectiles=state.projectiles.filter(p=>p.life>0);
+  updateProjectiles(dt);
   state.particles.forEach(p=>{p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.95;p.vy*=.95;});
   state.particles=state.particles.filter(p=>p.life>0);
 }

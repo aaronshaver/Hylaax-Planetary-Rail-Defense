@@ -45,6 +45,16 @@ describe("terrain generation", () => {
     assert.deepEqual({ ...api.terrainAt(-4, 7) }, { type: "resource", resource: "energy" });
   });
 
+  test("every generated resource node has a traversable approach to the larger clear area",()=>{
+    let resources=0;
+    for(let q=-55;q<=55;q++)for(let r=-55;r<=55;r++){
+      if(api.terrainAt(q,r).type!=="resource")continue;
+      resources++;
+      assert.equal(api.resourceHasOpenApproach(q,r),true,`resource at ${q},${r} is trapped by impassable terrain`);
+    }
+    assert.ok(resources>4,"the scan should exercise generated nodes as well as guaranteed nodes");
+  });
+
   test("salvaging an exhausted Mine clears its resource node into ground", () => {
     const node = api.resourceNodeAt(7, -2);
     assert.ok(node.amount >= api.constants.NODE_MIN_CAPACITY);

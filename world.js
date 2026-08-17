@@ -14,9 +14,10 @@ function makeInitialState() {
     gameOver: false,
     finalMapView: false,
     elapsed: 0,
+    nextEncroachmentAt: 60,
     hivesNeutralized: 0,
     creepsNeutralized: 0,
-    stats: { tracksLaid: 0, minesBuilt: 0, turretsBuilt: 0, trainsBuilt: 0 },
+    stats: { tracksLaid: 0, minesBuilt: 0, turretsBuilt: 0, trainsBuilt: 0, energyMined: 0, materialMined: 0 },
     uiClock: 0,
     tracks,
     base,
@@ -30,7 +31,8 @@ function makeInitialState() {
     enemies: [],
     projectiles: [],
     particles: [],
-    baseMaterial: 100,
+    screenShakeUntil: 0,
+    baseMaterial: 150,
     baseEnergy: 48,
     selected: { type: "base", id: "base" },
     trackStart: null,
@@ -72,19 +74,30 @@ function createHive(q,r,requestedLevel=2,spawnImmediately=false,forceFirstCreepB
   return hive;
 }
 
-function hiveHexOpen(q,r){
+function playerConstructionAnchors(){
+  const anchors=[state.base,...state.tracks.values(),...state.structures.values(),...state.ghosts.values(),...state.trains.flatMap(train=>trainSegments(train))],unique=new Map();
+  for(const anchor of anchors)unique.set(key(anchor.q,anchor.r),{q:anchor.q,r:anchor.r});
+  return [...unique.values()];
+}
+
+function outsidePlayerConstructionBuffer(q,r,minimumDistance=ENEMY_SPAWN_BUFFER,anchors=playerConstructionAnchors()){
+  return anchors.every(anchor=>hexDistance(anchor,{q,r})>=minimumDistance);
+}
+
+function hiveHexOpen(q,r,constructionAnchors=playerConstructionAnchors()){
   if(terrainAt(q,r).type!=="ground")return false;
+  if(!outsidePlayerConstructionBuffer(q,r,ENEMY_SPAWN_BUFFER,constructionAnchors))return false;
   if(structureAt(q,r)||state.tracks.has(key(q,r))||ghostAt(q,r)||trainClaimsHex(q,r))return false;
   if([...state.hives.values()].some(hive=>hexDistance(hive,{q,r})<=1))return false;
   return !state.enemies.some(enemy=>enemy.q===q&&enemy.r===r);
 }
 
 function seedInitialHives(){
-  const candidates=[];
+  const candidates=[],constructionAnchors=playerConstructionAnchors();
   for(let q=-22;q<=22;q++)for(let r=-22;r<=22;r++){
     const distance=hexDistance({q,r},state.base);
     const tooCloseToInfrastructure=hexDistance({q,r},state.base)<INITIAL_HIVE_BUFFER||[...state.tracks.values()].some(track=>hexDistance({q,r},track)<INITIAL_HIVE_BUFFER);
-    if(tooCloseToInfrastructure||distance>20||!hiveHexOpen(q,r))continue;
+    if(tooCloseToInfrastructure||distance>20||!hiveHexOpen(q,r,constructionAnchors))continue;
     candidates.push({q,r,score:terrainHash(q,r,901)});
   }
   candidates.sort((a,b)=>b.score-a.score);
@@ -114,10 +127,10 @@ class SoundBank {
     if (!this.audio) this.audio = new (window.AudioContext || window.webkitAudioContext)();
     if (this.audio.state === "suspended") this.audio.resume();
   }
-  tone(freq, duration, type = "sine", gain = .035, endFreq = null) {
+  tone(freq, duration, type = "sine", gain = .035, endFreq = null, delay = 0) {
     if (!this.enabled) return;
     this.init();
-    const t = this.audio.currentTime;
+    const t = this.audio.currentTime+delay;
     const osc = this.audio.createOscillator();
     const amp = this.audio.createGain();
     osc.type = type;
@@ -135,6 +148,11 @@ class SoundBank {
   shot() { const now = performance.now(); if (now - this.lastShot > 65) { this.lastShot = now; this.tone(920, .075, "square", .045, 240); setTimeout(()=>this.tone(135, .09, "sawtooth", .026, 70),18); } }
   hit() { const now = performance.now(); if (now - this.lastHit > 500) { this.lastHit = now; this.tone(75, .12, "sawtooth", .018, 48); } }
   error() { this.tone(105, .18, "square", .022, 72); }
+  trainDestroyed() {
+    this.tone(105, .14, "square", .04, 72);
+    this.tone(82, .14, "square", .04, 56, .07);
+    this.tone(62, .18, "square", .045, 42, .14);
+  }
 }
 const sounds = new SoundBank();
 
@@ -253,7 +271,7 @@ function setMode(mode) {
   updateUI(true);
 }
 
-function select(type, id) {
-  state.selected = { type, id };
+function select(type, id, details={}) {
+  state.selected = { type, id, ...details };
   updateUI(true);
 }

@@ -1,9 +1,11 @@
 "use strict";
 
-function burst(q,r,color,count) {
-  const p=axialToWorld(q,r);
-  for(let i=0;i<count;i++) { const a=hash(q+i,r,count)*Math.PI*2,s=10+hash(r-i,q,count)*30; state.particles.push({x:p.x,y:p.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.45+hash(i,q,r)*.35,maxLife:.8,color}); }
+function burstAt(x,y,color,count) {
+  const seedX=Math.round(x),seedY=Math.round(y);
+  for(let i=0;i<count;i++) { const a=hash(seedX+i,seedY,count)*Math.PI*2,s=10+hash(seedY-i,seedX,count)*30; state.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.45+hash(i,seedX,seedY)*.35,maxLife:.8,color}); }
 }
+
+function burst(q,r,color,count){const p=axialToWorld(q,r);burstAt(p.x,p.y,color,count);}
 
 function update(dt) {
   if(state.gameOver||state.paused||remindersOpen)return;

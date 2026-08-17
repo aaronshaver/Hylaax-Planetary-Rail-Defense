@@ -44,7 +44,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.paused,true);
     assert.equal(api.state.tracks.size,1);
     assert.equal(api.state.trains.length,0);
-    assert.equal(api.state.baseMaterial,100);
+    assert.equal(api.state.baseMaterial,150);
     assert.equal(elements.get("tutorialText").textContent,"Step 1: Click Build Track in the Actions panel");
   });
 

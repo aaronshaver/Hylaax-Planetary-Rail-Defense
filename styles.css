@@ -268,7 +268,7 @@ button { touch-action: manipulation; }
 .game-over-card { width: min(540px, 92%); padding: 34px; border: 1px solid #633137; background: #100e11; box-shadow: 0 20px 70px #000; text-align: center; }
 .game-over-card h1 { margin: 10px 0; font-size: clamp(38px, 6vw, 57px); font-weight: 900; }
 .defeat-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 24px 0; border: 1px solid #3e2a2f; background: #3e2a2f; text-align: left; }
-.defeat-stats div { display: flex; justify-content: space-between; gap: 18px; padding: 11px 13px; background: #171317; }
+.defeat-stats div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 11px; background: #171317; font-size: 14px; }
 .defeat-stats span { color: #9dabad; }
 .defeat-stats strong { color: #f08088; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .defeat-stats div:first-child { grid-column: 1 / -1; }

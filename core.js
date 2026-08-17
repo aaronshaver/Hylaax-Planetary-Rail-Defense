@@ -13,20 +13,39 @@ const NODE_MAX_CAPACITY = 1000;
 const INITIAL_HIVE_BUFFER = 8;
 const INITIAL_HIVE_COUNT = 2;
 const ENEMY_SPEED = .38;
+const CREEP_ATTACK_INTERVAL = 1;
+const CREEP_ATTACK_DAMAGE = 1;
 const SIMULATION_STEP = 1 / 60;
 const TRACK_HIT_POINTS = 1;
+const TRAIN_HIT_POINTS = 50;
+const WALL_HIT_POINTS = 100;
+const TRAIN_LOSS_SHAKE_SECONDS = .32;
+const ENEMY_SPAWN_BUFFER = 4;
 const REPAIR_PAUSE_SECONDS = 1;
 const TURRET_RANGE = 4;
 const COMBAT_TRAIN_RANGE = 6;
+const ARTILLERY_RANGE = 12;
+const ARTILLERY_HIT_POINTS = 36;
+const ARTILLERY_MAX_ENERGY = 40;
+const ARTILLERY_FIRE_INTERVAL = 3;
+const ARTILLERY_SHELL_FLIGHT_SECONDS = .7;
+const ARTILLERY_SHOT_ENERGY = 20;
+const ARTILLERY_CENTER_DAMAGE = 8;
+const ARTILLERY_SPLASH_DAMAGE = 5;
+const CREEP_HEX_CAPACITY = 7;
+const CREEP_SLOT_RADIUS = 17;
+const CREEP_RENDER_SCALE = .64;
 const BASE_UNLOAD_TARGET = 100;
 const HIVE_LEVELS = [2,3,5,8,13,21];
 const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const COSTS = {
   train: { material: 30, energy: 0 },
   turret: { material: 10, energy: 5 },
-  mine: { material: 8, energy: 0 }
+  mine: { material: 8, energy: 0 },
+  wall: { material: 12, energy: 1 },
+  artillery: { material: 100, energy: 100 }
 };
-const REBUILD_COSTS = { track: 1, turret: 10, mine: 8 };
+const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, artillery: 30 };
 const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*(60*index-30);return {x:Math.cos(angle),y:Math.sin(angle)};});
 
 const ui = Object.fromEntries([
@@ -35,7 +54,7 @@ const ui = Object.fromEntries([
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart",
-  "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt"
+  "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt", "defeatEnergyMined", "defeatMaterialMined"
 ].map(id => [id, document.getElementById(id)]));
 
 const key = (q, r) => `${q},${r}`;
@@ -72,6 +91,14 @@ function cubeRound(q, r) {
   else rz = -rx - ry;
   return { q: rx, r: rz };
 }
+
+function hexLineBetween(start,end){
+  const distance=hexDistance(start,end),line=[];
+  for(let step=1;step<distance;step++)line.push(cubeRound(lerp(start.q,end.q,step/distance),lerp(start.r,end.r,step/distance)));
+  return line;
+}
+
+function hasClearShot(start,end){return hexLineBetween(start,end).every(position=>!["rock","trees"].includes(terrainAt(position.q,position.r).type));}
 
 function hash(q, r, salt = 0) {
   let n = Math.imul(q, 374761393) + Math.imul(r, 668265263) + Math.imul(salt, 1442695041);

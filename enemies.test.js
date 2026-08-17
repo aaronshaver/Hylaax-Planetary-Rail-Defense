@@ -30,11 +30,13 @@ describe("Hive and defense behavior", () => {
     assert.equal(state.hives.size, 1);
     assert.equal(state.enemies.length, 2);
     assert.equal(hive.forceFirstCreepBatch, false);
+    assert.equal(hive.productionPulseUntil,.75);
   });
 
   test("a Level 2 Hive can create a Level 3 Hive after three minutes", () => {
     const state = api.state;
     state.elapsed = 180;
+    state.nextEncroachmentAt=Infinity;
     state.hives.clear();
     state.enemies = [];
     const hive = api.createHive(2, 2, 2, false, false);
@@ -50,6 +52,7 @@ describe("Hive and defense behavior", () => {
     const child = [...state.hives.values()].find(candidate => candidate.id !== hive.id);
     assert.equal(child.level, 3);
     assert.equal(state.enemies.length, 0);
+    assert.equal(hive.productionPulseUntil,180.75);
     assert.ok(api.hexDistance(hive, child) >= 2, "new Hives must have at least one non-Hive hex between them");
   });
 
@@ -68,6 +71,38 @@ describe("Hive and defense behavior", () => {
     assert.equal(turret.energy, 2);
   });
 
+  test("fixed Turrets fire once per second for one damage and one Energy",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];
+    const turret={id:"turret-cadence",type:"turret",q:5,r:0,hp:18,maxHp:18,energy:3,maxEnergy:20,cooldown:0};state.structures.set("5,0",turret);
+    const hive=api.createHive(6,0,13,false,false);
+
+    api.updateStructures(0);
+    assert.equal(hive.hp,12);assert.equal(turret.energy,2);assert.equal(turret.cooldown,1);
+    api.updateStructures(.99);assert.equal(hive.hp,12);assert.equal(turret.energy,2);
+    api.updateStructures(.01);assert.equal(hive.hp,11);assert.equal(turret.energy,1);
+  });
+
+  test("Artillery fires every three seconds for 2 Energy with 5 center and 2 adjacent damage and no friendly fire",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.structures.clear();state.trains=[];
+    const artillery={id:"artillery-defense",type:"artillery",q:0,r:0,hp:36,maxHp:36,energy:30,maxEnergy:30,cooldown:0};
+    const friendlyWall={id:"friendly-wall",type:"wall",q:8,r:-1,hp:100,maxHp:100};
+    state.structures.set("0,0",artillery);state.structures.set("8,-1",friendlyWall);
+    const friendlyTrain=addTestTrain();moveTrain(friendlyTrain,9,-1);
+    const centerHive=api.createHive(8,0,13,false,false),splashHive=api.createHive(9,0,13,false,false);
+    const centerCreep=makeEnemy("enemy-center",8,0),splashCreep=makeEnemy("enemy-splash",8,1);centerCreep.hp=centerCreep.maxHp=10;splashCreep.hp=splashCreep.maxHp=10;state.enemies=[centerCreep,splashCreep];
+
+    api.updateStructures(0);
+
+    assert.equal(centerHive.hp,8);assert.equal(splashHive.hp,11);
+    assert.equal(centerCreep.hp,5);assert.equal(splashCreep.hp,8);
+    assert.equal(friendlyWall.hp,100);assert.equal(friendlyTrain.hp,50);
+    assert.equal(artillery.energy,28);assert.equal(artillery.cooldown,3);
+    assert.equal(state.projectiles.at(-1).impactRadius,8);
+
+    api.updateStructures(2.99);assert.equal(centerHive.hp,8);assert.equal(artillery.energy,28);
+    api.updateStructures(.01);assert.equal(centerHive.hp,3);assert.equal(artillery.energy,26);
+  });
+
   test("Turret Trains can hit Hives at range 6", () => {
     const state = api.state;
     const train = addTestTrain();
@@ -84,15 +119,178 @@ describe("Hive and defense behavior", () => {
     assert.equal(train.wagons[0].amount, 4);
     assert.equal(api.constants.COMBAT_TRAIN_RANGE, 6);
   });
+
+  test("minute-added Hives begin at two minutes, use Fibonacci levels, and immediately spawn Creeps",()=>{
+    const state=api.state;
+    state.hives.clear();state.enemies=[];
+    const anchors=api.playerConstructionAnchors();
+    state.elapsed=59.99;api.updateHives();
+    assert.equal(state.hives.size,0);
+
+    state.elapsed=60;api.updateHives();
+    assert.equal(state.hives.size,0,"the one-minute event uses the previous Fibonacci count of zero");
+
+    state.elapsed=120;api.updateHives();
+    const hive=[...state.hives.values()].find(candidate=>candidate.encroaching);
+    assert.ok(hive);
+    assert.equal(hive.level,2);
+    assert.equal(hive.encroachmentMinute,2);
+    assert.equal(state.enemies.length,2,"the new Level 2 Hive should immediately produce two Creeps");
+    assert.equal(hive.nextSpawnAt,180,"future production stays synchronized to minute boundaries");
+    assert.ok(anchors.some(anchor=>{const distance=api.hexDistance(anchor,hive);return distance>=4&&distance<=10;}));
+    assert.ok(anchors.every(anchor=>api.hexDistance(anchor,hive)>=api.constants.ENEMY_SPAWN_BUFFER),"a new Hive must respect every construction's safety buffer");
+    assert.ok(state.enemies.every(enemy=>anchors.every(anchor=>api.hexDistance(anchor,enemy)>=api.constants.ENEMY_SPAWN_BUFFER)),"new Creeps must respect every construction's safety buffer");
+
+    const expectedLevels=[[120,2],[180,3],[240,3],[300,5]];
+    for(const [time,level] of expectedLevels){
+      state.hives.clear();state.elapsed=time;
+      const scheduled=api.spawnEncroachingHive(time);
+      assert.equal(scheduled.level,level);
+    }
+  });
+
+  test("each minute adds the previous Fibonacci-sized batch of independent Hives, capped at 13",()=>{
+    const state=api.state,expected=[[60,0],[120,1],[180,2],[240,2],[300,3],[480,5],[780,8],[1260,13],[1800,13]];
+    for(const [time,count] of expected){
+      state.hives.clear();state.enemies=[];state.elapsed=time;state.nextEncroachmentAt=time;
+
+      api.updateHives();
+
+      const scheduled=[...state.hives.values()].filter(hive=>hive.encroaching);
+      assert.equal(api.encroachingHiveCount(time),count);
+      assert.equal(scheduled.length,count,`minute ${time/60} should independently add ${count} Hives`);
+      assert.ok(scheduled.every(hive=>hive.level===api.hiveUnlockedLevel(time)));
+      assert.equal(state.enemies.length,count*api.hiveUnlockedLevel(time),"every new Hive should immediately produce its first Creep batch");
+    }
+  });
+
+  test("Hive and Creep spawn buffers include live and destroyed player constructions",()=>{
+    const state=api.state;state.tracks.clear();state.structures.clear();state.trains=[];state.ghosts.clear();
+    state.tracks.set("8,0",{q:8,r:0,hp:1,maxHp:1,links:new Set()});
+    state.structures.set("0,8",{id:"mine-buffer",type:"mine",q:0,r:8,hp:22,maxHp:22});
+    state.ghosts.set("-8,0",{id:"-8,0",type:"ghost",objectType:"track",q:-8,r:0,links:[]});
+
+    for(const anchor of api.playerConstructionAnchors()){
+      assert.equal(api.outsidePlayerConstructionBuffer(anchor.q+3,anchor.r),false);
+      assert.equal(api.outsidePlayerConstructionBuffer(anchor.q+4,anchor.r),true);
+    }
+  });
+
+  test("mountains and trees block both Turrets and Turret Trains",()=>{
+    let blocker=null;
+    for(let q=-50;q<=50&&!blocker;q++)for(let r=-50;r<=50&&!blocker;r++)if(["rock","trees"].includes(api.terrainAt(q,r).type))blocker={q,r};
+    assert.ok(blocker);
+    const start={q:blocker.q-1,r:blocker.r},target={q:blocker.q+1,r:blocker.r};
+    assert.equal(api.hasClearShot(start,target),false);
+
+    const state=api.state;state.hives.clear();state.enemies=[];
+    const turret={id:"blocked-turret",type:"turret",...start,hp:18,maxHp:18,energy:3,maxEnergy:20,cooldown:0};
+    state.structures.set(api.key(start.q,start.r),turret);
+    const hive=api.createHive(target.q,target.r,2,false,false);
+    api.updateStructures(.5);
+    assert.equal(hive.hp,2);assert.equal(turret.energy,3);
+
+    state.structures.clear();
+    const train=addTestTrain("combat");moveTrain(train,start.q,start.r);train.wagons[0].amount=3;train.combatCooldown=0;
+    api.updateCombatTrains(.5);
+    assert.equal(hive.hp,2);assert.equal(train.wagons[0].amount,3);
+  });
+
+  test("water does not block a clear shot",()=>{
+    let water=null;
+    for(let q=-50;q<=50&&!water;q++)for(let r=-50;r<=50&&!water;r++)if(api.terrainAt(q,r).type==="water")water={q,r};
+    assert.ok(water);
+    assert.equal(api.hasClearShot({q:water.q-1,r:water.r},{q:water.q+1,r:water.r}),true);
+  });
+
+  test("a moving Creep's death burst uses its visible position instead of its previous tile",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.particles=[];
+    const turret={id:"death-position-turret",type:"turret",q:5,r:0,hp:18,maxHp:18,energy:1,maxEnergy:20,cooldown:0};
+    const enemy=makeEnemy("enemy-moving",7,0),visible=api.axialToWorld(6,0);
+    enemy.x=visible.x;enemy.y=visible.y;enemy.progress=.5;
+    state.structures.set(api.key(turret.q,turret.r),turret);state.enemies=[enemy];
+
+    api.updateStructures(0);
+
+    assert.equal(state.enemies.length,0);
+    assert.equal(state.particles.length,7);
+    assert.ok(state.particles.every(particle=>particle.x===visible.x&&particle.y===visible.y));
+    assert.notDeepEqual(visible,api.axialToWorld(enemy.q,enemy.r));
+  });
 });
 
 describe("enemy navigation", () => {
+  test("destroying any Train part names it as Destroyed, plays three low tones, and shakes the map",()=>{
+    const state=api.state,train=addTestTrain("combat"),toastStack=require("./harness.js").elements.get("toastStack"),toneCalls=[];
+    const originalTone=api.sounds.tone;api.sounds.tone=(...args)=>toneCalls.push(args);
+    try{
+      api.damageTarget(train.wagons[0],train.wagons[0].hp);
+      assert.equal(toastStack.children.at(-1).textContent,"Turret Train A: Energy Supply Destroyed.");
+      assert.equal(train.wagons.length,0);assert.equal(toneCalls.length,3);assert.deepEqual(toneCalls.map(call=>call[0]),[105,82,62]);
+      assert.equal(state.screenShakeUntil,api.constants.TRAIN_LOSS_SHAKE_SECONDS);
+      assert.notDeepEqual(api.screenShakeOffset(),{x:0,y:0});
+
+      state.elapsed=.5;api.damageTarget(train,train.hp);
+      assert.equal(toastStack.children.at(-1).textContent,"Turret Train A: Locomotive Destroyed.");
+      assert.equal(state.trains.includes(train),false);assert.equal(toneCalls.length,6);
+      assert.equal(state.screenShakeUntil,.5+api.constants.TRAIN_LOSS_SHAKE_SECONDS);
+    }finally{api.sounds.tone=originalTone;}
+  });
+
+  test("Creeps treat Walls as attackable blocking structures",()=>{
+    const state=api.state;state.hives.clear();state.structures.clear();state.tracks.clear();state.trains=[];
+    const wall={id:"wall-defense",type:"wall",q:5,r:0,hp:100,maxHp:100};state.structures.set("5,0",wall);
+    state.enemies=[makeEnemy("enemy-wall",6,0)];
+
+    api.updateEnemies(1);
+
+    assert.equal(wall.hp,99);assert.equal(state.projectiles.length,1);
+  });
+
+  test("a Creep fires once per second and each shot deals one HP",()=>{
+    const state=api.state;state.hives.clear();state.structures.clear();state.tracks.clear();state.trains=[];state.enemies=[makeEnemy("enemy-attacker",1,0)];state.projectiles=[];
+    state.base.hp=100;
+
+    api.updateEnemies(.5);api.updateEnemies(.49);
+    assert.equal(state.base.hp,100);assert.equal(state.projectiles.length,0);
+
+    api.updateEnemies(.01);
+    assert.equal(state.base.hp,99);assert.equal(state.projectiles.length,1);
+
+    api.updateEnemies(1);
+    assert.equal(state.base.hp,98);assert.equal(state.projectiles.length,2);
+    assert.equal(api.constants.CREEP_ATTACK_INTERVAL,1);assert.equal(api.constants.CREEP_ATTACK_DAMAGE,1);
+  });
+
   test("pathfinding can route around an impassable hex", () => {
     const blocked = new Set(["1,0"]);
     const step = api.findEnemyStep({ q: 0, r: 0 }, { q: 4, r: 0 }, (q, r) => !blocked.has(api.key(q, r)));
     assert.ok(step);
     assert.equal(api.hexDistance({ q: 0, r: 0 }, step), 1);
     assert.notEqual(api.key(step.q, step.r), "1,0");
+  });
+
+  test("a hex reserves seven distinct Creep positions and rejects an eighth",()=>{
+    const state=api.state;state.enemies=[];
+    for(let slot=0;slot<api.constants.CREEP_HEX_CAPACITY;slot++)state.enemies.push(makeEnemy(`enemy-${slot+1}`,6,2,slot));
+    const reservations=api.enemySpaceReservations();
+    assert.equal(reservations.get(api.key(6,2)).size,7);
+    assert.equal(api.enemyHexHasRoom(reservations,6,2),false);
+    assert.equal(api.chooseEnemySpaceSlot(reservations,6,2,{id:"enemy-99",moveCount:0}),null);
+
+    api.releaseEnemySpace(reservations,6,2,4);
+    assert.equal(api.chooseEnemySpaceSlot(reservations,6,2,{id:"enemy-99",moveCount:0}),4);
+  });
+
+  test("a Creep falls back to the next-best navigation hex when the best hex is full",()=>{
+    const state=api.state;state.tracks.clear();state.structures.clear();state.trains=[];state.enemies=[];
+    const mover=makeEnemy("enemy-100",4,0,0),blockers=[];
+    for(let slot=0;slot<api.constants.CREEP_HEX_CAPACITY;slot++)blockers.push(makeEnemy(`enemy-${200+slot}`,3,0,slot));
+    state.enemies=[mover,...blockers];api.resetEnemyNavigation();api.rebuildEnemyNavigation();
+    const next=api.nextEnemyNavigationStep(mover,api.enemySpaceReservations(mover.id));
+    assert.ok(next,"a neighboring hex with room should be selected");
+    assert.notEqual(api.key(next.q,next.r),api.key(3,0));
+    assert.ok(Number.isInteger(next.slot)&&next.slot>=0&&next.slot<7);
   });
 
   test("600 Creeps share one navigation field and reserve distinct destination hexes", () => {
@@ -119,11 +317,16 @@ describe("enemy navigation", () => {
     api.updateEnemies(1 / 60);
     const steadyMs = performance.now() - steadyStart;
     const secondStats = api.enemyNavigationStats();
-    const reservedDestinations = state.enemies.map(enemy => api.key(enemy.toQ, enemy.toR));
+    const destinationCounts=new Map(),reservedSpaces=[];
+    for(const enemy of state.enemies){
+      const moving=enemy.progress<1,q=moving?enemy.toQ:enemy.q,r=moving?enemy.toR:enemy.r,slot=moving?enemy.toSlot:enemy.slot,positionKey=api.key(q,r);
+      destinationCounts.set(positionKey,(destinationCounts.get(positionKey)||0)+1);reservedSpaces.push(`${positionKey}:${slot}`);
+    }
 
     assert.equal(firstStats.builds, 1);
     assert.equal(secondStats.builds, 1, "steady ticks should reuse the shared navigation field");
-    assert.equal(new Set(reservedDestinations).size, reservedDestinations.length, "Creeps must not reserve overlapping destination hexes");
+    assert.ok([...destinationCounts.values()].every(count=>count<=api.constants.CREEP_HEX_CAPACITY),"no destination hex may exceed seven Creeps");
+    assert.equal(new Set(reservedSpaces).size,reservedSpaces.length,"Creeps sharing a hex must reserve different positions");
     console.log(`Shared-navigation stress test: 600 Creeps; ${initialMs.toFixed(1)} ms initial build, ${steadyMs.toFixed(1)} ms steady tick`);
   });
 });

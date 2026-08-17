@@ -27,9 +27,20 @@ function makeCanvasContext() {
     measureText: text => ({ width: String(text).length * 7 }),
     createLinearGradient: () => ({ addColorStop() {} }),
     createRadialGradient: () => ({ addColorStop() {} }),
-    fillText: (text,x,y) => values.textCalls.push({text:String(text),x,y,font:values.font,fillStyle:values.fillStyle})
+    fillText: (text,x,y) => values.textCalls.push({text:String(text),x,y,font:values.font,fillStyle:values.fillStyle}),
+    beginPath:()=>{values.currentPath=[];},
+    moveTo:(x,y)=>values.currentPath.push({command:"moveTo",x,y}),
+    lineTo:(x,y)=>values.currentPath.push({command:"lineTo",x,y}),
+    arc:(x,y,r,start,end)=>values.currentPath.push({command:"arc",x,y,r,start,end}),
+    rect:(x,y,width,height)=>values.currentPath.push({command:"rect",x,y,width,height}),
+    translate:(x,y)=>values.translateCalls.push({x,y}),
+    scale:(x,y)=>values.scaleCalls.push({x,y}),
+    closePath:()=>values.currentPath.push({command:"closePath"}),
+    fill:()=>values.fillCalls.push({path:[...values.currentPath],fillStyle:values.fillStyle}),
+    stroke:()=>values.strokeCalls.push({path:[...values.currentPath],strokeStyle:values.strokeStyle,lineWidth:values.lineWidth}),
+    fillRect:(x,y,width,height)=>values.fillRectCalls.push({x,y,width,height,fillStyle:values.fillStyle})
   };
-  values.textCalls=[];
+  values.textCalls=[];values.fillCalls=[];values.strokeCalls=[];values.fillRectCalls=[];values.translateCalls=[];values.scaleCalls=[];values.currentPath=[];
   return new Proxy(values, {
     get(target, property) {
       if (property in target) return target[property];
@@ -51,10 +62,13 @@ class ElementMock {
     this.hidden = false;
     this.disabled = false;
     this.textContent = "";
-    this.innerHTML = "";
+    this._innerHTML = "";
+    this.innerHTMLWriteCount = 0;
     this.width = 1024;
     this.height = 768;
   }
+  get innerHTML() { return this._innerHTML; }
+  set innerHTML(value) { this._innerHTML = value; this.innerHTMLWriteCount++; }
   addEventListener() {}
   appendChild(child) { this.children.push(child); child.parentNode = this; return child; }
   remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(child => child !== this); }
@@ -133,17 +147,17 @@ function makeTrack(q, r, links = []) {
   return { q, r, hp: 1, maxHp: 1, links: new Set(links) };
 }
 
-function makeEnemy(id, q, r) {
-  const point = api.axialToWorld(q, r);
-  return { id, type: "enemy", q, r, x: point.x, y: point.y, fromQ: q, fromR: r, toQ: q, toR: r, progress: 1, speed: api.constants.ENEMY_SPEED, hp: 1, maxHp: 1, attackClock: 0, nextPathAt: 0, phase: 0 };
+function makeEnemy(id, q, r, slot=0) {
+  const point = api.enemyWorldPosition(q,r,slot);
+  return { id, type: "enemy", q, r, slot, x: point.x, y: point.y, fromQ: q, fromR: r, fromSlot:slot, toQ: q, toR: r, toSlot:slot, progress: 1, moveCount:0, speed: api.constants.ENEMY_SPEED, hp: 1, maxHp: 1, attackClock: 0, nextPathAt: 0, phase: 0 };
 }
 
 function addTestTrain(trainType="builder") {
   const state=api.state,trainIndex=state.nextTrainIndex++,code=api.trainCode(trainIndex),roles=trainType==="combat"?["energy"]:["material","energy"];
   const positions=[{q:3,r:0},{q:2,r:0},{q:1,r:0}],heading=0;
-  const wagons=roles.map((role,index)=>{const position=positions[index+1],point=api.axialToWorld(position.q,position.r);return {id:`test-wagon-${state.nextId++}`,kind:"wagon",...position,x:point.x,y:point.y,heading,role,type:role,amount:0,capacity:30,hp:18,maxHp:18};});
+  const wagons=roles.map((role,index)=>{const position=positions[index+1],point=api.axialToWorld(position.q,position.r);return {id:`test-wagon-${state.nextId++}`,kind:"wagon",...position,x:point.x,y:point.y,heading,role,type:role,amount:trainType==="combat"&&role==="energy"?10:0,capacity:30,hp:api.constants.TRAIN_HIT_POINTS,maxHp:api.constants.TRAIN_HIT_POINTS};});
   const head=positions[0],point=api.axialToWorld(head.q,head.r);
-  const train={id:`test-train-${state.nextId++}`,name:api.trainName(trainIndex,trainType),code,trainType,...head,x:point.x,y:point.y,route:[],routePurpose:null,progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,repairHoldUntil:0,repairResumeStatus:null,energyDepleted:false,nextEnergyWarningAt:0,forwardDirection:{q:1,r:0},fuel:20,maxFuel:20,hp:28,maxHp:28,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
+  const train={id:`test-train-${state.nextId++}`,name:api.trainName(trainIndex,trainType),code,trainType,...head,x:point.x,y:point.y,route:[],routePurpose:null,progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,repairHoldUntil:0,repairResumeStatus:null,energyDepleted:false,nextEnergyWarningAt:0,forwardDirection:{q:1,r:0},fuel:20,maxFuel:20,hp:api.constants.TRAIN_HIT_POINTS,maxHp:api.constants.TRAIN_HIT_POINTS,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
   state.trains.push(train);return train;
 }
 

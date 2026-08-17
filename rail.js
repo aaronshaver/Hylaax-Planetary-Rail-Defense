@@ -60,6 +60,10 @@ function trackWithinRange(target, range = 3) {
   return [...state.tracks.values()].some(track=>hexDistance(track,target)<=range);
 }
 
+function liveTrackWithinRange(target,range=3){
+  return [...state.tracks.values()].some(track=>track.hp>0&&hexDistance(track,target)<=range);
+}
+
 function requireNearbyTrack(target, action) {
   if(trackWithinRange(target,3))return true;
   fail(`${capitalize(action)} must be within three hexes of track.`);
@@ -74,7 +78,6 @@ function placeTrackOverGhost(ghost){
   state.ghosts.delete(ghostKey);
   invalidateEnemyNavigation();
   if(state.selected?.type==="ghost"&&state.selected.id===ghostKey)state.selected={type:"track",id:ghostKey};
-  showWorldActivity(rebuilt,"Rebuilt Track",1.4);
   return rebuilt;
 }
 
@@ -171,7 +174,7 @@ function addCargo(train, type, amount) {
 }
 
 function buildTurret(q, r) {
-  if(!requireNearbyTrack({q,r},"building a turret"))return;
+  if(!liveTrackWithinRange({q,r},3))return fail("Building a turret must be within three hexes of non-destroyed Track.");
   if(ghostAt(q,r))return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
   if (!isPassable(q, r) || terrainAt(q, r).type === "resource" || structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("Turrets need clear ground away from track.");
   if(!payBase(COSTS.turret,"Turret"))return;
@@ -180,6 +183,26 @@ function buildTurret(q, r) {
   invalidateEnemyNavigation();
   state.stats.turretsBuilt++;
   sounds.place(); burst(q, r, "#65dbe0", 10); select("structure", turret.id);tutorialEvent("turret-built",{turret});
+}
+
+function buildWall(q, r) {
+  if(!liveTrackWithinRange({q,r},3))return fail("Building a wall must be within three hexes of non-destroyed Track.");
+  if(ghostAt(q,r))return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
+  if(!isPassable(q,r)||terrainAt(q,r).type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Walls need clear ground away from Track.");
+  if(!payBase(COSTS.wall,"Wall"))return;
+  const wall={id:`wall-${state.nextId++}`,type:"wall",q,r,hp:WALL_HIT_POINTS,maxHp:WALL_HIT_POINTS};
+  state.structures.set(key(q,r),wall);
+  invalidateEnemyNavigation();
+  sounds.place();burst(q,r,"#b7c1c5",10);select("structure",wall.id);
+}
+
+function buildArtillery(q,r){
+  if(!liveTrackWithinRange({q,r},3))return fail("Building Artillery must be within three hexes of non-destroyed Track.");
+  if(ghostAt(q,r))return fail("A destroyed object occupies that hex. Rebuild it with an adjacent stopped locomotive.");
+  if(!isPassable(q,r)||terrainAt(q,r).type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Artillery needs clear ground away from Track.");
+  if(!payBase(COSTS.artillery,"Artillery"))return;
+  const artillery={id:`artillery-${state.nextId++}`,type:"artillery",q,r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:ARTILLERY_MAX_ENERGY,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
+  state.structures.set(key(q,r),artillery);invalidateEnemyNavigation();sounds.place();burst(q,r,"#ef9b54",12);select("structure",artillery.id);
 }
 
 function buildMine(q, r) {
@@ -198,8 +221,8 @@ function buildMine(q, r) {
 
 function salvageStructure(structure) {
   if(!requireNearbyTrack(structure,`salvaging the ${structure.type}`))return;
-  const mat = structure.type === "turret" ? 4 : 6;
-  const energy = structure.type==="turret"?Math.floor(structure.energy):0;
+  const mat = structure.type === "artillery" ? 12 : structure.type === "turret" ? 4 : structure.type === "wall" ? 8 : 6;
+  const energy = ["turret","artillery"].includes(structure.type)?Math.floor(structure.energy):0;
   if(structure.type==="mine"){
     const node=resourceNodeAt(structure.q,structure.r);
     if(node?.amount<=0){
@@ -213,7 +236,7 @@ function salvageStructure(structure) {
   invalidateEnemyNavigation();
   state.selected = { type: "base", id: "base" };
   sounds.remove(); burst(structure.q, structure.r, "#9ba9ad", 8); updateUI(true);
-  toast(structure.type==="turret"?`Salvaged ${mat} Construction Material and ${energy} Energy.`:`Salvaged ${mat} Construction Material.`);
+  toast(["turret","artillery"].includes(structure.type)?`Salvaged ${mat} Construction Material and ${energy} Energy.`:`Salvaged ${mat} Construction Material.`);
 }
 
 function requestTrainSalvage(train){
@@ -271,8 +294,8 @@ function deployTrain(q,r){
   if(path.some(position=>trainClaimsHex(position.q,position.r)))return fail("Those deployment Track hexes are no longer clear.");
   const [head,firstWagon]=path,hp=axialToWorld(head.q,head.r),firstPoint=axialToWorld(firstWagon.q,firstWagon.r);
   const heading=Math.atan2(hp.y-firstPoint.y,hp.x-firstPoint.x),trainIndex=state.nextTrainIndex++,code=trainCode(trainIndex),roles=trainType==="combat"?["energy"]:["material","energy"];
-  const wagons=roles.map((role,index)=>{const position=path[index+1],point=axialToWorld(position.q,position.r);return {id:`wagon-${state.nextId++}`,kind:"wagon",q:position.q,r:position.r,x:point.x,y:point.y,heading,role,type:role,amount:0,capacity:30,hp:18,maxHp:18};});
-  const train={id:`train-${state.nextId++}`,name:trainName(trainIndex,trainType),code,trainType,q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],routePurpose:null,progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,repairHoldUntil:0,repairResumeStatus:null,energyDepleted:false,nextEnergyWarningAt:0,forwardDirection:{q:head.q-firstWagon.q,r:head.r-firstWagon.r},fuel:10,maxFuel:20,hp:28,maxHp:28,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
+  const wagons=roles.map((role,index)=>{const position=path[index+1],point=axialToWorld(position.q,position.r);return {id:`wagon-${state.nextId++}`,kind:"wagon",q:position.q,r:position.r,x:point.x,y:point.y,heading,role,type:role,amount:trainType==="combat"&&role==="energy"?10:0,capacity:30,hp:TRAIN_HIT_POINTS,maxHp:TRAIN_HIT_POINTS};});
+  const train={id:`train-${state.nextId++}`,name:trainName(trainIndex,trainType),code,trainType,q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],routePurpose:null,progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,repairHoldUntil:0,repairResumeStatus:null,energyDepleted:false,nextEnergyWarningAt:0,forwardDirection:{q:head.q-firstWagon.q,r:head.r-firstWagon.r},fuel:10,maxFuel:20,hp:TRAIN_HIT_POINTS,maxHp:TRAIN_HIT_POINTS,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
   state.trains.push(train);state.stats.trainsBuilt++;clearDeploymentReservation();sounds.place();select("train",train.id);setMode("select");toast(`${train.name} Deployed.`,"info");tutorialEvent("builder-train-deployed",{trainId:train.id,train});
 }
 

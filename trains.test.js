@@ -7,6 +7,17 @@ const { api, moveTrain, addTestTrain } = require("./harness.js");
 beforeEach(() => { api.reset(); addTestTrain(); });
 
 describe("resource logistics", () => {
+  test("the Base reports Energy loaded into a Train",()=>{
+    const state=api.state,train=state.trains[0];
+    moveTrain(train,1,0);train.fuel=10;train.wagons[0].amount=1;train.wagons[1].amount=0;state.baseEnergy=50;
+
+    api.serviceBaseLogistics(train);
+
+    assert.equal(train.fuel,20);
+    assert.equal(train.wagons[1].amount,30);
+    assert.ok(state.worldMessages.some(item=>item.message==="Train A: Loaded Energy from Base"));
+  });
+
   test("the Base accepts each resource only up to 100", () => {
     const state = api.state;
     const train = state.trains[0];
@@ -62,6 +73,16 @@ describe("resource logistics", () => {
     assert.equal(turret.energy, 20);
   });
 
+  test("a stopped Build/Mine Train supplies Artillery with Energy",()=>{
+    const state=api.state,train=state.trains[0];moveTrain(train,6,0);train.wagons[1].amount=20;
+    const artillery={id:"artillery-supply",type:"artillery",q:7,r:0,hp:36,maxHp:36,energy:10,maxEnergy:30,cooldown:0};state.structures.set("7,0",artillery);
+
+    api.updateAutomaticLogistics();
+
+    assert.equal(artillery.energy,30);assert.equal(train.wagons[1].amount,0);
+    assert.ok(state.worldMessages.some(item=>item.message==="Train A: Supplied Artillery with Energy"));
+  });
+
   test("Mines instantly fill the matching wagon from an adjacent locomotive", () => {
     const state = api.state;
     const train = state.trains[0];
@@ -76,6 +97,8 @@ describe("resource logistics", () => {
 
     assert.equal(train.wagons[0].amount, 30);
     assert.equal(api.resourceNodeAt(mine.q, mine.r).amount, before - 30);
+    assert.equal(state.stats.materialMined,30);
+    assert.equal(state.stats.energyMined,0);
     assert.ok(state.worldMessages.some(item => item.message === "Train A: Mined Construction Material"));
   });
 
@@ -94,5 +117,8 @@ describe("resource logistics", () => {
     assert.equal(train.fuel, 20);
     assert.equal(train.wagons[1].amount, 30);
     assert.equal(api.resourceNodeAt(mine.q, mine.r).amount, before - 40);
+    assert.equal(state.stats.energyMined,40);
+    assert.equal(state.stats.materialMined,0);
+    assert.ok(state.worldMessages.some(item=>item.message==="Train A: Mined Energy"));
   });
 });

@@ -22,13 +22,23 @@ describe("geometry and initial state", () => {
     assert.equal(api.hexDistance(track,state.base),1);
     assert.equal(track.links.size,0);
     assert.equal(state.trains.length,0);
-    assert.equal(state.baseMaterial, 100);
+    assert.equal(state.baseMaterial, 150);
     assert.equal(state.nextTrainIndex,0);
     assert.equal(api.constants.TRACK_HIT_POINTS, 1);
+    assert.equal(api.constants.TRAIN_HIT_POINTS, 50);
   });
 
   test("Train names use the Build/Mine and Turret labels", () => {
     assert.equal(api.trainName(0,"builder"),"Build/Mine Train A");
     assert.equal(api.trainName(1,"combat"),"Turret Train B");
+  });
+
+  test("the seven Creep positions are the center and six separated hex-corner positions",()=>{
+    const offsets=Array.from({length:api.constants.CREEP_HEX_CAPACITY},(_,slot)=>api.enemySlotOffset(slot));
+    assert.deepEqual({...offsets[0]},{x:0,y:0});
+    for(const offset of offsets.slice(1))assert.ok(Math.abs(Math.hypot(offset.x,offset.y)-api.constants.CREEP_SLOT_RADIUS)<1e-9);
+    const minimumDistance=Math.min(...offsets.flatMap((a,index)=>offsets.slice(index+1).map(b=>Math.hypot(a.x-b.x,a.y-b.y))));
+    const maximumRenderedRadius=11.6*api.constants.CREEP_RENDER_SCALE;
+    assert.ok(minimumDistance>maximumRenderedRadius*2,"all seven rendered Creeps need visible whitespace between them");
   });
 });
