@@ -40,13 +40,14 @@ describe("game bootstrap", () => {
   test("the Actions panel exposes Wall and Artillery and keeps Salvage on key 7",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/data-mode="wall"[^>]*Costs 12 Construction Material and 1 Energy[^>]*><span class="keycap">5<\/span>Build Wall/);
-    assert.match(html,/data-mode="artillery"[^>]*Costs 30 Construction Material and 20 Energy[^>]*><span class="keycap">6<\/span>Build Artillery/);
+    assert.match(html,/data-mode="artillery"[^>]*Costs 100 Construction Material and 100 Energy[^>]*><span class="keycap">6<\/span>Build Artillery/);
     assert.match(html,/data-mode="salvage"[^>]*><span class="keycap">7<\/span>Salvage Object/);
+    assert.equal((html.match(/Will run out of Energy if not supplied by a Train Stop\./g)||[]).length,2);
   });
 
-  test("the displayed and package versions are 2.1",()=>{
+  test("the displayed and package versions are 2.5",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 2\.1/);assert.match(html,/DEFENSE 2\.1/);assert.equal(packageJson.version,"2.1.0");
+    assert.match(html,/Planetary Rail Defense 2\.5/);assert.match(html,/DEFENSE 2\.5/);assert.equal(packageJson.version,"2.5.0");
   });
 });

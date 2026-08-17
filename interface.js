@@ -60,7 +60,22 @@ function selectionHtml(){
   return `<div class="selection-empty">Unknown selection.</div>`;
 }
 
+function updateConstructionToolAvailability(){
+  const tools=[
+    ["select",ui.selectTool],["track",ui.trackTool],["turret",ui.turretTool],["mine",ui.mineTool],
+    ["wall",ui.wallTool],["artillery",ui.artilleryTool],["salvage",ui.salvageTool]
+  ];
+  if(!state.gameOver&&!constructionModeAffordable(state.mode)){
+    state.mode="select";state.trackStart=null;canvas.style.cursor="default";
+  }
+  for(const [mode,tool] of tools){
+    const disabled=state.gameOver?mode!=="select":!constructionModeAffordable(mode);
+    tool.disabled=disabled;tool.ariaDisabled=String(disabled);tool.classList.toggle("active",mode===state.mode);
+  }
+}
+
 function updateUI(force=false){
+  updateConstructionToolAvailability();
   const paused=state.paused||state.gameOver,pauseStatus=paused?"paused":"playing";setStatusButtonMarkup(ui.pauseToggle,pauseStatus,`${statusIcon(paused?"pause":"play")}<span>${paused?"Paused":"Playing"}</span>`);ui.pauseToggle.classList.toggle("status-playing",!paused);ui.pauseToggle.classList.toggle("status-paused",paused);ui.pauseToggle.disabled=state.gameOver||tutorialLocksPause();ui.pauseToggle.ariaLabel=paused?"Play simulation":"Pause simulation";
   const soundStatus=state.sound?"sound-on":"sound-off";setStatusButtonMarkup(ui.soundToggle,soundStatus,`${statusIcon(soundStatus)}<span>Sound: ${state.sound?"ON":"OFF"}</span>`);ui.soundToggle.classList.toggle("status-sound-on",state.sound);ui.soundToggle.classList.toggle("status-sound-off",!state.sound);ui.hivesNeutralized.textContent=state.hivesNeutralized;ui.creepsNeutralized.textContent=state.creepsNeutralized;ui.hivesInWorld.textContent=state.hives.size;ui.creepsInWorld.textContent=state.enemies.length;ui.timeSurvived.textContent=formatSurvivalTime(state.elapsed);
   const hasSelection=Boolean(getSelected());ui.selectionLabel.hidden=!hasSelection;

@@ -7,6 +7,44 @@ const { api, elements, makeEnemy, addTestTrain } = require("./harness.js");
 beforeEach(() => { api.reset(); });
 
 describe("interface formatting", () => {
+  test("construction tools disable and re-enable at their exact Base costs",()=>{
+    const state=api.state;
+    const cases=[
+      ["trackTool",api.constants.COSTS.track],
+      ["turretTool",api.constants.COSTS.turret],
+      ["mineTool",api.constants.COSTS.mine],
+      ["wallTool",api.constants.COSTS.wall],
+      ["artilleryTool",api.constants.COSTS.artillery]
+    ];
+    for(const [id,cost] of cases){
+      state.baseMaterial=cost.material;state.baseEnergy=cost.energy;api.updateUI(true);
+      assert.equal(elements.get(id).disabled,false,`${id} should enable at its exact cost`);
+      state.baseMaterial=cost.material-1;api.updateUI(true);
+      assert.equal(elements.get(id).disabled,true,`${id} should disable when short on Construction Material`);
+      if(cost.energy){state.baseMaterial=cost.material;state.baseEnergy=cost.energy-1;api.updateUI(true);assert.equal(elements.get(id).disabled,true,`${id} should disable when short on Energy`);}
+    }
+
+    state.baseMaterial=0;state.baseEnergy=0;api.updateUI(true);
+    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool"])assert.equal(elements.get(id).disabled,true,id);
+    assert.equal(elements.get("selectTool").disabled,false);
+    assert.equal(elements.get("salvageTool").disabled,false);
+
+    state.baseMaterial=100;state.baseEnergy=100;api.updateUI(true);
+    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool"])assert.equal(elements.get(id).disabled,false,id);
+  });
+
+  test("unaffordable construction modes cannot be entered and an active one exits when funds fall short",()=>{
+    const state=api.state;
+    state.baseMaterial=100;state.baseEnergy=99;
+    assert.equal(api.setMode("artillery"),false);
+    assert.equal(state.mode,"select");
+
+    state.baseEnergy=100;assert.equal(api.setMode("artillery"),true);assert.equal(state.mode,"artillery");
+    state.baseEnergy=0;api.updateUI(true);
+    assert.equal(state.mode,"select");
+    assert.equal(elements.get("artilleryTool").disabled,true);
+  });
+
   test("the loss screen shows lifetime Energy and Construction Material mined",()=>{
     const state=api.state;state.stats.energyMined=123.75;state.stats.materialMined=456;
 
@@ -43,10 +81,10 @@ describe("interface formatting", () => {
   });
 
   test("Artillery selection reports its range, cadence, splash damage, and friendly-fire safety",()=>{
-    const artillery={id:"artillery-copy",type:"artillery",q:6,r:-2,hp:36,maxHp:36,energy:30,maxEnergy:30,cooldown:0};
+    const artillery={id:"artillery-copy",type:"artillery",q:6,r:-2,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};
     api.state.structures.set(api.key(artillery.q,artillery.r),artillery);api.state.selected={type:"structure",id:artillery.id};
     const html=api.selectionHtml();
-    assert.match(html,/Artillery/);assert.match(html,/Range 12 hexes/);assert.match(html,/Fires every 3 seconds/);assert.match(html,/5 center damage \+ 2 damage/);assert.match(html,/No friendly fire/);
+    assert.match(html,/Artillery/);assert.match(html,/Targets Hives only/);assert.match(html,/Range 12 hexes/);assert.match(html,/Lobs a shell every 3 seconds/);assert.match(html,/20 Energy per shot/);assert.match(html,/8 center damage \+ 5 damage/);assert.match(html,/Creeps can take splash damage/);assert.match(html,/No friendly fire/);
   });
 
   test("the selection label is hidden only when nothing is selected",()=>{

@@ -158,7 +158,7 @@ describe("rendering caches", () => {
 
   test("Artillery renders a centered A and a selected 12-hex range",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
-    const artillery={id:"artillery-art",type:"artillery",q:4,r:-2,hp:36,maxHp:36,energy:30,maxEnergy:30,cooldown:0};
+    const artillery={id:"artillery-art",type:"artillery",q:4,r:-2,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};
     state.structures.set(api.key(artillery.q,artillery.r),artillery);state.selected={type:"structure",id:artillery.id};context.textCalls.length=0;context.strokeCalls.length=0;
 
     api.drawStructures();
@@ -167,6 +167,22 @@ describe("rendering caches", () => {
 
     context.strokeCalls.length=0;api.drawTurretRanges();
     assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)"&&call.lineWidth===1.4).length,72,"a radius-12 hex has 72 boundary tiles");
+  });
+
+  test("Artillery shells arc without a laser and impacts show all seven splash hexes",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state;
+    state.projectiles=[{kind:"artillery-shell",x1:0,y1:0,x2:100,y2:20,centerQ:3,centerR:1,life:.35,maxLife:.7}];context.fillCalls.length=0;context.strokeCalls.length=0;
+
+    api.drawEffects();
+
+    const shell=context.fillCalls.find(call=>call.path.some(item=>item.command==="arc"&&item.r===4.5));
+    assert.ok(shell,"the shell should be rendered as a projectile");
+    assert.ok(shell.path.find(item=>item.command==="arc").y<0,"the midpoint of the shell should rise above its straight path");
+    assert.equal(context.strokeCalls.length,0,"the flying shell must not draw a laser line");
+
+    state.projectiles=[{kind:"artillery-blast",q:3,r:1,life:.4,maxLife:.4}];context.strokeCalls.length=0;context.fillCalls.length=0;api.drawEffects();
+    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="#ff9d58"&&call.lineWidth===2.5).length,7);
+    assert.equal(context.fillCalls.filter(call=>call.fillStyle==="rgba(255,118,48,.18)").length,7);
   });
 
   test("particles and projectile effects render beneath unit bodies and labels",()=>{

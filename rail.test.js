@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { describe, test, beforeEach } = require("node:test");
-const { api, moveTrain, makeTrack, addTestTrain } = require("./harness.js");
+const { api, elements, moveTrain, makeTrack, addTestTrain } = require("./harness.js");
 
 beforeEach(() => { api.reset(); addTestTrain(); });
 
@@ -48,8 +48,9 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(state.baseMaterial,materialBefore-12);assert.equal(state.baseEnergy,energyBefore-1);
   });
 
-  test("Artillery costs 30 Construction Material and 20 Energy and is built with 36 HP and 30 stored Energy",()=>{
+  test("Artillery costs 100 Construction Material and 100 Energy and is built with 36 HP and 40 stored Energy",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();state.trains=[];
+    state.baseEnergy=150;
     let target=null;
     for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
     assert.ok(target);
@@ -60,8 +61,8 @@ describe("repairs, ghosts, and schedules", () => {
 
     const artillery=[...state.structures.values()][0];
     assert.equal(artillery.type,"artillery");assert.equal(artillery.hp,36);assert.equal(artillery.maxHp,36);
-    assert.equal(artillery.energy,30);assert.equal(artillery.maxEnergy,30);
-    assert.equal(state.baseMaterial,materialBefore-30);assert.equal(state.baseEnergy,energyBefore-20);
+    assert.equal(artillery.energy,40);assert.equal(artillery.maxEnergy,40);
+    assert.equal(state.baseMaterial,materialBefore-100);assert.equal(state.baseEnergy,energyBefore-100);
   });
 
   test("a Train at its own Stop instantly repairs a damaged Wall within three hexes",()=>{
@@ -82,7 +83,7 @@ describe("repairs, ghosts, and schedules", () => {
     state.tracks.clear();state.structures.clear();state.base.hp=99;
     const track=makeTrack(1,0);track.hp=0;state.tracks.set("1,0",track);
     const turret={id:"priority-turret",type:"turret",q:0,r:1,hp:17,maxHp:18,energy:0,maxEnergy:20,cooldown:0};
-    const artillery={id:"priority-artillery",type:"artillery",q:-1,r:1,hp:35,maxHp:36,energy:0,maxEnergy:30,cooldown:0};
+    const artillery={id:"priority-artillery",type:"artillery",q:-1,r:1,hp:35,maxHp:36,energy:0,maxEnergy:40,cooldown:0};
     const mine={id:"priority-mine",type:"mine",resource:"material",q:-1,r:0,hp:21,maxHp:22};
     const wall={id:"priority-wall",type:"wall",q:0,r:-1,hp:99,maxHp:100};
     for(const structure of [turret,artillery,mine,wall])state.structures.set(api.key(structure.q,structure.r),structure);
@@ -108,7 +109,7 @@ describe("repairs, ghosts, and schedules", () => {
 
   test("destroyed Artillery leaves a rebuildable 36 HP unpowered ghost",()=>{
     const state=api.state,train=state.trains[0];moveTrain(train,0,0);train.wagons[0].amount=30;
-    const artillery={id:"artillery-doomed",type:"artillery",q:1,r:0,hp:36,maxHp:36,energy:30,maxEnergy:30,cooldown:0};state.structures.set("1,0",artillery);
+    const artillery={id:"artillery-doomed",type:"artillery",q:1,r:0,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};state.structures.set("1,0",artillery);
 
     api.damageTarget(artillery,36);
     assert.equal(state.structures.has("1,0"),false);assert.equal(state.ghosts.get("1,0").objectType,"artillery");
@@ -143,6 +144,18 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(state.trains[0].hp,50);
     assert.equal(state.trains[0].maxHp,50);
     assert.ok(state.trains[0].wagons.every(wagon=>wagon.hp===50&&wagon.maxHp===50));
+  });
+
+  test("a Build/Mine Train renders immediately when deployed while the tutorial-like game state is paused",()=>{
+    const state=api.state,context=elements.get("gameCanvas").context;state.paused=true;state.trains=[];state.tracks.clear();
+    state.tracks.set("1,0",makeTrack(1,0,["2,0"]));state.tracks.set("2,0",makeTrack(2,0,["1,0","3,0"]));state.tracks.set("3,0",makeTrack(3,0,["2,0"]));
+    state.deploymentPaid=true;state.deploymentTrainType="builder";context.textCalls.length=0;
+
+    api.deployTrain(3,0);api.deployTrain(1,0);
+
+    assert.equal(state.trains.length,1);assert.equal(state.trains[0].trainType,"builder");
+    assert.ok(context.textCalls.some(call=>call.text==="L"),"successful paused deployment should synchronously render the Locomotive");
+    assert.deepEqual({...state.selected},{type:"train",id:state.trains[0].id});
   });
 
   test("Track costs one carried Construction Material and repairs to 1 HP", () => {

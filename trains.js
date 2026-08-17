@@ -47,6 +47,15 @@ function handleHexClick(hex) {
 
 function canBaseAfford(cost){return state.baseMaterial>=cost.material&&state.baseEnergy>=cost.energy;}
 
+const CONSTRUCTION_MODE_COSTS={track:COSTS.track,turret:COSTS.turret,mine:COSTS.mine,wall:COSTS.wall,artillery:COSTS.artillery};
+const CONSTRUCTION_MODE_LABELS={track:"Track",turret:"Turret",mine:"Mine",wall:"Wall",artillery:"Artillery"};
+function constructionModeCost(mode){return CONSTRUCTION_MODE_COSTS[mode]||null;}
+function constructionModeAffordable(mode){const cost=constructionModeCost(mode);return !cost||canBaseAfford(cost);}
+function constructionModeUnavailableMessage(mode){
+  const cost=constructionModeCost(mode),label=CONSTRUCTION_MODE_LABELS[mode];
+  return cost?`Needs ${cost.material} Construction Material${cost.energy?` and ${cost.energy} Energy`:""} for ${label}.`:"";
+}
+
 function trainFabricationDisabledReason(){
   if(state.nextTrainIndex>=26)return "Maximum of 26 Trains reached.";
   if(state.mode==="deploy")return "Finish or cancel the current Train placement first.";

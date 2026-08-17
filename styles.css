@@ -146,6 +146,8 @@ button { touch-action: manipulation; }
 }
 .tool-button:hover { color: #fff; border-color: #4a5b62; background: #162127; }
 .tool-button.active { color: #111; border-color: var(--accent); background: var(--accent); }
+.tool-button:disabled,
+.tool-button:disabled:hover { color: #748187; border-color: #243036; background: #0d1417; opacity: .34; cursor: not-allowed; }
 .keycap {
   min-width: 25px;
   height: 25px;

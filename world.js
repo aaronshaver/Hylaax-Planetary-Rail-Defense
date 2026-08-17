@@ -260,8 +260,9 @@ function clearDeploymentReservation(refund=false){
 function setMode(mode) {
   if(state.mode==="schedule"&&mode!=="schedule"&&state.scheduleTrainId){
     fail("Use Clear Schedule to exit stop adding mode.");
-    return;
+    return false;
   }
+  if(!constructionModeAffordable(mode)){fail(constructionModeUnavailableMessage(mode));updateUI(true);return false;}
   if (mode !== "track" || state.mode !== "track") state.trackStart = null;
   if(state.mode==="deploy"&&(mode!=="deploy"||state.deploymentPaid))clearDeploymentReservation(true);
   state.mode = mode;
@@ -269,6 +270,7 @@ function setMode(mode) {
   canvas.style.cursor = mode === "select" ? "default" : "crosshair";
   tutorialEvent("mode",{mode});
   updateUI(true);
+  return true;
 }
 
 function select(type, id, details={}) {

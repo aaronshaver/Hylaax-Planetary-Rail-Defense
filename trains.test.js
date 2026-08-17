@@ -74,12 +74,12 @@ describe("resource logistics", () => {
   });
 
   test("a stopped Build/Mine Train supplies Artillery with Energy",()=>{
-    const state=api.state,train=state.trains[0];moveTrain(train,6,0);train.wagons[1].amount=20;
-    const artillery={id:"artillery-supply",type:"artillery",q:7,r:0,hp:36,maxHp:36,energy:10,maxEnergy:30,cooldown:0};state.structures.set("7,0",artillery);
+    const state=api.state,train=state.trains[0];moveTrain(train,6,0);train.wagons[1].amount=30;
+    const artillery={id:"artillery-supply",type:"artillery",q:7,r:0,hp:36,maxHp:36,energy:10,maxEnergy:40,cooldown:0};state.structures.set("7,0",artillery);
 
     api.updateAutomaticLogistics();
 
-    assert.equal(artillery.energy,30);assert.equal(train.wagons[1].amount,0);
+    assert.equal(artillery.energy,40);assert.equal(train.wagons[1].amount,0);
     assert.ok(state.worldMessages.some(item=>item.message==="Train A: Supplied Artillery with Energy"));
   });
 

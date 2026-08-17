@@ -82,9 +82,9 @@ describe("Hive and defense behavior", () => {
     api.updateStructures(.01);assert.equal(hive.hp,11);assert.equal(turret.energy,1);
   });
 
-  test("Artillery fires every three seconds for 2 Energy with 5 center and 2 adjacent damage and no friendly fire",()=>{
+  test("Artillery lobs at Hives every three seconds for 20 Energy with delayed 8 center and 5 adjacent damage and no friendly fire",()=>{
     const state=api.state;state.hives.clear();state.enemies=[];state.structures.clear();state.trains=[];
-    const artillery={id:"artillery-defense",type:"artillery",q:0,r:0,hp:36,maxHp:36,energy:30,maxEnergy:30,cooldown:0};
+    const artillery={id:"artillery-defense",type:"artillery",q:0,r:0,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};
     const friendlyWall={id:"friendly-wall",type:"wall",q:8,r:-1,hp:100,maxHp:100};
     state.structures.set("0,0",artillery);state.structures.set("8,-1",friendlyWall);
     const friendlyTrain=addTestTrain();moveTrain(friendlyTrain,9,-1);
@@ -93,14 +93,27 @@ describe("Hive and defense behavior", () => {
 
     api.updateStructures(0);
 
-    assert.equal(centerHive.hp,8);assert.equal(splashHive.hp,11);
-    assert.equal(centerCreep.hp,5);assert.equal(splashCreep.hp,8);
-    assert.equal(friendlyWall.hp,100);assert.equal(friendlyTrain.hp,50);
-    assert.equal(artillery.energy,28);assert.equal(artillery.cooldown,3);
-    assert.equal(state.projectiles.at(-1).impactRadius,8);
+    assert.equal(centerHive.hp,13);assert.equal(splashHive.hp,13,"damage waits for the shell to land");
+    assert.equal(state.projectiles.at(-1).kind,"artillery-shell");assert.equal(artillery.energy,20);assert.equal(artillery.cooldown,3);
 
-    api.updateStructures(2.99);assert.equal(centerHive.hp,8);assert.equal(artillery.energy,28);
-    api.updateStructures(.01);assert.equal(centerHive.hp,3);assert.equal(artillery.energy,26);
+    api.updateStructures(api.constants.ARTILLERY_SHELL_FLIGHT_SECONDS);
+
+    assert.equal(centerHive.hp,5);assert.equal(splashHive.hp,8);
+    assert.equal(centerCreep.hp,2);assert.equal(splashCreep.hp,5);
+    assert.equal(friendlyWall.hp,100);assert.equal(friendlyTrain.hp,50);
+    assert.equal(artillery.energy,20);assert.equal(state.projectiles.at(-1).kind,"artillery-blast");
+
+    api.updateStructures(2.29);assert.equal(centerHive.hp,5);assert.equal(artillery.energy,20);
+    api.updateStructures(.01);assert.equal(centerHive.hp,5);assert.equal(artillery.energy,0);assert.equal(state.projectiles.at(-1).kind,"artillery-shell");
+    api.updateStructures(api.constants.ARTILLERY_SHELL_FLIGHT_SECONDS-.01);assert.equal(state.hives.has(api.key(8,0)),false);
+  });
+
+  test("Artillery never targets Creeps directly",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[makeEnemy("artillery-only-creep",5,0)];state.structures.clear();
+    const artillery={id:"artillery-hive-only",type:"artillery",q:0,r:0,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};state.structures.set("0,0",artillery);
+
+    assert.equal(api.fireArtillery(artillery),false);
+    assert.equal(artillery.energy,40);assert.equal(state.projectiles.length,0);assert.equal(state.enemies.length,1);
   });
 
   test("Turret Trains can hit Hives at range 6", () => {

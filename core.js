@@ -39,6 +39,7 @@ const BASE_UNLOAD_TARGET = 100;
 const HIVE_LEVELS = [2,3,5,8,13,21];
 const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const COSTS = {
+  track: { material: 1, energy: 0 },
   train: { material: 30, energy: 0 },
   turret: { material: 10, energy: 5 },
   mine: { material: 8, energy: 0 },
@@ -51,6 +52,7 @@ const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*
 const ui = Object.fromEntries([
   "hivesNeutralized", "creepsNeutralized", "timeSurvived", "hivesInWorld", "creepsInWorld",
   "pauseToggle", "soundToggle", "selectionLabel",
+  "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart",
