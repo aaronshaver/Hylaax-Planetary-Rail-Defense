@@ -328,7 +328,7 @@ function rebuildGhost(ghost,train){
     const maxHp=wallHitPoints();rebuilt={id:`wall-${state.nextId++}`,type:"wall",q:ghost.q,r:ghost.r,hp:maxHp,maxHp,baseMaxHp:WALL_HIT_POINTS};
     state.structures.set(ghost.id,rebuilt);
   }else if(ghost.objectType==="artillery"){
-    rebuilt={id:`artillery-${state.nextId++}`,type:"artillery",q:ghost.q,r:ghost.r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:0,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:artilleryFireInterval(),showRangeUntil:state.elapsed+3.5};
+    rebuilt={id:`artillery-${state.nextId++}`,type:"artillery",q:ghost.q,r:ghost.r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:0,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
     state.structures.set(ghost.id,rebuilt);
   }else if(ghost.objectType==="research"){
     rebuilt={id:`research-${state.nextId++}`,type:"research",q:ghost.q,r:ghost.r,footprint:structureFootprint(ghost).map(cell=>({...cell})),hp:RESEARCH_HIT_POINTS,maxHp:RESEARCH_HIT_POINTS};

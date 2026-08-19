@@ -10,7 +10,7 @@ if(window.__HYLAAX_TEST__){
       terrainCacheSeed=null;terrainCache=new Map();terrainRevision=0;simulationAccumulator=0;selectionCache="";remindersOpen=false;sounds.enabled=false;
       resetEnemyNavigation();if(seedHives)seedInitialHives();return state;
     },
-    key,fromKey,hexDistance,neighbors,axialToWorld,worldToAxial,hexLineBetween,hasClearShot,baseTerrainAt,resourceHasOpenApproach,terrainAt,isPassable,resourceNodeAt,setNodeAmount,
+    key,fromKey,hexDistance,neighbors,axialToWorld,worldToAxial,hexLineBetween,hasClearShot,baseTerrainAt,resourceHasOpenApproach,terrainAt,isPassable,resourceNodeAt,setNodeAmount,centerMapOnBase,
     getSelected,setMode,select,structureAt,structureFootprint,ghostAt,trainAt,trainSegmentAt,handleHexClick,
     researchUpgrade,researchUpgradeCount,researchMultiplier,turretFireInterval,combatTrainFireInterval,turretDamage,turretRange,combatTrainRange,mineEfficiency,trainCapacity,trainSpeed,artilleryFireInterval,artilleryDamage,artilleryRange,wallHitPoints,trackHitPoints,researchRate,researchFootprintCandidates,researchPlacementFootprint,researchPreviewFootprint,buildResearch,applyResearchUpgrade,purchaseResearchUpgrade,updateResearch,addResearchPoints,
     trainCode,trainName,trainSegments,trainStopped,totalCargo,cargoSpace,removeCargo,addCargo,fillBaseCargo,refuelAtBase,serviceBaseLogistics,
@@ -34,10 +34,11 @@ canvas.addEventListener("pointerleave",()=>{state.hover=null;if(!state.pointer.d
 canvas.addEventListener("wheel",e=>{e.preventDefault();const rect=canvas.getBoundingClientRect(),sx=e.clientX-rect.left,sy=e.clientY-rect.top;const beforeX=(sx-width/2)/state.camera.zoom+state.camera.x,beforeY=(sy-height/2)/state.camera.zoom+state.camera.y;const factor=Math.exp(-e.deltaY*.0012);state.camera.zoom=clamp(state.camera.zoom*factor,.42,2.15);state.camera.x=beforeX-(sx-width/2)/state.camera.zoom;state.camera.y=beforeY-(sy-height/2)/state.camera.zoom;render();},{passive:false});
 
 document.addEventListener("click",e=>{const modeButton=e.target.closest("[data-mode]");if(modeButton){if(!modeButton.disabled)setMode(modeButton.dataset.mode);return;}const actionButton=e.target.closest("[data-action]");if(actionButton&&!actionButton.disabled)handleAction(actionButton.dataset.action,actionButton);});
-document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e.key==="Enter")startGame(false);return;}if(!ui.turretEnergyDialog.hidden){if(e.key==="Escape"||e.key==="Enter")dismissTurretEnergyWarning();return;}if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="8"){setMode(["select","track","turret","mine","wall","artillery","salvage","research"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
+document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e.key==="Enter")startGame(false);return;}if(!ui.turretEnergyDialog.hidden){if(e.key==="Escape"||e.key==="Enter")dismissTurretEnergyWarning();return;}if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="8"){setMode(["select","track","turret","mine","wall","artillery","salvage","research"][Number(e.key)-1]);}if(e.key==="9")centerMapOnBase();if(e.key==="Escape")setMode("select");});
 document.querySelectorAll("[data-mode]").forEach(button=>button.addEventListener("click",()=>sounds.init()));
 ui.pauseToggle.addEventListener("click",()=>{if(state.gameOver||tutorialLocksPause())return;state.paused=!state.paused;simulationAccumulator=0;lastWallTime=Date.now();updateUI(true);render();});
 ui.soundToggle.addEventListener("click",()=>{state.sound=!state.sound;sounds.enabled=state.sound;if(state.sound)sounds.place();updateUI(true);});
+ui.centerBaseButton.addEventListener("click",centerMapOnBase);
 ui.debugToggle.addEventListener("click",()=>setDebugMenuOpen(ui.debugMenu.hidden));
 ui.debugAddBaseResources.addEventListener("click",()=>{if(!state.gameOver)addBaseResources();});
 ui.debugAddResearchPoints.addEventListener("click",()=>{if(!state.gameOver)addResearchPoints();});

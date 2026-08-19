@@ -7,6 +7,11 @@ const { api } = require("./harness.js");
 beforeEach(() => { api.reset(); });
 
 describe("terrain generation", () => {
+  test("Resource Nodes generate between 250 and 1,500 units",()=>{
+    assert.equal(api.constants.NODE_MIN_CAPACITY,250);assert.equal(api.constants.NODE_MAX_CAPACITY,1500);
+    for(let q=-40;q<=40;q++)for(let r=-40;r<=40;r++)if(api.terrainAt(q,r).type==="resource"){const node=api.resourceNodeAt(q,r);assert.ok(node.amount>=250&&node.amount<=1500);}
+  });
+
   test("tree hexes use stable one-, two-, and three-tree variants", () => {
     const variants = new Set();
     for(let q=-40;q<=40&&variants.size<3;q++)for(let r=-40;r<=40&&variants.size<3;r++){

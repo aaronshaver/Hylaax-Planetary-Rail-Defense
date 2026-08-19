@@ -56,7 +56,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(state.baseMaterial,materialBefore-12);assert.equal(state.baseEnergy,energyBefore);
   });
 
-  test("Artillery costs 50 Construction Material and 50 Energy, starts with and stores 50 Energy, and waits before its first shot",()=>{
+  test("Artillery starts with 50 Energy, fires its first payload immediately, then uses its normal delay",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();state.trains=[];
     state.baseEnergy=150;
     let target=null;
@@ -69,10 +69,10 @@ describe("repairs, ghosts, and schedules", () => {
 
     const artillery=[...state.structures.values()][0];
     assert.equal(artillery.type,"artillery");assert.equal(artillery.hp,36);assert.equal(artillery.maxHp,36);
-    assert.equal(artillery.energy,50);assert.equal(artillery.maxEnergy,50);assert.equal(artillery.cooldown,3);
+    assert.equal(artillery.energy,50);assert.equal(artillery.maxEnergy,50);assert.equal(artillery.cooldown,0);
     assert.equal(state.baseMaterial,materialBefore-50);assert.equal(state.baseEnergy,energyBefore-50);
-    state.hives.clear();api.createHive(target.q+1,target.r,13);api.updateStructures(2.99);assert.equal(state.projectiles.length,0);assert.equal(artillery.energy,50);
-    api.updateStructures(.01);assert.equal(state.projectiles.at(-1).kind,"artillery-shell");assert.equal(artillery.energy,40);
+    state.hives.clear();api.createHive(target.q+1,target.r,13);api.updateStructures(0);assert.equal(state.projectiles.at(-1).kind,"artillery-shell");assert.equal(artillery.energy,40);assert.equal(artillery.cooldown,3);
+    api.updateStructures(2.99);assert.equal(artillery.energy,40);api.updateStructures(.01);assert.equal(state.projectiles.at(-1).kind,"artillery-shell");assert.equal(artillery.energy,30);
   });
 
   test("a Train at its own Stop instantly repairs a damaged Wall within three hexes",()=>{
@@ -124,7 +124,7 @@ describe("repairs, ghosts, and schedules", () => {
     api.damageTarget(artillery,36);
     assert.equal(state.structures.has("1,0"),false);assert.equal(state.ghosts.get("1,0").objectType,"artillery");
     api.updateAutomaticRebuild();
-    const rebuilt=state.structures.get("1,0");assert.equal(rebuilt.type,"artillery");assert.equal(rebuilt.hp,36);assert.equal(rebuilt.energy,0);
+    const rebuilt=state.structures.get("1,0");assert.equal(rebuilt.type,"artillery");assert.equal(rebuilt.hp,36);assert.equal(rebuilt.energy,0);assert.equal(rebuilt.cooldown,0);
   });
 
   test("the player can replace wreckage directly with any construction allowed on its terrain",()=>{

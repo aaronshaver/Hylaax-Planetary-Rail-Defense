@@ -19,4 +19,9 @@ describe("world state and selection", () => {
     api.setMode("select");
     assert.equal(api.state.mode, "select");
   });
+
+  test("Center Map on Base preserves zoom and centers the camera on the Base",()=>{
+    api.state.camera={x:875,y:-430,zoom:1.7};const expected=api.axialToWorld(api.state.base.q,api.state.base.r);
+    assert.deepEqual({...api.centerMapOnBase()},{...expected});assert.equal(api.state.camera.x,expected.x);assert.equal(api.state.camera.y,expected.y);assert.equal(api.state.camera.zoom,1.7);
+  });
 });

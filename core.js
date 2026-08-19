@@ -8,8 +8,8 @@ const worldWrap = document.getElementById("worldWrap");
 const selectionContent = document.getElementById("selectionContent");
 const HEX = 31;
 const SQRT3 = Math.sqrt(3);
-const NODE_MIN_CAPACITY = 100;
-const NODE_MAX_CAPACITY = 1000;
+const NODE_MIN_CAPACITY = 250;
+const NODE_MAX_CAPACITY = 1500;
 const INITIAL_HIVE_BUFFER = 8;
 const INITIAL_HIVE_COUNT = 2;
 const ENEMY_SPEED = .38;
@@ -58,7 +58,7 @@ const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*
 
 const ui = Object.fromEntries([
   "baseEnergyHud", "baseMaterialHud", "unminedMaterialHud", "unminedEnergyHud", "researchPointsHud", "timeSurvived", "hivesInWorld", "creepsInWorld",
-  "pauseToggle", "soundToggle", "selectionLabel",
+  "pauseToggle", "soundToggle", "centerBaseButton", "selectionLabel",
   "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "fpsValue",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",

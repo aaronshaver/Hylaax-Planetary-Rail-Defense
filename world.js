@@ -185,6 +185,11 @@ function resize() {
   invalidateTerrainLayer();
 }
 
+function centerMapOnBase(){
+  const center=axialToWorld(state.base.q,state.base.r);
+  state.camera.x=center.x;state.camera.y=center.y;render();canvas.focus();return center;
+}
+
 function invalidateTerrainLayer(){terrainLayerSignature="";}
 
 function screenToHex(clientX, clientY) {

@@ -214,7 +214,7 @@ function buildArtillery(q,r){
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
   if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Artillery needs clear ground away from Track.");
   if(!payBase(COSTS.artillery,"Artillery"))return;
-  const artillery={id:`artillery-${state.nextId++}`,type:"artillery",q,r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:ARTILLERY_MAX_ENERGY,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:artilleryFireInterval(),showRangeUntil:state.elapsed+3.5};
+  const artillery={id:`artillery-${state.nextId++}`,type:"artillery",q,r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:ARTILLERY_MAX_ENERGY,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
   if(ghost)replaceDestroyedSite(ghost,site);
   state.structures.set(key(q,r),artillery);invalidateEnemyNavigation();sounds.place();burst(q,r,"#ef9b54",12);select("structure",artillery.id);
 }

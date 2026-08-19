@@ -40,6 +40,11 @@ describe("game bootstrap", () => {
     assert.match(html,/FPS <strong id="fpsValue">0<\/strong>/);assert.doesNotMatch(html,/\bTPS\b|id="tpsValue"/);
   });
 
+  test("Center Map on Base is the ninth button in the right-side Actions grid",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),actions=html.match(/<div class="tool-grid"[^>]*>[\s\S]*?<\/div>/)?.[0]||"";
+    assert.equal((actions.match(/<button /g)||[]).length,9);assert.match(actions,/id="centerBaseButton"[^>]*>[\s\S]*<span class="keycap">9<\/span>Center Map on Base<\/button>/);assert.ok(actions.indexOf('id="researchTool"')<actions.indexOf('id="centerBaseButton"'));
+  });
+
   test("Restart Tutorial appears before the tutorial text with a flat back icon",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),prompt=html.match(/<div id="tutorialPrompt"[\s\S]*?<\/div>\s*<div id="gameOver"/)?.[0]||"";
     assert.ok(prompt.indexOf('id="tutorialRestart"')<prompt.indexOf('id="tutorialText"'));
