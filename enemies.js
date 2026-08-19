@@ -83,16 +83,14 @@ function spawnEncroachingHive(spawnTime=state.nextEncroachmentAt){
 }
 
 function encroachingHiveCount(spawnTime=state.nextEncroachmentAt){
-  const elapsedMinutes=Math.max(1,Math.floor(spawnTime/60));
-  const thresholds=[[1,0],[2,1],[3,2],[5,3],[8,5],[13,8],[21,13]];
-  let count=0;
-  for(const [minute,value] of thresholds)if(elapsedMinutes>=minute)count=value;
-  return Math.min(13,count);
+  return spawnTime>=300?Math.floor(spawnTime/60)-4:0;
 }
+
+function encroachmentOccurs(spawnTime=state.nextEncroachmentAt,mapSeed=state.mapSeed){return hash(Math.floor(spawnTime/60),mapSeed|0,8171)<.5;}
 
 function updateEncroachingHives(){
   for(let cycles=0;state.elapsed>=state.nextEncroachmentAt&&cycles<64;cycles++){
-    const spawnTime=state.nextEncroachmentAt,count=encroachingHiveCount(spawnTime);
+    const spawnTime=state.nextEncroachmentAt,count=encroachmentOccurs(spawnTime)?encroachingHiveCount(spawnTime):0;
     for(let index=0;index<count;index++)spawnEncroachingHive(spawnTime);
     state.nextEncroachmentAt+=60;
   }
@@ -171,8 +169,8 @@ function resetEnemyNavigation(){
 function enemyNavigationSignature(){return `${enemyNavigationVersion}|${state.base.q},${state.base.r}|${state.structures.size}|${state.tracks.size}`;}
 
 function rebuildEnemyNavigation(){
-  const targets=[state.base,...state.structures.values(),...state.tracks.values()],targetKeys=new Set(targets.map(target=>key(target.q,target.r)));
-  const points=[...targets,...state.enemies];
+  const targets=[state.base,...state.structures.values(),...state.tracks.values()],targetCells=targets.flatMap(target=>structureFootprint(target)),targetKeys=new Set(targetCells.map(target=>key(target.q,target.r)));
+  const points=[...targetCells,...state.enemies];
   if(!points.length){enemyNavigationCache={signature:enemyNavigationSignature(),distances:new Map(),targetKeys,bounds:null,builds:enemyNavigationCache.builds+1};return enemyNavigationCache;}
   let baseMinQ=Infinity,baseMaxQ=-Infinity,baseMinR=Infinity,baseMaxR=-Infinity;
   for(const point of points){baseMinQ=Math.min(baseMinQ,point.q);baseMaxQ=Math.max(baseMaxQ,point.q);baseMinR=Math.min(baseMinR,point.r);baseMaxR=Math.max(baseMaxR,point.r);}
@@ -182,7 +180,7 @@ function rebuildEnemyNavigation(){
     const inBounds=(q,r)=>q>=bounds.minQ&&q<=bounds.maxQ&&r>=bounds.minR&&r<=bounds.maxR;
     const passable=(q,r)=>inBounds(q,r)&&isPassable(q,r)&&!targetKeys.has(key(q,r));
     distances=new Map();const queue=[];
-    for(const target of targets)for(const position of neighbors(target.q,target.r)){
+    for(const target of targetCells)for(const position of neighbors(target.q,target.r)){
       const positionKey=key(position.q,position.r);
       if(!passable(position.q,position.r)||distances.has(positionKey))continue;
       distances.set(positionKey,0);queue.push(position);
@@ -227,7 +225,7 @@ function nextEnemyNavigationStep(enemy,reservations){
 function adjacentEnemyTarget(enemy){
   if(hexDistance(enemy,state.base)<=1)return state.base;
   const positions=[{q:enemy.q,r:enemy.r},...neighbors(enemy.q,enemy.r)];
-  for(const position of positions){const structure=state.structures.get(key(position.q,position.r));if(structure)return structure;}
+  for(const position of positions){const structure=structureAt(position.q,position.r);if(structure&&structure.type!=="base")return structure;}
   for(const train of state.trains){const segment=targetHexFor(enemy,train);if(segment&&hexDistance(enemy,segment)<=1)return segment;}
   for(const position of positions){const track=state.tracks.get(key(position.q,position.r));if(track)return track;}
   return null;
@@ -269,8 +267,9 @@ function findEnemyStep(start,goal,passable=isPassable,stopRange=0){
 
 function leaveGhost(target,objectType){
   const ghost={id:key(target.q,target.r),type:"ghost",objectType,q:target.q,r:target.r};
+  if(target.footprint)ghost.footprint=target.footprint.map(cell=>({...cell}));
   if(objectType==="track"){
-    ghost.hp=0;ghost.maxHp=TRACK_HIT_POINTS;
+    ghost.hp=0;ghost.maxHp=trackHitPoints();
     ghost.links=[...target.links];
     for(const neighborGhost of state.ghosts.values())if(neighborGhost.objectType==="track"&&(neighborGhost.links||[]).includes(ghost.id)&&!ghost.links.includes(neighborGhost.id))ghost.links.push(neighborGhost.id);
   }
@@ -284,6 +283,7 @@ function rebuiltLabel(ghost){
   if(ghost.objectType==="turret")return "Turret";
   if(ghost.objectType==="artillery")return "Artillery";
   if(ghost.objectType==="wall")return "Wall";
+  if(ghost.objectType==="research")return "Research";
   return `${resourceLabel(ghost.resource)} Mine`;
 }
 
@@ -293,7 +293,7 @@ function rebuildGhost(ghost,train){
   removeCargo(train,"material",cost);
   let rebuilt;
   if(ghost.objectType==="track"){
-    rebuilt={q:ghost.q,r:ghost.r,hp:TRACK_HIT_POINTS,maxHp:TRACK_HIT_POINTS,links:new Set()};
+    const maxHp=trackHitPoints();rebuilt={q:ghost.q,r:ghost.r,hp:maxHp,maxHp,baseMaxHp:TRACK_HIT_POINTS,links:new Set()};
     state.tracks.set(ghost.id,rebuilt);
     for(const linkedKey of ghost.links||[]){
       const neighbor=state.tracks.get(linkedKey);
@@ -303,11 +303,14 @@ function rebuildGhost(ghost,train){
     rebuilt={id:`turret-${state.nextId++}`,type:"turret",q:ghost.q,r:ghost.r,hp:18,maxHp:18,energy:0,maxEnergy:20,cooldown:0,showRangeUntil:state.elapsed+3.5};
     state.structures.set(ghost.id,rebuilt);
   }else if(ghost.objectType==="wall"){
-    rebuilt={id:`wall-${state.nextId++}`,type:"wall",q:ghost.q,r:ghost.r,hp:WALL_HIT_POINTS,maxHp:WALL_HIT_POINTS};
+    const maxHp=wallHitPoints();rebuilt={id:`wall-${state.nextId++}`,type:"wall",q:ghost.q,r:ghost.r,hp:maxHp,maxHp,baseMaxHp:WALL_HIT_POINTS};
     state.structures.set(ghost.id,rebuilt);
   }else if(ghost.objectType==="artillery"){
     rebuilt={id:`artillery-${state.nextId++}`,type:"artillery",q:ghost.q,r:ghost.r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:0,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
     state.structures.set(ghost.id,rebuilt);
+  }else if(ghost.objectType==="research"){
+    rebuilt={id:`research-${state.nextId++}`,type:"research",q:ghost.q,r:ghost.r,footprint:structureFootprint(ghost).map(cell=>({...cell})),hp:RESEARCH_HIT_POINTS,maxHp:RESEARCH_HIT_POINTS};
+    state.structures.set(ghost.id,rebuilt);state.researchUnlocked=true;
   }else{
     rebuilt={id:`mine-${state.nextId++}`,type:"mine",resource:ghost.resource,q:ghost.q,r:ghost.r,hp:22,maxHp:22};
     state.structures.set(ghost.id,rebuilt);
@@ -364,7 +367,7 @@ function supplyLabel(supply){return `${resourceLabel(supply.role||supply.type)} 
 
 function damageTarget(target, amount) {
   const targetIsTrack=state.tracks.get(key(target.q,target.r))===target;
-  target.hp=targetIsTrack&&amount>0?0:target.hp-amount;
+  target.hp=targetIsTrack&&target.maxHp<=TRACK_HIT_POINTS&&amount>0?0:target.hp-amount;
   const fatalTrainPart=target.hp<=0&&(target.kind==="wagon"||Boolean(target.wagons));
   if(!fatalTrainPart)sounds.hit();
   if (target.hp > 0) return;
@@ -392,7 +395,7 @@ function damageTarget(target, amount) {
     if (state.selected?.id === target.id) state.selected = null;
     if(state.scheduleTrainId===target.id){state.scheduleTrainId=null;state.mode="select";canvas.style.cursor="default";document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));}
     trainPartDestroyed(target,"Locomotive");
-  } else if (target.type === "turret" || target.type === "artillery" || target.type === "mine" || target.type === "wall") {
+  } else if (["turret","artillery","mine","wall","research"].includes(target.type)) {
     leaveGhost(target,target.type);
     state.structures.delete(key(target.q,target.r));
     invalidateEnemyNavigation();
@@ -453,14 +456,14 @@ function updateCombatTrains(dt){
     train.combatCooldown=(train.combatCooldown||0)-dt;
     if(train.combatCooldown>0||totalCargo(train,"energy")<1)continue;
     const center=worldToAxial(train.x,train.y);
-    const hive=[...state.hives.values()].filter(candidate=>hexDistance(center,candidate)<=COMBAT_TRAIN_RANGE&&hasClearShot(center,candidate)).sort((a,b)=>hexDistance(center,a)-hexDistance(center,b))[0];
-    const enemy=!hive?state.enemies.filter(candidate=>{const position=worldToAxial(candidate.x,candidate.y);return hexDistance(center,position)<=COMBAT_TRAIN_RANGE&&hasClearShot(center,position);}).sort((a,b)=>hexDistance(center,worldToAxial(a.x,a.y))-hexDistance(center,worldToAxial(b.x,b.y)))[0]:null;
+    const range=combatTrainRange(),hive=[...state.hives.values()].filter(candidate=>hexDistance(center,candidate)<=range&&hasClearShot(center,candidate)).sort((a,b)=>hexDistance(center,a)-hexDistance(center,b))[0];
+    const enemy=!hive?state.enemies.filter(candidate=>{const position=worldToAxial(candidate.x,candidate.y);return hexDistance(center,position)<=range&&hasClearShot(center,position);}).sort((a,b)=>hexDistance(center,worldToAxial(a.x,a.y))-hexDistance(center,worldToAxial(b.x,b.y)))[0]:null;
     if(!hive&&!enemy)continue;
     const targetPoint=hive?axialToWorld(hive.q,hive.r):{x:enemy.x,y:enemy.y};
-    removeCargo(train,"energy",1);train.combatCooldown=.48;train.gunAngle=Math.atan2(targetPoint.y-train.y,targetPoint.x-train.x);
+    removeCargo(train,"energy",1);train.combatCooldown=combatTrainFireInterval();train.gunAngle=Math.atan2(targetPoint.y-train.y,targetPoint.x-train.x);
     state.projectiles.push({x1:train.x,y1:train.y,x2:targetPoint.x,y2:targetPoint.y,life:.12,maxLife:.12});
-    if(hive)damageTarget(hive,1);
-    else {state.enemies=state.enemies.filter(candidate=>candidate.id!==enemy.id);if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;state.creepsNeutralized++;burstAt(enemy.x,enemy.y,"#e35050",7);}
+    if(hive)damageTarget(hive,turretDamage());
+    else damageEnemy(enemy,turretDamage());
     sounds.shot();
   }
 }
@@ -492,7 +495,7 @@ function debugDestroyAt(q,r){
 function resolveArtilleryImpact(projectile){
   const center={q:projectile.centerQ,r:projectile.centerR},affected=[center,...neighbors(center.q,center.r)];
   for(const position of affected){
-    const damage=position.q===center.q&&position.r===center.r?ARTILLERY_CENTER_DAMAGE:ARTILLERY_SPLASH_DAMAGE;
+    const damage=artilleryDamage(position.q===center.q&&position.r===center.r);
     const targetHive=state.hives.get(key(position.q,position.r));if(targetHive)damageTarget(targetHive,damage);
     for(const targetEnemy of [...state.enemies]){const visible=worldToAxial(targetEnemy.x,targetEnemy.y);if(visible.q===position.q&&visible.r===position.r)damageEnemy(targetEnemy,damage);}
     burst(position.q,position.r,"#ff9d58",4);
@@ -513,10 +516,10 @@ function updateProjectiles(dt){
 
 function fireArtillery(artillery){
   if(artillery.energy<ARTILLERY_SHOT_ENERGY||artillery.cooldown>1e-9)return false;
-  const hive=[...state.hives.values()].filter(candidate=>hexDistance(artillery,candidate)<=ARTILLERY_RANGE).sort((a,b)=>hexDistance(artillery,a)-hexDistance(artillery,b))[0];
+  const hive=[...state.hives.values()].filter(candidate=>hexDistance(artillery,candidate)<=artilleryRange()).sort((a,b)=>hexDistance(artillery,a)-hexDistance(artillery,b))[0];
   if(!hive)return false;
   const center={q:hive.q,r:hive.r},from=axialToWorld(artillery.q,artillery.r),to=axialToWorld(center.q,center.r);
-  artillery.energy-=ARTILLERY_SHOT_ENERGY;artillery.cooldown=ARTILLERY_FIRE_INTERVAL;
+  artillery.energy-=ARTILLERY_SHOT_ENERGY;artillery.cooldown=artilleryFireInterval();
   state.projectiles.push({kind:"artillery-shell",x1:from.x,y1:from.y,x2:to.x,y2:to.y,centerQ:center.q,centerR:center.r,life:ARTILLERY_SHELL_FLIGHT_SECONDS,maxLife:ARTILLERY_SHELL_FLIGHT_SECONDS});
   sounds.shot();return true;
 }
@@ -526,20 +529,16 @@ function updateStructures(dt) {
     if (structure.type === "turret") {
       structure.cooldown -= dt;
       if (structure.energy >= 1 && structure.cooldown <= 1e-9) {
-        const hive=[...state.hives.values()].filter(candidate=>hexDistance(structure,candidate)<=TURRET_RANGE&&hasClearShot(structure,candidate)).sort((a,b)=>hexDistance(structure,a)-hexDistance(structure,b))[0];
-        const enemy=!hive?state.enemies.filter(candidate=>{const position=worldToAxial(candidate.x,candidate.y);return hexDistance(structure,position)<=TURRET_RANGE&&hasClearShot(structure,position);}).sort((a,b)=>hexDistance(structure,worldToAxial(a.x,a.y))-hexDistance(structure,worldToAxial(b.x,b.y)))[0]:null;
+        const range=turretRange(),hive=[...state.hives.values()].filter(candidate=>hexDistance(structure,candidate)<=range&&hasClearShot(structure,candidate)).sort((a,b)=>hexDistance(structure,a)-hexDistance(structure,b))[0];
+        const enemy=!hive?state.enemies.filter(candidate=>{const position=worldToAxial(candidate.x,candidate.y);return hexDistance(structure,position)<=range&&hasClearShot(structure,position);}).sort((a,b)=>hexDistance(structure,worldToAxial(a.x,a.y))-hexDistance(structure,worldToAxial(b.x,b.y)))[0]:null;
         if(hive){
           const from=axialToWorld(structure.q,structure.r),to=axialToWorld(hive.q,hive.r);
           state.projectiles.push({x1:from.x,y1:from.y,x2:to.x,y2:to.y,life:.12,maxLife:.12});
-          structure.energy--;structure.cooldown=1;damageTarget(hive,1);sounds.shot();if(structure.energy<=0)showTurretEnergyWarning();
+          structure.energy--;structure.cooldown=turretFireInterval();damageTarget(hive,turretDamage());sounds.shot();if(structure.energy<=0)showTurretEnergyWarning();
         }else if (enemy) {
           const from=axialToWorld(structure.q,structure.r);
           state.projectiles.push({x1:from.x,y1:from.y,x2:enemy.x,y2:enemy.y,life:.12,maxLife:.12});
-          structure.energy--; structure.cooldown=1;
-          state.enemies=state.enemies.filter(e=>e.id!==enemy.id);
-          if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;
-          state.creepsNeutralized++;
-          burstAt(enemy.x,enemy.y,"#e35050",7);sounds.shot();if(structure.energy<=0)showTurretEnergyWarning();
+          structure.energy--;structure.cooldown=turretFireInterval();damageEnemy(enemy,turretDamage());sounds.shot();if(structure.energy<=0)showTurretEnergyWarning();
         }
       }
     }else if(structure.type==="artillery"){

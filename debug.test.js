@@ -46,6 +46,12 @@ describe("Debug menu",()=>{
     }
   });
 
+  test("adds 1,000 Research points without prematurely revealing the HUD",()=>{
+    const state=api.state;state.researchPoints=25;state.researchUnlocked=false;
+    assert.equal(api.addResearchPoints(),1000);assert.equal(state.researchPoints,1025);assert.equal(elements.get("researchPointsHud").textContent,"-");
+    state.researchUnlocked=true;api.updateUI(true);assert.equal(elements.get("researchPointsHud").textContent,1025);
+  });
+
   test("Destroy Object uses normal destruction for structures, Track, Hives, and Creeps",()=>{
     const state=api.state;state.structures.clear();state.tracks.clear();state.hives.clear();state.enemies=[];
     const wall={id:"debug-wall",type:"wall",q:4,r:0,hp:100,maxHp:100};state.structures.set("4,0",wall);
@@ -77,6 +83,6 @@ describe("Debug menu",()=>{
     api.setMode("debug-destroy");
     assert.equal(api.handleHexClick({q:0,r:0}),true);
     assert.equal(api.state.base.hp,0);assert.equal(api.state.gameOver,true);
-    assert.equal(elements.get("debugDestroyObject").disabled,true);assert.equal(elements.get("debugAddCreep").disabled,true);assert.equal(elements.get("debugAddBaseResources").disabled,true);
+    assert.equal(elements.get("debugDestroyObject").disabled,true);assert.equal(elements.get("debugAddCreep").disabled,true);assert.equal(elements.get("debugAddBaseResources").disabled,true);assert.equal(elements.get("debugAddResearchPoints").disabled,true);
   });
 });

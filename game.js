@@ -2,7 +2,7 @@
 
 if(window.__HYLAAX_TEST__){
   window.__HYLAAX_TEST_API__={
-    constants:{NODE_MIN_CAPACITY,NODE_MAX_CAPACITY,INITIAL_HIVE_COUNT,ENEMY_SPEED,CREEP_ATTACK_INTERVAL,CREEP_ATTACK_DAMAGE,SIMULATION_STEP,TRACK_HIT_POINTS,TRAIN_HIT_POINTS,WALL_HIT_POINTS,TRAIN_LOSS_SHAKE_SECONDS,ENEMY_SPAWN_BUFFER,REPAIR_PAUSE_SECONDS,TURRET_RANGE,COMBAT_TRAIN_RANGE,ARTILLERY_RANGE,ARTILLERY_HIT_POINTS,ARTILLERY_MAX_ENERGY,ARTILLERY_FIRE_INTERVAL,ARTILLERY_SHELL_FLIGHT_SECONDS,ARTILLERY_SHOT_ENERGY,ARTILLERY_CENTER_DAMAGE,ARTILLERY_SPLASH_DAMAGE,CREEP_HEX_CAPACITY,CREEP_SLOT_RADIUS,CREEP_RENDER_SCALE,BASE_UNLOAD_TARGET,HIVE_LEVELS,COSTS,REBUILD_COSTS,BASE_RESOURCE_TYPES,DIRECTIONS},
+    constants:{NODE_MIN_CAPACITY,NODE_MAX_CAPACITY,INITIAL_HIVE_COUNT,ENEMY_SPEED,CREEP_ATTACK_INTERVAL,CREEP_ATTACK_DAMAGE,SIMULATION_STEP,TRACK_HIT_POINTS,TRAIN_HIT_POINTS,WALL_HIT_POINTS,RESEARCH_HIT_POINTS,RESEARCH_UPGRADE_COST,TRAIN_LOSS_SHAKE_SECONDS,ENEMY_SPAWN_BUFFER,REPAIR_PAUSE_SECONDS,TURRET_RANGE,COMBAT_TRAIN_RANGE,ARTILLERY_RANGE,ARTILLERY_HIT_POINTS,ARTILLERY_MAX_ENERGY,ARTILLERY_FIRE_INTERVAL,ARTILLERY_SHELL_FLIGHT_SECONDS,ARTILLERY_SHOT_ENERGY,ARTILLERY_CENTER_DAMAGE,ARTILLERY_SPLASH_DAMAGE,CREEP_HEX_CAPACITY,CREEP_SLOT_RADIUS,CREEP_RENDER_SCALE,BASE_UNLOAD_TARGET,HIVE_LEVELS,COSTS,REBUILD_COSTS,BASE_RESOURCE_TYPES,DIRECTIONS,RESEARCH_UPGRADES},
     get state(){return state;},
     sounds,
     reset({mapSeed=123456789,seedHives=false}={}){
@@ -11,11 +11,12 @@ if(window.__HYLAAX_TEST__){
       resetEnemyNavigation();if(seedHives)seedInitialHives();return state;
     },
     key,fromKey,hexDistance,neighbors,axialToWorld,worldToAxial,hexLineBetween,hasClearShot,baseTerrainAt,resourceHasOpenApproach,terrainAt,isPassable,resourceNodeAt,setNodeAmount,
-    getSelected,setMode,select,structureAt,ghostAt,trainAt,trainSegmentAt,handleHexClick,
+    getSelected,setMode,select,structureAt,structureFootprint,ghostAt,trainAt,trainSegmentAt,handleHexClick,
+    researchUpgrade,researchUpgradeCount,researchMultiplier,turretFireInterval,combatTrainFireInterval,turretDamage,turretRange,combatTrainRange,mineEfficiency,trainCapacity,trainSpeed,artilleryFireInterval,artilleryDamage,artilleryRange,wallHitPoints,trackHitPoints,researchRate,researchFootprintCandidates,researchPlacementFootprint,researchPreviewFootprint,buildResearch,applyResearchUpgrade,purchaseResearchUpgrade,updateResearch,addResearchPoints,
     trainCode,trainName,trainSegments,trainStopped,totalCargo,cargoSpace,removeCargo,addCargo,fillBaseCargo,refuelAtBase,serviceBaseLogistics,
     connectedTrackNeighbors,conceptualTrackNeighbors,tracksAreLinked,linkTracks,deleteTrack,curveIsExtreme,liveTrackWithinRange,layTrack,placeTrackOverGhost,buildTurret,buildMine,buildWall,buildArtillery,clearDepletedResourceNode,salvageStructure,clearGhost,deploymentPathsFrom,deployTrain,
     scheduleStopAt,addScheduleStop,clearTrainSchedule,findPath,findConceptualTrackPath,repairApproachFor,scheduleLoopIsReachable,startScheduledLeg,updateTrainSchedules,
-    hiveUnlockedLevel,nextHiveLevel,hiveExpansionLevel,createHive,hiveHexOpen,hiveReplicationRoll,hiveSpawnCandidates,spawnHiveNear,spawnEnemyAt,spawnEnemyFromHive,debugAddCreepAt,playerConstructionAnchors,outsidePlayerConstructionBuffer,encroachingHiveLocation,spawnEncroachingHive,encroachingHiveCount,updateEncroachingHives,updateHives,
+    hiveUnlockedLevel,nextHiveLevel,hiveExpansionLevel,createHive,hiveHexOpen,hiveReplicationRoll,hiveSpawnCandidates,spawnHiveNear,spawnEnemyAt,spawnEnemyFromHive,debugAddCreepAt,playerConstructionAnchors,outsidePlayerConstructionBuffer,encroachingHiveLocation,spawnEncroachingHive,encroachingHiveCount,encroachmentOccurs,updateEncroachingHives,updateHives,
     showTrainEnergyWarning,updateTrainEnergyWarnings,repairPriority,updateAutomaticRepair,updateAutomaticLogistics,updateAutomaticRebuild,leaveGhost,rebuildGhost,trainPartDestroyed,damageTarget,damageEnemy,debugDestroyAt,
     enemySlotOffset,enemyWorldPosition,reserveEnemySpace,releaseEnemySpace,enemySpaceReservations,enemyHexHasRoom,chooseEnemySpaceSlot,resetEnemyNavigation,rebuildEnemyNavigation,ensureEnemyNavigation,nextEnemyNavigationStep,enemyNavigationStats,findEnemyStep,updateEnemies,
     updateTrains,updateCombatTrains,fireArtillery,resolveArtilleryImpact,updateProjectiles,updateStructures,update,advanceSimulation,
@@ -33,12 +34,13 @@ canvas.addEventListener("pointerleave",()=>{state.hover=null;if(!state.pointer.d
 canvas.addEventListener("wheel",e=>{e.preventDefault();const rect=canvas.getBoundingClientRect(),sx=e.clientX-rect.left,sy=e.clientY-rect.top;const beforeX=(sx-width/2)/state.camera.zoom+state.camera.x,beforeY=(sy-height/2)/state.camera.zoom+state.camera.y;const factor=Math.exp(-e.deltaY*.0012);state.camera.zoom=clamp(state.camera.zoom*factor,.42,2.15);state.camera.x=beforeX-(sx-width/2)/state.camera.zoom;state.camera.y=beforeY-(sy-height/2)/state.camera.zoom;render();},{passive:false});
 
 document.addEventListener("click",e=>{const modeButton=e.target.closest("[data-mode]");if(modeButton){if(!modeButton.disabled)setMode(modeButton.dataset.mode);return;}const actionButton=e.target.closest("[data-action]");if(actionButton&&!actionButton.disabled)handleAction(actionButton.dataset.action,actionButton);});
-document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e.key==="Enter")startGame(false);return;}if(!ui.turretEnergyDialog.hidden){if(e.key==="Escape"||e.key==="Enter")dismissTurretEnergyWarning();return;}if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="7"){setMode(["select","track","turret","mine","wall","artillery","salvage"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
+document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e.key==="Enter")startGame(false);return;}if(!ui.turretEnergyDialog.hidden){if(e.key==="Escape"||e.key==="Enter")dismissTurretEnergyWarning();return;}if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="8"){setMode(["select","track","turret","mine","wall","artillery","salvage","research"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
 document.querySelectorAll("[data-mode]").forEach(button=>button.addEventListener("click",()=>sounds.init()));
 ui.pauseToggle.addEventListener("click",()=>{if(state.gameOver||tutorialLocksPause())return;state.paused=!state.paused;simulationAccumulator=0;lastWallTime=Date.now();updateUI(true);render();});
 ui.soundToggle.addEventListener("click",()=>{state.sound=!state.sound;sounds.enabled=state.sound;if(state.sound)sounds.place();updateUI(true);});
 ui.debugToggle.addEventListener("click",()=>setDebugMenuOpen(ui.debugMenu.hidden));
 ui.debugAddBaseResources.addEventListener("click",()=>{if(!state.gameOver)addBaseResources();});
+ui.debugAddResearchPoints.addEventListener("click",()=>{if(!state.gameOver)addResearchPoints();});
 ui.turretEnergyOkay.addEventListener("click",dismissTurretEnergyWarning);
 ui.remindersTutorial.addEventListener("click",()=>startGame(true));
 ui.remindersContinue.addEventListener("click",()=>startGame(false));

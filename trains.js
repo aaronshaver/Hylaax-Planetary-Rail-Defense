@@ -15,7 +15,7 @@ function handleHexClick(hex) {
     if(hive)return select("hive",hive.id);
     if(enemy)return select("enemy",enemy.id);
     if(state.tracks.has(key(q,r)))return select("track",key(q,r));
-    if(ghost)return select("ghost",key(q,r));
+    if(ghost)return select("ghost",ghost.id);
     if(terrainAt(q,r).type==="resource")return select("node",key(q,r));
     state.selected=null;updateUI(true);return;
   }
@@ -38,20 +38,21 @@ function handleHexClick(hex) {
   if (state.mode === "mine") return buildMine(q,r);
   if (state.mode === "wall") return buildWall(q,r);
   if (state.mode === "artillery") return buildArtillery(q,r);
+  if (state.mode === "research") return buildResearch(q,r);
   if (state.mode === "deploy") return deployTrain(q,r);
   if (structure) {select(structure.type === "base" ? "base" : "structure", structure.id);if(structure.type==="base")tutorialEvent("base-selected");return;}
   if (hive) return select("hive",hive.id);
   if (enemy) return select("enemy",enemy.id);
   if (state.tracks.has(key(q,r))) return select("track", key(q,r));
-  if (ghost) return select("ghost",key(q,r));
+  if (ghost) return select("ghost",ghost.id);
   if (terrainAt(q,r).type==="resource") return select("node",key(q,r));
   state.selected = null; updateUI(true);
 }
 
 function canBaseAfford(cost){return state.baseMaterial>=cost.material&&state.baseEnergy>=cost.energy;}
 
-const CONSTRUCTION_MODE_COSTS={track:COSTS.track,turret:COSTS.turret,mine:COSTS.mine,wall:COSTS.wall,artillery:COSTS.artillery};
-const CONSTRUCTION_MODE_LABELS={track:"Track",turret:"Turret",mine:"Mine",wall:"Wall",artillery:"Artillery"};
+const CONSTRUCTION_MODE_COSTS={track:COSTS.track,turret:COSTS.turret,mine:COSTS.mine,wall:COSTS.wall,artillery:COSTS.artillery,research:COSTS.research};
+const CONSTRUCTION_MODE_LABELS={track:"Track",turret:"Turret",mine:"Mine",wall:"Wall",artillery:"Artillery",research:"Research"};
 function constructionModeCost(mode){return CONSTRUCTION_MODE_COSTS[mode]||null;}
 function constructionModeAffordable(mode){const cost=constructionModeCost(mode);return !cost||canBaseAfford(cost);}
 function constructionModeUnavailableMessage(mode){
@@ -168,6 +169,7 @@ function repairLabel(target) {
   if(target.type==="base")return "Base";
   if(target.type==="turret")return "Turret";
   if(target.type==="artillery")return "Artillery";
+  if(target.type==="research")return "Research";
   if(target.type==="mine")return "Mine";
   if(target.type==="wall")return "Wall";
   return "Track";
@@ -180,7 +182,8 @@ function repairPriority(target){
   if(target.type==="artillery")return 3;
   if(target.type==="mine")return 4;
   if(target.type==="wall")return 5;
-  return 6;
+  if(target.type==="research")return 6;
+  return 7;
 }
 
 function updateAutomaticRepair(train) {
@@ -212,15 +215,15 @@ function updateAutomaticLogistics() {
     const train=nearestStoppedLoco(structure,1,candidate=>candidate.trainType!=="combat");
     if(!train)continue;
     const node=resourceNodeAt(structure.q,structure.r);
-    const available=node?.amount||0;
-    const fuelMoved=structure.resource==="energy"?Math.min(Math.max(0,train.maxFuel-train.fuel),available):0;
+    const available=node?.amount||0,efficiency=mineEfficiency(),availableOutput=available*efficiency;
+    const fuelMoved=structure.resource==="energy"?Math.min(Math.max(0,train.maxFuel-train.fuel),availableOutput):0;
     if(fuelMoved>0){train.fuel+=fuelMoved;train.energyDepleted=false;}
-    const extractable=Math.floor(Math.min(cargoSpace(train,structure.resource),Math.max(0,available-fuelMoved)));
+    const extractable=Math.floor(Math.min(cargoSpace(train,structure.resource),Math.max(0,availableOutput-fuelMoved)));
     const moved=addCargo(train,structure.resource,extractable);
     if(fuelMoved+moved>0){
       state.stats[structure.resource==="energy"?"energyMined":"materialMined"]+=fuelMoved+moved;
       cargoChangedTrains.add(train.id);
-      setNodeAmount(node,node.amount-fuelMoved-moved);
+      setNodeAmount(node,node.amount-(fuelMoved+moved)/efficiency);
       showTrainActivity(train,structure,`Mined ${resourceLabel(structure.resource)}`,1.25);
     }
   }
@@ -259,6 +262,7 @@ function handleAction(action, element) {
     tutorialEvent("schedule-started",{trainId:selected.id,train:selected});
   }
   if(action==="clear-schedule"&&selected?.wagons)clearTrainSchedule(selected);
+  if(action.startsWith("research-"))purchaseResearchUpgrade(action.slice("research-".length));
   updateUI(true);
 }
 

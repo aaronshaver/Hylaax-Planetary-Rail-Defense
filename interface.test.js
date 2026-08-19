@@ -14,7 +14,8 @@ describe("interface formatting", () => {
       ["turretTool",api.constants.COSTS.turret],
       ["mineTool",api.constants.COSTS.mine],
       ["wallTool",api.constants.COSTS.wall],
-      ["artilleryTool",api.constants.COSTS.artillery]
+      ["artilleryTool",api.constants.COSTS.artillery],
+      ["researchTool",api.constants.COSTS.research]
     ];
     for(const [id,cost] of cases){
       state.baseMaterial=cost.material;state.baseEnergy=cost.energy;api.updateUI(true);
@@ -49,6 +50,8 @@ describe("interface formatting", () => {
     const state=api.state;state.baseEnergy=87.9;state.baseMaterial=432.6;api.updateUI(true);
     assert.equal(elements.get("baseEnergyHud").textContent,87);assert.equal(elements.get("baseMaterialHud").textContent,432);
     assert.equal(elements.has("hivesNeutralized"),false);assert.equal(elements.has("creepsNeutralized"),false);
+    const fs=require("node:fs"),path=require("node:path"),html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+    assert.ok(html.indexOf('id="baseMaterialHud"')<html.indexOf('id="baseEnergyHud"'),"Construction should appear before Energy in the HUD");
   });
 
   test("the loss screen shows lifetime Energy and Construction Material mined",()=>{

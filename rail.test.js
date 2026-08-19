@@ -121,7 +121,7 @@ describe("repairs, ghosts, and schedules", () => {
     const cases=[
       {type:"turret",ghostType:"wall",cost:{material:10,energy:5},build:api.buildTurret},
       {type:"wall",ghostType:"artillery",cost:{material:12,energy:1},build:api.buildWall},
-      {type:"artillery",ghostType:"turret",cost:{material:100,energy:100},build:api.buildArtillery}
+      {type:"artillery",ghostType:"turret",cost:{material:75,energy:75},build:api.buildArtillery}
     ];
     for(const item of cases){
       api.reset();const state=api.state;state.tracks.clear();state.structures.clear();state.ghosts.clear();state.trains=[];state.baseMaterial=500;state.baseEnergy=500;
@@ -190,6 +190,16 @@ describe("repairs, ghosts, and schedules", () => {
   test("invalid Salvage/Clear targets use the concise shared message",()=>{
     const state=api.state;api.setMode("salvage");api.handleHexClick({q:state.base.q,r:state.base.r});
     assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot Salvage/Clear this type of Object");
+  });
+
+  test("Salvage/Clear has no Track-distance limit",()=>{
+    const state=api.state;state.tracks.clear();state.structures.clear();state.baseMaterial=0;state.baseEnergy=0;
+    const wall={id:"remote-wall",type:"wall",q:20,r:-15,hp:100,maxHp:100};state.structures.set(api.key(wall.q,wall.r),wall);
+    api.salvageStructure(wall);
+    assert.equal(state.structures.size,0);assert.equal(state.baseMaterial,8);
+
+    const ghost={id:"-18,14",type:"ghost",objectType:"wall",q:-18,r:14};state.ghosts.set(ghost.id,ghost);
+    assert.equal(api.clearGhost(ghost),true);assert.equal(state.ghosts.size,0);
   });
 
   test("Track has no fractional damaged state and is destroyed by any damage",()=>{

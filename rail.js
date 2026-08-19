@@ -82,7 +82,7 @@ function replaceDestroyedSite(ghost,site){
 
 function placeTrackOverGhost(ghost){
   if(!payBase(COSTS.track,"Track"))return null;
-  const ghostKey=key(ghost.q,ghost.r),rebuilt={q:ghost.q,r:ghost.r,hp:TRACK_HIT_POINTS,maxHp:TRACK_HIT_POINTS,links:new Set()};
+  const maxHp=trackHitPoints(),ghostKey=key(ghost.q,ghost.r),rebuilt={q:ghost.q,r:ghost.r,hp:maxHp,maxHp,baseMaxHp:TRACK_HIT_POINTS,links:new Set()};
   state.tracks.set(ghostKey,rebuilt);
   for(const linkedKey of ghost.links||[]){const neighbor=state.tracks.get(linkedKey);if(neighbor){rebuilt.links.add(linkedKey);neighbor.links.add(ghostKey);}else{const neighborGhost=state.ghosts.get(linkedKey);if(neighborGhost?.objectType==="track"&&!neighborGhost.links.includes(ghostKey))neighborGhost.links.push(ghostKey);}}
   state.ghosts.delete(ghostKey);
@@ -128,7 +128,7 @@ function layTrack(q, r) {
   if(curveIsExtreme(start,destination))return fail("Train curves cannot be that extreme");
   if(isNew){
     if(isTrackGhost){if(!placeTrackOverGhost(destinationGhost))return;}
-    else {if(!payBase(COSTS.track,"Track"))return;if(destinationGhost)replaceDestroyedSite(destinationGhost,destinationSite);state.tracks.set(destinationKey,{q,r,hp:TRACK_HIT_POINTS,maxHp:TRACK_HIT_POINTS,links:new Set()});state.stats.tracksLaid++;invalidateEnemyNavigation();}
+    else {if(!payBase(COSTS.track,"Track"))return;if(destinationGhost)replaceDestroyedSite(destinationGhost,destinationSite);const maxHp=trackHitPoints();state.tracks.set(destinationKey,{q,r,hp:maxHp,maxHp,baseMaxHp:TRACK_HIT_POINTS,links:new Set()});state.stats.tracksLaid++;invalidateEnemyNavigation();}
   }
   linkTracks(start,destination);
   state.trackStart=destination;
@@ -202,7 +202,7 @@ function buildWall(q, r) {
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
   if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Walls need clear ground away from Track.");
   if(!payBase(COSTS.wall,"Wall"))return;
-  const wall={id:`wall-${state.nextId++}`,type:"wall",q,r,hp:WALL_HIT_POINTS,maxHp:WALL_HIT_POINTS};
+  const maxHp=wallHitPoints(),wall={id:`wall-${state.nextId++}`,type:"wall",q,r,hp:maxHp,maxHp,baseMaxHp:WALL_HIT_POINTS};
   if(ghost)replaceDestroyedSite(ghost,site);
   state.structures.set(key(q,r),wall);
   invalidateEnemyNavigation();
@@ -218,6 +218,7 @@ function buildArtillery(q,r){
   if(ghost)replaceDestroyedSite(ghost,site);
   state.structures.set(key(q,r),artillery);invalidateEnemyNavigation();sounds.place();burst(q,r,"#ef9b54",12);select("structure",artillery.id);
 }
+
 
 function buildMine(q, r) {
   const terrain = terrainAt(q, r);
@@ -244,9 +245,8 @@ function clearDepletedResourceNode(q,r){
 }
 
 function salvageStructure(structure) {
-  if(!requireNearbyTrack(structure,`salvaging the ${structure.type}`))return;
   if(structure.hp<1)return fail("Destroyed objects can only be cleared and do not return resources.");
-  const mat = structure.type === "artillery" ? 12 : structure.type === "turret" ? 4 : structure.type === "wall" ? 8 : 6;
+  const mat = structure.type === "research" ? 40 : structure.type === "artillery" ? 12 : structure.type === "turret" ? 4 : structure.type === "wall" ? 8 : 6;
   const energy = ["turret","artillery"].includes(structure.type)?Math.floor(structure.energy):0;
   if(structure.type==="mine")clearDepletedResourceNode(structure.q,structure.r);
   state.baseMaterial+=mat;state.baseEnergy+=energy;
@@ -322,8 +322,8 @@ function deployTrain(q,r){
   if(path.some(position=>trainClaimsHex(position.q,position.r)))return fail("Those deployment Track hexes are no longer clear.");
   const [head,firstWagon]=path,hp=axialToWorld(head.q,head.r),firstPoint=axialToWorld(firstWagon.q,firstWagon.r);
   const heading=Math.atan2(hp.y-firstPoint.y,hp.x-firstPoint.x),trainIndex=state.nextTrainIndex++,code=trainCode(trainIndex),roles=trainType==="combat"?["energy"]:["material","energy"];
-  const wagons=roles.map((role,index)=>{const position=path[index+1],point=axialToWorld(position.q,position.r);return {id:`wagon-${state.nextId++}`,kind:"wagon",q:position.q,r:position.r,x:point.x,y:point.y,heading,role,type:role,amount:trainType==="combat"&&role==="energy"?10:0,capacity:30,hp:TRAIN_HIT_POINTS,maxHp:TRAIN_HIT_POINTS};});
-  const train={id:`train-${state.nextId++}`,name:trainName(trainIndex,trainType),code,trainType,q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],routePurpose:null,progress:0,speed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,repairHoldUntil:0,repairResumeStatus:null,energyDepleted:false,nextEnergyWarningAt:0,forwardDirection:{q:head.q-firstWagon.q,r:head.r-firstWagon.r},fuel:10,maxFuel:20,hp:TRAIN_HIT_POINTS,maxHp:TRAIN_HIT_POINTS,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
+  const capacity=trainCapacity(),wagons=roles.map((role,index)=>{const position=path[index+1],point=axialToWorld(position.q,position.r);return {id:`wagon-${state.nextId++}`,kind:"wagon",q:position.q,r:position.r,x:point.x,y:point.y,heading,role,type:role,amount:trainType==="combat"&&role==="energy"?10:0,capacity,baseCapacity:30,hp:TRAIN_HIT_POINTS,maxHp:TRAIN_HIT_POINTS};});
+  const speed=trainSpeed(),train={id:`train-${state.nextId++}`,name:trainName(trainIndex,trainType),code,trainType,q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],routePurpose:null,progress:0,speed,baseSpeed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,repairHoldUntil:0,repairResumeStatus:null,energyDepleted:false,nextEnergyWarningAt:0,forwardDirection:{q:head.q-firstWagon.q,r:head.r-firstWagon.r},fuel:10,maxFuel:20,hp:TRAIN_HIT_POINTS,maxHp:TRAIN_HIT_POINTS,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
   state.trains.push(train);state.stats.trainsBuilt++;clearDeploymentReservation();sounds.place();select("train",train.id);setMode("select");toast(`${train.name} Deployed.`,"info");tutorialEvent("builder-train-deployed",{trainId:train.id,train});render();
 }
 

@@ -10,6 +10,7 @@ function burst(q,r,color,count){const p=axialToWorld(q,r);burstAt(p.x,p.y,color,
 function update(dt) {
   if(state.gameOver||state.paused||remindersOpen)return;
   state.elapsed+=dt;
+  updateResearch(dt);
   state.worldMessages=state.worldMessages.filter(item=>item.until>state.elapsed);
   updateTrains(dt);updateAutomaticLogistics(dt);updateTrainEnergyWarnings();updateTrainSchedules();updateHives(dt);updateEnemies(dt);if(state.gameOver)return;updateCombatTrains(dt);updateStructures(dt);
   state.uiClock-=dt;if(state.uiClock<=0){state.uiClock=.15;updateUI();}

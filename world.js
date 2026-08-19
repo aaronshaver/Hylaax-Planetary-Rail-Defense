@@ -14,7 +14,7 @@ function makeInitialState() {
     gameOver: false,
     finalMapView: false,
     elapsed: 0,
-    nextEncroachmentAt: 60,
+    nextEncroachmentAt: 300,
     hivesNeutralized: 0,
     creepsNeutralized: 0,
     stats: { tracksLaid: 0, minesBuilt: 0, turretsBuilt: 0, trainsBuilt: 0, energyMined: 0, materialMined: 0 },
@@ -37,6 +37,9 @@ function makeInitialState() {
     turretEnergyWarningWasPaused: false,
     baseMaterial: 150,
     baseEnergy: 48,
+    researchPoints: 0,
+    researchUnlocked: false,
+    researchUpgrades: {},
     selected: { type: "base", id: "base" },
     trackStart: null,
     scheduleTrainId: null,
@@ -78,7 +81,8 @@ function createHive(q,r,requestedLevel=2,spawnImmediately=false,forceFirstCreepB
 }
 
 function playerConstructionAnchors(){
-  const anchors=[state.base,...state.tracks.values(),...state.structures.values(),...state.ghosts.values(),...state.trains.flatMap(train=>trainSegments(train))],unique=new Map();
+  const anchors=[state.base,...state.tracks.values(),...state.structures.values()].flatMap(item=>structureFootprint(item)),unique=new Map();
+  anchors.push(...[...state.ghosts.values()].flatMap(item=>structureFootprint(item)),...state.trains.flatMap(train=>trainSegments(train)));
   for(const anchor of anchors)unique.set(key(anchor.q,anchor.r),{q:anchor.q,r:anchor.r});
   return [...unique.values()];
 }
@@ -196,10 +200,12 @@ function isPassable(q, r) {
 
 function structureAt(q, r) {
   if (state.base.q === q && state.base.r === r) return state.base;
-  return state.structures.get(key(q, r)) || null;
+  return state.structures.get(key(q, r)) || [...state.structures.values()].find(structure=>structureFootprint(structure).some(cell=>cell.q===q&&cell.r===r)) || null;
 }
 
-function ghostAt(q,r){return state.ghosts.get(key(q,r))||null;}
+function structureFootprint(object){return object?.footprint?.length?object.footprint:[{q:object.q,r:object.r}];}
+
+function ghostAt(q,r){return state.ghosts.get(key(q,r))||[...state.ghosts.values()].find(ghost=>structureFootprint(ghost).some(cell=>cell.q===q&&cell.r===r))||null;}
 
 function trackGhostAt(q,r){const ghost=ghostAt(q,r);return ghost?.objectType==="track"?ghost:null;}
 

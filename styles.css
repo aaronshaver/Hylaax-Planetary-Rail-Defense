@@ -57,10 +57,7 @@ button { touch-action: manipulation; }
 #gameCanvas:focus-visible { box-shadow: inset 0 0 0 2px var(--cyan); }
 
 .debug-toggle {
-  position: fixed;
-  z-index: 12;
-  right: 5px;
-  bottom: 4px;
+  position: static;
   width: 21px;
   height: 21px;
   padding: 0;
@@ -93,8 +90,9 @@ button { touch-action: manipulation; }
 .debug-action + .debug-menu-note { margin: 6px 2px 13px; }
 .debug-menu-note { color: #718187; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-.bottom-left { left: 16px; bottom: 16px; }
-.performance-status { position: absolute; z-index: 3; padding: 7px 10px; border: 1px solid rgba(96,213,219,.24); background: rgba(7,10,13,.82); color: #819196; font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; pointer-events: none; }
+.bottom-debug-row { position: absolute; z-index: 12; left: 16px; bottom: 16px; display: flex; align-items: center; gap: 6px; }
+.bottom-debug-row .performance-status { position: static; flex: none; white-space: nowrap; padding: 7px 10px; border: 1px solid rgba(96,213,219,.24); background: rgba(7,10,13,.82); color: #819196; font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; pointer-events: none; }
+.bottom-debug-row .debug-toggle { flex: none; }
 .performance-status strong { color: var(--cyan); }
 .world-population-status { left: 16px; bottom: 52px; min-width: 220px; padding: 9px 11px; color: #aebabe; font: 700 15px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .world-population-status strong { color: #f08088; }
@@ -223,6 +221,10 @@ button { touch-action: manipulation; }
 .btn-danger-quiet { background: #2b1719; border-color: #643137; color: #eaa0a5; }
 .btn-danger-quiet:hover { background: #4c2024; color: white; }
 .action-note { margin: 8px 0 0; color: #6e7e83; font-size: 14px; line-height: 1.5; }
+.research-points-summary { display: flex; justify-content: space-between; margin: 12px 0; padding: 9px 10px; border: 1px solid #2e2740; background: #110f18; color: #9f93b8; font: 700 15px/1.2 ui-monospace, monospace; }
+.research-points-summary strong { color: #d4b8ff; font-size: 18px; }
+.research-actions { margin-top: 10px; }
+.research-actions .btn { font-size: 15px; text-align: left; }
 
 .cargo-list { display: grid; gap: 5px; margin: 12px 0; }
 .cargo-row { display: grid; grid-template-columns: 8px 1fr auto; align-items: center; gap: 7px; padding: 7px 8px; background: #0a1013; border: 1px solid #202b30; }

@@ -6,7 +6,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { performance } = require("node:perf_hooks");
 
-const GAME_SCRIPTS = ["core.js", "terrain.js", "world.js", "rail.js", "trains.js", "enemies.js", "simulation.js", "rendering.js", "interface.js", "tutorial.js", "game.js"];
+const GAME_SCRIPTS = ["core.js", "terrain.js", "world.js", "research.js", "rail.js", "trains.js", "enemies.js", "simulation.js", "rendering.js", "interface.js", "tutorial.js", "game.js"];
 
 class ClassListMock {
   constructor() { this.values = new Set(); }
