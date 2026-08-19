@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 2.7</title>
+  <title>Planetary Rail Defense 2.8</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 2.7 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 2.8 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
       <div class="hud top-left">
-        <div class="hud-stat">Hives Neutralized: <strong id="hivesNeutralized">0</strong></div>
-        <div class="hud-stat">Creeps Neutralized: <strong id="creepsNeutralized">0</strong></div>
+        <div class="hud-stat">Base Energy: <strong id="baseEnergyHud">0</strong></div>
+        <div class="hud-stat">Base Construction: <strong id="baseMaterialHud">0</strong></div>
         <div class="hud-stat">Time Survived: <strong id="timeSurvived">00h 00m 00s</strong></div>
       </div>
 
@@ -62,7 +62,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 2.7</span></h1>
+          <h1>RAIL<br><span>DEFENSE 2.8</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" title="Pause simulation" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -73,13 +73,13 @@
       <section class="panel-section tools-section">
         <div class="section-label">ACTIONS</div>
         <div class="tool-grid" role="group" aria-label="Actions">
-          <button id="selectTool" class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="Select units and structures."><span class="keycap">1</span>Select Object</button>
-          <button id="trackTool" class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Click existing Track to choose a start, then click adjacent empty hexes to build or adjacent existing Track to connect and close loops. Click non-adjacent existing Track to choose a new start. Tight triangles are not allowed.&#10;&#10;Costs 1 Construction Material per new Track segment from Base inventory."><span class="keycap">2</span>Build Track</button>
-          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Build within three hexes of non-destroyed Track. Will run out of Energy if not supplied by a Train Stop.&#10;&#10;Costs 10 Construction Material and 5 Energy from Base inventory."><span class="keycap">3</span>Build Turret</button>
-          <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Place a Mine on top of an existing finite Resource Node within three hexes of Track.&#10;&#10;Costs 8 Construction Material from Base inventory."><span class="keycap">4</span>Build Mine</button>
-          <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="Build on clear ground within three hexes of non-destroyed Track.&#10;&#10;Costs 12 Construction Material and 1 Energy from Base inventory."><span class="keycap">5</span>Build Wall</button>
-          <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="Build within three hexes of non-destroyed Track. Will run out of Energy if not supplied by a Train Stop. Targets Hives only. Range 12 hexes; lobs a shell every 3 seconds for 20 Energy. Deals 8 damage in the target hex and 5 damage in its six neighboring hexes; Creeps can take splash damage. Stores 40 Energy.&#10;&#10;Costs 100 Construction Material and 100 Energy from Base inventory."><span class="keycap">6</span>Build Artillery</button>
-          <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="Salvage healthy Track, Turrets, Artillery, Mines, Walls, or Trains to recover resources. Clear destroyed objects without recovering resources, even when there is nothing to salvage. Removing a Mine leaves any Resource Node with remaining resources in place. Salvaging a Train requires confirmation and removes its schedule."><span class="keycap">7</span>Salvage/Clear Object</button>
+          <button id="selectTool" class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="• Select units and structures."><span class="keycap">1</span>Select Object</button>
+          <button id="trackTool" class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="• Click existing Track to choose a start, then click adjacent empty hexes to build or adjacent existing Track to connect and close loops.&#10;• Click non-adjacent existing Track to choose a new start.&#10;• Tight triangles are not allowed.&#10;• Costs 1 (C)onstruction Material per new Track segment."><span class="keycap">2</span>Build Track</button>
+          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="• Build within three hexes of non-destroyed Track.&#10;• Will run out of Energy if not supplied by a Train Stop.&#10;• Costs 10 (C)onstruction Material and 5 (E)nergy."><span class="keycap">3</span>Build Turret</button>
+          <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="• Place a Mine on top of an existing finite Resource Node within three hexes of Track.&#10;• Costs 8 (C)onstruction Material."><span class="keycap">4</span>Build Mine</button>
+          <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="• Build on clear ground within three hexes of non-destroyed Track.&#10;• Costs 12 (C)onstruction Material and 1 (E)nergy."><span class="keycap">5</span>Build Wall</button>
+          <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="• Build within three hexes of non-destroyed Track.&#10;• Will run out of Energy if not supplied by a Train Stop.&#10;• Targets Hives only.&#10;• Range 12 hexes; lobs a shell every 3 seconds for 10 Energy.&#10;• Deals 8 damage in the target hex and 5 damage in its six neighboring hexes; Creeps can take splash damage.&#10;• Stores 40 Energy.&#10;• Costs 75 (C)onstruction Material and 75 (E)nergy."><span class="keycap">6</span>Build Artillery</button>
+          <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="• Salvage healthy Track, Turrets, Artillery, Mines, Walls, or Trains to recover resources.&#10;• Clear destroyed objects without recovering resources, even when there is nothing to salvage.&#10;• Removing a Mine leaves any Resource Node with remaining resources in place.&#10;• Salvaging a Train requires confirmation and removes its schedule."><span class="keycap">7</span>Salvage/Clear Object</button>
         </div>
       </section>
 
@@ -95,6 +95,8 @@
     <div class="debug-menu-title">DEBUG</div>
     <button id="debugDestroyObject" class="btn debug-action" data-mode="debug-destroy">Destroy Object</button>
     <div class="debug-menu-note">Click a destructible object on the map to apply its normal destruction behavior instantly.</div>
+    <button id="debugAddCreep" class="btn debug-action" data-mode="debug-add-creep">Add Creep</button>
+    <div class="debug-menu-note">Click an open passable hex to spawn one normal Creep instantly.</div>
     <button id="debugAddBaseResources" class="btn debug-action">Add Base Resources</button>
     <div class="debug-menu-note">Adds 1,000 of every Base resource.</div>
   </aside>
@@ -120,6 +122,15 @@
         <button id="confirmNo" class="btn btn-outline-secondary">No</button>
         <button id="confirmYes" class="btn btn-danger">Yes</button>
       </div>
+    </div>
+  </div>
+
+  <div id="turretEnergyDialog" class="confirm-overlay d-none" hidden role="dialog" aria-modal="true" aria-labelledby="turretEnergyTitle" aria-describedby="turretEnergyMessage">
+    <div class="confirm-card energy-warning-card">
+      <div class="eyebrow">ENERGY WARNING</div>
+      <h2 id="turretEnergyTitle">Turret Out of Energy</h2>
+      <p id="turretEnergyMessage">One of your turrets ran out of Energy. Remember: you must supply Turrets with Energy by having a Train Stop adjacent to the Turret and a Train loaded with Energy so that it can re-supply the Turret.</p>
+      <button id="turretEnergyOkay" class="btn btn-command">Okay</button>
     </div>
   </div>
 

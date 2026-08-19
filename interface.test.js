@@ -7,7 +7,7 @@ const { api, elements, makeEnemy, addTestTrain } = require("./harness.js");
 beforeEach(() => { api.reset(); });
 
 describe("interface formatting", () => {
-  test("construction tools disable and re-enable at their exact Base costs",()=>{
+  test("unaffordable construction tools stay hoverable while visibly unavailable",()=>{
     const state=api.state;
     const cases=[
       ["trackTool",api.constants.COSTS.track],
@@ -18,31 +18,37 @@ describe("interface formatting", () => {
     ];
     for(const [id,cost] of cases){
       state.baseMaterial=cost.material;state.baseEnergy=cost.energy;api.updateUI(true);
-      assert.equal(elements.get(id).disabled,false,`${id} should enable at its exact cost`);
+      assert.equal(elements.get(id).disabled,false,`${id} should be usable at its exact cost`);assert.equal(elements.get(id).ariaDisabled,"false");assert.equal(elements.get(id).classList.contains("unavailable"),false);
       state.baseMaterial=cost.material-1;api.updateUI(true);
-      assert.equal(elements.get(id).disabled,true,`${id} should disable when short on Construction Material`);
-      if(cost.energy){state.baseMaterial=cost.material;state.baseEnergy=cost.energy-1;api.updateUI(true);assert.equal(elements.get(id).disabled,true,`${id} should disable when short on Energy`);}
+      assert.equal(elements.get(id).disabled,false,`${id} must still receive hover events when unaffordable`);assert.equal(elements.get(id).ariaDisabled,"true");assert.equal(elements.get(id).classList.contains("unavailable"),true);
+      if(cost.energy){state.baseMaterial=cost.material;state.baseEnergy=cost.energy-1;api.updateUI(true);assert.equal(elements.get(id).disabled,false);assert.equal(elements.get(id).ariaDisabled,"true");assert.equal(elements.get(id).classList.contains("unavailable"),true);}
     }
 
     state.baseMaterial=0;state.baseEnergy=0;api.updateUI(true);
-    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool"])assert.equal(elements.get(id).disabled,true,id);
+    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"true",id);assert.equal(elements.get(id).classList.contains("unavailable"),true,id);}
     assert.equal(elements.get("selectTool").disabled,false);
     assert.equal(elements.get("salvageTool").disabled,false);
 
-    state.baseMaterial=100;state.baseEnergy=100;api.updateUI(true);
-    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool"])assert.equal(elements.get(id).disabled,false,id);
+    state.baseMaterial=75;state.baseEnergy=75;api.updateUI(true);
+    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"false",id);assert.equal(elements.get(id).classList.contains("unavailable"),false,id);}
   });
 
   test("unaffordable construction modes cannot be entered and an active one exits when funds fall short",()=>{
     const state=api.state;
-    state.baseMaterial=100;state.baseEnergy=99;
+    state.baseMaterial=75;state.baseEnergy=74;
     assert.equal(api.setMode("artillery"),false);
     assert.equal(state.mode,"select");
 
-    state.baseEnergy=100;assert.equal(api.setMode("artillery"),true);assert.equal(state.mode,"artillery");
+    state.baseEnergy=75;assert.equal(api.setMode("artillery"),true);assert.equal(state.mode,"artillery");
     state.baseEnergy=0;api.updateUI(true);
     assert.equal(state.mode,"select");
-    assert.equal(elements.get("artilleryTool").disabled,true);
+    assert.equal(elements.get("artilleryTool").disabled,false);assert.equal(elements.get("artilleryTool").ariaDisabled,"true");assert.equal(elements.get("artilleryTool").classList.contains("unavailable"),true);
+  });
+
+  test("the upper-left HUD shows current Base resources instead of neutralization counts",()=>{
+    const state=api.state;state.baseEnergy=87.9;state.baseMaterial=432.6;api.updateUI(true);
+    assert.equal(elements.get("baseEnergyHud").textContent,87);assert.equal(elements.get("baseMaterialHud").textContent,432);
+    assert.equal(elements.has("hivesNeutralized"),false);assert.equal(elements.has("creepsNeutralized"),false);
   });
 
   test("the loss screen shows lifetime Energy and Construction Material mined",()=>{
@@ -90,7 +96,7 @@ describe("interface formatting", () => {
     const artillery={id:"artillery-copy",type:"artillery",q:6,r:-2,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};
     api.state.structures.set(api.key(artillery.q,artillery.r),artillery);api.state.selected={type:"structure",id:artillery.id};
     const html=api.selectionHtml();
-    assert.match(html,/Artillery/);assert.match(html,/Targets Hives only/);assert.match(html,/Range 12 hexes/);assert.match(html,/Lobs a shell every 3 seconds/);assert.match(html,/20 Energy per shot/);assert.match(html,/8 center damage \+ 5 damage/);assert.match(html,/Creeps can take splash damage/);assert.match(html,/No friendly fire/);
+    assert.match(html,/Artillery/);assert.match(html,/Targets Hives only/);assert.match(html,/Range 12 hexes/);assert.match(html,/Lobs a shell every 3 seconds/);assert.match(html,/10 Energy per shot/);assert.match(html,/8 center damage \+ 5 damage/);assert.match(html,/Creeps can take splash damage/);assert.match(html,/No friendly fire/);
   });
 
   test("the selection label is hidden only when nothing is selected",()=>{

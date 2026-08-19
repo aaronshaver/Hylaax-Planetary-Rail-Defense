@@ -50,7 +50,7 @@ function selectionHtml(){
   }
   if(selected.wagons){const adding=state.mode==="schedule"&&state.scheduleTrainId===selected.id,hasStops=(selected.schedule?.length||0)>0,canAdd=!hasStops&&trainStopped(selected)&&!adding;const code=trainScheduleCode(selected),title=`${selected.name}: ${selectedTrainPartLabel(selected)}`;const note=adding?`<div class="action-note">Click Track or Destroyed Track to add Stop ${code}${selected.schedule.length+1}. Add at least 3 stops, then click ${code}1 again to start.</div>`:"",combatNote=selected.trainType==="combat"?`<div class="selection-subtitle">Moving defense train · Range 6 hexes · Locomotive and Energy Supply restock only at Base</div>`:"",actions=state.gameOver?"":`<div class="panel-actions">${button("add-schedule","Add Schedule",canAdd?"btn-command":"btn-quiet","Click at least 3 Track or Destroyed Track stops, then click the first stop again to complete the loop. Maximum 9 stops.",!canAdd)}${button("clear-schedule","Clear Schedule",hasStops||adding?"btn-danger":"btn-quiet","Clears every stop and stops the train at the next Track hex.",!hasStops&&!adding)}</div>`;return `<div class="selection-title"><h2>${title}</h2></div>${combatNote}${hpBlock(selected)}<div class="status-bar energy"><span style="width:${selected.fuel/selected.maxFuel*100}%"></span></div><div class="status-caption"><span>ENERGY</span><span>${selected.fuel.toFixed(1)} / ${selected.maxFuel}</span></div>${cargoHtml(selected)}${state.gameOver?"":note}${actions}`;}
   if(selected.type==="turret")return `<div class="selection-title"><h2>Turret</h2></div><div class="selection-subtitle">Range 4 hexes · Instantly refills when a stopped Build/Mine Train Locomotive is adjacent</div>${hpBlock(selected)}${energyBlock(selected)}`;
-  if(selected.type==="artillery")return `<div class="selection-title"><h2>Artillery</h2></div><div class="selection-subtitle">Targets Hives only · Range 12 hexes · Lobs a shell every 3 seconds · 20 Energy per shot · 8 center damage + 5 damage in each adjacent splash hex · Creeps can take splash damage · No friendly fire</div>${hpBlock(selected)}${energyBlock(selected)}`;
+  if(selected.type==="artillery")return `<div class="selection-title"><h2>Artillery</h2></div><div class="selection-subtitle">Targets Hives only · Range 12 hexes · Lobs a shell every 3 seconds · 10 Energy per shot · 8 center damage + 5 damage in each adjacent splash hex · Creeps can take splash damage · No friendly fire</div>${hpBlock(selected)}${energyBlock(selected)}`;
   if(selected.type==="mine"){const node=resourceNodeAt(selected.q,selected.r),exhausted=node.amount<=0,title=`${exhausted?"Exhausted ":""}${resourceLabel(selected.resource)} Mine`,description=exhausted?"This Resource Node is exhausted":`A Train at an adjacent Stop instantly Mines and loads ${resourceLabel(selected.resource)}`;return `<div class="selection-title"><h2>${title}</h2></div><div class="selection-subtitle">${description}</div>${hpBlock(selected)}${resourceBlock(node)}`;}
   if(selected.type==="wall")return `<div class="selection-title"><h2>Wall</h2></div><div class="selection-subtitle">A Train at a Stop instantly repairs damaged Walls within 3 hexes</div>${hpBlock(selected)}`;
   if(selected.type==="node")return `<div class="selection-title"><h2>${resourceLabel(selected.resource)} Node</h2></div>${resourceBlock(selected)}<div class="selection-subtitle">Build a Mine here to extract its resources</div>`;
@@ -70,27 +70,39 @@ function updateConstructionToolAvailability(){
     state.mode="select";state.trackStart=null;canvas.style.cursor="default";
   }
   for(const [mode,tool] of tools){
-    const disabled=state.gameOver?mode!=="select":!constructionModeAffordable(mode);
-    tool.disabled=disabled;tool.ariaDisabled=String(disabled);tool.classList.toggle("active",mode===state.mode);
+    const unavailable=!state.gameOver&&!constructionModeAffordable(mode),disabled=state.gameOver&&mode!=="select";
+    tool.disabled=disabled;tool.ariaDisabled=String(disabled||unavailable);tool.classList.toggle("unavailable",unavailable);tool.classList.toggle("active",mode===state.mode);
   }
 }
 
 function setDebugMenuOpen(open){
   ui.debugMenu.hidden=!open;ui.debugMenu.classList.toggle("d-none",!open);ui.debugToggle.ariaExpanded=String(open);
-  if(!open&&state.mode==="debug-destroy")setMode("select");
+  if(!open&&state.mode.startsWith("debug-"))setMode("select");
   return open;
 }
 
 function updateDebugUI(){
-  ui.debugDestroyObject.disabled=state.gameOver;ui.debugAddBaseResources.disabled=state.gameOver;
+  ui.debugDestroyObject.disabled=state.gameOver;ui.debugAddCreep.disabled=state.gameOver;ui.debugAddBaseResources.disabled=state.gameOver;
   ui.debugDestroyObject.classList.toggle("active",state.mode==="debug-destroy");
+  ui.debugAddCreep.classList.toggle("active",state.mode==="debug-add-creep");
+}
+
+function showTurretEnergyWarning(){
+  if(state.turretEnergyWarningShown||state.gameOver)return false;
+  state.turretEnergyWarningShown=true;state.turretEnergyWarningWasPaused=state.paused;state.paused=true;simulationAccumulator=0;
+  ui.turretEnergyDialog.hidden=false;ui.turretEnergyDialog.classList.remove("d-none");updateUI(true);render();setTimeout(()=>ui.turretEnergyOkay.focus(),0);return true;
+}
+
+function dismissTurretEnergyWarning(){
+  if(ui.turretEnergyDialog.hidden)return false;
+  ui.turretEnergyDialog.hidden=true;ui.turretEnergyDialog.classList.add("d-none");state.paused=state.turretEnergyWarningWasPaused;lastWallTime=Date.now();simulationAccumulator=0;updateUI(true);render();canvas.focus();return true;
 }
 
 function updateUI(force=false){
   updateConstructionToolAvailability();
   updateDebugUI();
   const paused=state.paused||state.gameOver,pauseStatus=paused?"paused":"playing";setStatusButtonMarkup(ui.pauseToggle,pauseStatus,`${statusIcon(paused?"pause":"play")}<span>${paused?"Paused":"Playing"}</span>`);ui.pauseToggle.classList.toggle("status-playing",!paused);ui.pauseToggle.classList.toggle("status-paused",paused);ui.pauseToggle.disabled=state.gameOver||tutorialLocksPause();ui.pauseToggle.ariaLabel=paused?"Play simulation":"Pause simulation";
-  const soundStatus=state.sound?"sound-on":"sound-off";setStatusButtonMarkup(ui.soundToggle,soundStatus,`${statusIcon(soundStatus)}<span>Sound: ${state.sound?"ON":"OFF"}</span>`);ui.soundToggle.classList.toggle("status-sound-on",state.sound);ui.soundToggle.classList.toggle("status-sound-off",!state.sound);ui.hivesNeutralized.textContent=state.hivesNeutralized;ui.creepsNeutralized.textContent=state.creepsNeutralized;ui.hivesInWorld.textContent=state.hives.size;ui.creepsInWorld.textContent=state.enemies.length;ui.timeSurvived.textContent=formatSurvivalTime(state.elapsed);
+  const soundStatus=state.sound?"sound-on":"sound-off";setStatusButtonMarkup(ui.soundToggle,soundStatus,`${statusIcon(soundStatus)}<span>Sound: ${state.sound?"ON":"OFF"}</span>`);ui.soundToggle.classList.toggle("status-sound-on",state.sound);ui.soundToggle.classList.toggle("status-sound-off",!state.sound);ui.baseEnergyHud.textContent=Math.floor(state.baseEnergy);ui.baseMaterialHud.textContent=Math.floor(state.baseMaterial);ui.hivesInWorld.textContent=state.hives.size;ui.creepsInWorld.textContent=state.enemies.length;ui.timeSurvived.textContent=formatSurvivalTime(state.elapsed);
   const hasSelection=Boolean(getSelected());ui.selectionLabel.hidden=!hasSelection;
   const selectionMarkup=selectionHtml();
   if(force||selectionMarkup!==selectionCache){disposeTooltips(selectionContent);selectionContent.innerHTML=selectionMarkup;selectionCache=selectionMarkup;initializeTooltips(selectionContent);}

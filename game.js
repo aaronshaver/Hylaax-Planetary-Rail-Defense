@@ -15,13 +15,13 @@ if(window.__HYLAAX_TEST__){
     trainCode,trainName,trainSegments,trainStopped,totalCargo,cargoSpace,removeCargo,addCargo,fillBaseCargo,refuelAtBase,serviceBaseLogistics,
     connectedTrackNeighbors,conceptualTrackNeighbors,tracksAreLinked,linkTracks,deleteTrack,curveIsExtreme,liveTrackWithinRange,layTrack,placeTrackOverGhost,buildTurret,buildMine,buildWall,buildArtillery,clearDepletedResourceNode,salvageStructure,clearGhost,deploymentPathsFrom,deployTrain,
     scheduleStopAt,addScheduleStop,clearTrainSchedule,findPath,findConceptualTrackPath,repairApproachFor,scheduleLoopIsReachable,startScheduledLeg,updateTrainSchedules,
-    hiveUnlockedLevel,nextHiveLevel,hiveExpansionLevel,createHive,hiveHexOpen,hiveReplicationRoll,hiveSpawnCandidates,spawnHiveNear,spawnEnemyFromHive,playerConstructionAnchors,outsidePlayerConstructionBuffer,encroachingHiveLocation,spawnEncroachingHive,encroachingHiveCount,updateEncroachingHives,updateHives,
+    hiveUnlockedLevel,nextHiveLevel,hiveExpansionLevel,createHive,hiveHexOpen,hiveReplicationRoll,hiveSpawnCandidates,spawnHiveNear,spawnEnemyAt,spawnEnemyFromHive,debugAddCreepAt,playerConstructionAnchors,outsidePlayerConstructionBuffer,encroachingHiveLocation,spawnEncroachingHive,encroachingHiveCount,updateEncroachingHives,updateHives,
     showTrainEnergyWarning,updateTrainEnergyWarnings,repairPriority,updateAutomaticRepair,updateAutomaticLogistics,updateAutomaticRebuild,leaveGhost,rebuildGhost,trainPartDestroyed,damageTarget,damageEnemy,debugDestroyAt,
     enemySlotOffset,enemyWorldPosition,reserveEnemySpace,releaseEnemySpace,enemySpaceReservations,enemyHexHasRoom,chooseEnemySpaceSlot,resetEnemyNavigation,rebuildEnemyNavigation,ensureEnemyNavigation,nextEnemyNavigationStep,enemyNavigationStats,findEnemyStep,updateEnemies,
     updateTrains,updateCombatTrains,fireArtillery,resolveArtilleryImpact,updateProjectiles,updateStructures,update,advanceSimulation,
     showWorldActivity,showTrainActivity,worldMessagePriority,worldMessageLayout,terrainLayerStats,ensureTerrainLayer,drawTurretRanges,drawBase,drawHives,drawGhosts,drawStructures,drawTrains,drawEnemies,drawEffects,drawWorldMessages,screenShakeOffset,screenShakeActive,render,
     canBaseAfford,constructionModeCost,constructionModeAffordable,constructionModeUnavailableMessage,addBaseResources,
-    selectedTrainPartLabel,selectionHtml,setStatusButtonMarkup,updateConstructionToolAvailability,setDebugMenuOpen,updateDebugUI,updateUI,formatSurvivalTime,
+    selectedTrainPartLabel,selectionHtml,setStatusButtonMarkup,updateConstructionToolAvailability,setDebugMenuOpen,updateDebugUI,showTurretEnergyWarning,dismissTurretEnergyWarning,updateUI,formatSurvivalTime,
     tutorialMessage,tutorialLoopTargets,tutorialScheduleTargets,tutorialTargetsHaveMines,tutorialTurretIsByStop,tutorialEvent,startTutorial,finishTutorial,restartTutorial,startGame,resetGameState
   };
 }
@@ -33,12 +33,13 @@ canvas.addEventListener("pointerleave",()=>{state.hover=null;if(!state.pointer.d
 canvas.addEventListener("wheel",e=>{e.preventDefault();const rect=canvas.getBoundingClientRect(),sx=e.clientX-rect.left,sy=e.clientY-rect.top;const beforeX=(sx-width/2)/state.camera.zoom+state.camera.x,beforeY=(sy-height/2)/state.camera.zoom+state.camera.y;const factor=Math.exp(-e.deltaY*.0012);state.camera.zoom=clamp(state.camera.zoom*factor,.42,2.15);state.camera.x=beforeX-(sx-width/2)/state.camera.zoom;state.camera.y=beforeY-(sy-height/2)/state.camera.zoom;render();},{passive:false});
 
 document.addEventListener("click",e=>{const modeButton=e.target.closest("[data-mode]");if(modeButton){if(!modeButton.disabled)setMode(modeButton.dataset.mode);return;}const actionButton=e.target.closest("[data-action]");if(actionButton&&!actionButton.disabled)handleAction(actionButton.dataset.action,actionButton);});
-document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e.key==="Enter")startGame(false);return;}if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="7"){setMode(["select","track","turret","mine","wall","artillery","salvage"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
+document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e.key==="Enter")startGame(false);return;}if(!ui.turretEnergyDialog.hidden){if(e.key==="Escape"||e.key==="Enter")dismissTurretEnergyWarning();return;}if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="7"){setMode(["select","track","turret","mine","wall","artillery","salvage"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
 document.querySelectorAll("[data-mode]").forEach(button=>button.addEventListener("click",()=>sounds.init()));
 ui.pauseToggle.addEventListener("click",()=>{if(state.gameOver||tutorialLocksPause())return;state.paused=!state.paused;simulationAccumulator=0;lastWallTime=Date.now();updateUI(true);render();});
 ui.soundToggle.addEventListener("click",()=>{state.sound=!state.sound;sounds.enabled=state.sound;if(state.sound)sounds.place();updateUI(true);});
 ui.debugToggle.addEventListener("click",()=>setDebugMenuOpen(ui.debugMenu.hidden));
 ui.debugAddBaseResources.addEventListener("click",()=>{if(!state.gameOver)addBaseResources();});
+ui.turretEnergyOkay.addEventListener("click",dismissTurretEnergyWarning);
 ui.remindersTutorial.addEventListener("click",()=>startGame(true));
 ui.remindersContinue.addEventListener("click",()=>startGame(false));
 ui.tutorialOkay.addEventListener("click",finishTutorial);
@@ -47,9 +48,9 @@ ui.confirmNo.addEventListener("click",cancelTrainSalvage);
 ui.confirmYes.addEventListener("click",confirmTrainSalvage);
 ui.viewMapButton.addEventListener("click",showFinalMap);
 ui.viewFinalStats.addEventListener("click",showFinalStats);
-function resetGameState(){state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");setDebugMenuOpen(false);document.querySelectorAll("[data-mode]").forEach(button=>button.disabled=false);syncTutorialUI();setMode("select");}
+function resetGameState(){state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");ui.turretEnergyDialog.hidden=true;ui.turretEnergyDialog.classList.add("d-none");setDebugMenuOpen(false);document.querySelectorAll("[data-mode]").forEach(button=>button.disabled=false);syncTutorialUI();setMode("select");}
 ui.restartButton.addEventListener("click",()=>{resetGameState();showReminders();});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){const now=Date.now();advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;resetPerformanceMetrics();render();}});
 window.addEventListener("resize",resize);
-ui.gameOver.hidden=true;ui.viewFinalStats.hidden=true;ui.confirmDialog.hidden=true;resize();initializeTooltips();updateUI(true);showReminders();
+ui.gameOver.hidden=true;ui.viewFinalStats.hidden=true;ui.confirmDialog.hidden=true;ui.turretEnergyDialog.hidden=true;resize();initializeTooltips();updateUI(true);showReminders();
 function frame(frameTime){const now=Date.now(),ticks=advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;const rendered=ticks>0||screenShakeActive();if(rendered)render();recordPerformance(frameTime,ticks,rendered);requestAnimationFrame(frame);}requestAnimationFrame(frame);

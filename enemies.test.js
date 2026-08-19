@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { describe, test, beforeEach } = require("node:test");
-const { api, moveTrain, makeEnemy, addTestTrain, performance } = require("./harness.js");
+const { api, elements, moveTrain, makeEnemy, addTestTrain, performance } = require("./harness.js");
 
 beforeEach(() => { api.reset(); });
 
@@ -82,7 +82,24 @@ describe("Hive and defense behavior", () => {
     api.updateStructures(.01);assert.equal(hive.hp,11);assert.equal(turret.energy,1);
   });
 
-  test("Artillery lobs at Hives every three seconds for 20 Energy with delayed 8 center and 5 adjacent damage and no friendly fire",()=>{
+  test("the first fixed Turret to run out of Energy pauses for one warning only",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.structures.clear();
+    const turret={id:"turret-empty-warning",type:"turret",q:5,r:0,hp:18,maxHp:18,energy:1,maxEnergy:20,cooldown:0};state.structures.set("5,0",turret);
+    const hive=api.createHive(6,0,2,false,false);
+    api.updateStructures(0);
+    assert.equal(turret.energy,0);assert.equal(hive.hp,1);assert.equal(state.turretEnergyWarningShown,true);assert.equal(state.paused,true);assert.equal(elements.get("turretEnergyDialog").hidden,false);
+    assert.equal(api.dismissTurretEnergyWarning(),true);assert.equal(state.paused,false);assert.equal(elements.get("turretEnergyDialog").hidden,true);
+    turret.energy=1;turret.cooldown=0;api.updateStructures(0);
+    assert.equal(turret.energy,0);assert.equal(elements.get("turretEnergyDialog").hidden,true,"later empty Turrets must not repeat the modal");
+  });
+
+  test("Turret shots use mellow low-gain triangle and sine tones",()=>{
+    const calls=[],originalTone=api.sounds.tone;api.sounds.tone=(...args)=>calls.push(args);api.sounds.lastShot=-Infinity;
+    try{api.sounds.shot();assert.deepEqual(calls.map(call=>call[2]),["triangle","sine"]);assert.ok(calls.every(call=>call[0]<500&&call[3]<=.018));}
+    finally{api.sounds.tone=originalTone;}
+  });
+
+  test("Artillery lobs at Hives every three seconds for 10 Energy with delayed 8 center and 5 adjacent damage and no friendly fire",()=>{
     const state=api.state;state.hives.clear();state.enemies=[];state.structures.clear();state.trains=[];
     const artillery={id:"artillery-defense",type:"artillery",q:0,r:0,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};
     const friendlyWall={id:"friendly-wall",type:"wall",q:8,r:-1,hp:100,maxHp:100};
@@ -94,17 +111,17 @@ describe("Hive and defense behavior", () => {
     api.updateStructures(0);
 
     assert.equal(centerHive.hp,13);assert.equal(splashHive.hp,13,"damage waits for the shell to land");
-    assert.equal(state.projectiles.at(-1).kind,"artillery-shell");assert.equal(artillery.energy,20);assert.equal(artillery.cooldown,3);
+    assert.equal(state.projectiles.at(-1).kind,"artillery-shell");assert.equal(artillery.energy,30);assert.equal(artillery.cooldown,3);
 
     api.updateStructures(api.constants.ARTILLERY_SHELL_FLIGHT_SECONDS);
 
     assert.equal(centerHive.hp,5);assert.equal(splashHive.hp,8);
     assert.equal(centerCreep.hp,2);assert.equal(splashCreep.hp,5);
     assert.equal(friendlyWall.hp,100);assert.equal(friendlyTrain.hp,50);
-    assert.equal(artillery.energy,20);assert.equal(state.projectiles.at(-1).kind,"artillery-blast");
+    assert.equal(artillery.energy,30);assert.equal(state.projectiles.at(-1).kind,"artillery-blast");
 
-    api.updateStructures(2.29);assert.equal(centerHive.hp,5);assert.equal(artillery.energy,20);
-    api.updateStructures(.01);assert.equal(centerHive.hp,5);assert.equal(artillery.energy,0);assert.equal(state.projectiles.at(-1).kind,"artillery-shell");
+    api.updateStructures(2.29);assert.equal(centerHive.hp,5);assert.equal(artillery.energy,30);
+    api.updateStructures(.01);assert.equal(centerHive.hp,5);assert.equal(artillery.energy,20);assert.equal(state.projectiles.at(-1).kind,"artillery-shell");
     api.updateStructures(api.constants.ARTILLERY_SHELL_FLIGHT_SECONDS-.01);assert.equal(state.hives.has(api.key(8,0)),false);
   });
 

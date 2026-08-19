@@ -29,33 +29,48 @@ describe("game bootstrap", () => {
     assert.doesNotMatch(html,/I'm working on this Sun 16 Aug/);
   });
 
-  test("action tooltips use the revised concise Track wording",()=>{
+  test("Action tooltips use readable bullets without Base-inventory wording",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-    assert.match(html,/title="Select units and structures\."/);
+    assert.match(html,/title="• Select units and structures\."/);
     assert.doesNotMatch(html,/Select a Train to create or clear its automatic schedule/);
-    assert.match(html,/Costs 1 Construction Material per new Track segment from Base inventory\./);
+    assert.match(html,/• Costs 1 \(C\)onstruction Material per new Track segment\./);
     assert.doesNotMatch(html,/per new Track hex/);
+    assert.doesNotMatch(html,/from Base inventory/);
+    assert.ok((html.match(/title="•/g)||[]).length>=7,"every Action tooltip should begin with a bullet");
+    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool"]){
+      const title=html.match(new RegExp(`id="${id}"[^>]*title="([^"]+)"`))?.[1];assert.ok(title,id);assert.match(title,/(?:&#10;)?• Costs [^•]+\.$/,`${id} should end with its Costs bullet`);
+      assert.match(title,/\(C\)onstruction Material/);
+      if(["turretTool","wallTool","artilleryTool"].includes(id))assert.match(title,/\(E\)nergy/);
+    }
   });
 
   test("the Actions panel exposes Wall and Artillery and keeps Salvage/Clear on key 7",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-    assert.match(html,/data-mode="wall"[^>]*Costs 12 Construction Material and 1 Energy[^>]*><span class="keycap">5<\/span>Build Wall/);
-    assert.match(html,/data-mode="artillery"[^>]*Costs 100 Construction Material and 100 Energy[^>]*><span class="keycap">6<\/span>Build Artillery/);
+    assert.match(html,/data-mode="wall"[^>]*Costs 12 \(C\)onstruction Material and 1 \(E\)nergy[^>]*><span class="keycap">5<\/span>Build Wall/);
+    assert.match(html,/data-mode="artillery"[^>]*Costs 75 \(C\)onstruction Material and 75 \(E\)nergy[^>]*><span class="keycap">6<\/span>Build Artillery/);
     assert.match(html,/data-mode="salvage"[^>]*Clear destroyed objects without recovering resources[^>]*><span class="keycap">7<\/span>Salvage\/Clear Object/);
     assert.equal((html.match(/Will run out of Energy if not supplied by a Train Stop\./g)||[]).length,2);
   });
 
-  test("the small Debug toggle exposes the two Debug menu options",()=>{
+  test("the small Debug toggle exposes all Debug menu options",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/id="debugToggle"[^>]*>D<\/button>/);
     assert.match(html,/id="debugMenu"[^>]*hidden/);
     assert.match(html,/id="debugDestroyObject"[^>]*data-mode="debug-destroy"[^>]*>Destroy Object<\/button>/);
+    assert.match(html,/id="debugAddCreep"[^>]*data-mode="debug-add-creep"[^>]*>Add Creep<\/button>/);
     assert.match(html,/id="debugAddBaseResources"[^>]*>Add Base Resources<\/button>/);
   });
 
-  test("the displayed and package versions are 2.7",()=>{
+  test("the turret Energy warning has the requested one-time guidance",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+    assert.match(html,/id="turretEnergyDialog"[^>]*hidden[^>]*role="dialog"/);
+    assert.match(html,/One of your turrets ran out of Energy\. Remember: you must supply Turrets with Energy by having a Train Stop adjacent to the Turret and a Train loaded with Energy so that it can re-supply the Turret\./);
+    assert.match(html,/id="turretEnergyOkay"[^>]*>Okay<\/button>/);
+  });
+
+  test("the displayed and package versions are 2.8",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 2\.7/);assert.match(html,/DEFENSE 2\.7/);assert.equal(packageJson.version,"2.7.0");
+    assert.match(html,/Planetary Rail Defense 2\.8/);assert.match(html,/DEFENSE 2\.8/);assert.equal(packageJson.version,"2.8.0");
   });
 });

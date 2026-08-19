@@ -16,10 +16,21 @@ describe("Debug menu",()=>{
     api.setMode("debug-destroy");
     assert.equal(api.state.mode,"debug-destroy");
     assert.equal(elements.get("debugDestroyObject").classList.contains("active"),true);
+    api.setMode("debug-add-creep");assert.equal(elements.get("debugAddCreep").classList.contains("active"),true);
     api.setDebugMenuOpen(false);
     assert.equal(api.state.mode,"select");
     assert.equal(elements.get("debugMenu").hidden,true);
     assert.equal(elements.get("debugToggle").ariaExpanded,"false");
+  });
+
+  test("Add Creep uses normal seven-slot Creep spawning on the chosen hex",()=>{
+    const state=api.state;state.enemies=[];state.structures.clear();state.ghosts.clear();state.trains=[];
+    let target=null;
+    for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&!state.tracks.has(api.key(q,r))&&api.hexDistance({q,r},state.base)>3)target={q,r};
+    assert.ok(target);api.setMode("debug-add-creep");
+    for(let index=0;index<api.constants.CREEP_HEX_CAPACITY;index++)assert.ok(api.handleHexClick(target));
+    assert.equal(state.enemies.length,7);assert.deepEqual([...new Set(state.enemies.map(enemy=>enemy.slot))].sort((a,b)=>a-b),[0,1,2,3,4,5,6]);
+    assert.equal(api.handleHexClick(target),undefined);assert.equal(state.enemies.length,7,"an eighth Creep must not overfill the hex");
   });
 
   test("adds 1,000 of every registered Base resource, including future resource types",()=>{
@@ -66,6 +77,6 @@ describe("Debug menu",()=>{
     api.setMode("debug-destroy");
     assert.equal(api.handleHexClick({q:0,r:0}),true);
     assert.equal(api.state.base.hp,0);assert.equal(api.state.gameOver,true);
-    assert.equal(elements.get("debugDestroyObject").disabled,true);assert.equal(elements.get("debugAddBaseResources").disabled,true);
+    assert.equal(elements.get("debugDestroyObject").disabled,true);assert.equal(elements.get("debugAddCreep").disabled,true);assert.equal(elements.get("debugAddBaseResources").disabled,true);
   });
 });

@@ -33,6 +33,8 @@ function makeInitialState() {
     particles: [],
     screenShakeUntil: 0,
     screenShakeUntilWallTime: 0,
+    turretEnergyWarningShown: false,
+    turretEnergyWarningWasPaused: false,
     baseMaterial: 150,
     baseEnergy: 48,
     selected: { type: "base", id: "base" },
@@ -146,7 +148,7 @@ class SoundBank {
   place() { this.tone(150, .12, "square", .025, 260); }
   remove() { this.tone(170, .16, "sawtooth", .022, 65); }
   dispatch() { this.tone(190, .38, "triangle", .038, 380); setTimeout(() => this.tone(250, .28, "triangle", .025, 470), 90); }
-  shot() { const now = performance.now(); if (now - this.lastShot > 65) { this.lastShot = now; this.tone(920, .075, "square", .045, 240); setTimeout(()=>this.tone(135, .09, "sawtooth", .026, 70),18); } }
+  shot() { const now = performance.now(); if (now - this.lastShot > 65) { this.lastShot = now; this.tone(430, .11, "triangle", .018, 240); this.tone(170, .13, "sine", .011, 105, .02); } }
   hit() { const now = performance.now(); if (now - this.lastHit > 500) { this.lastHit = now; this.tone(75, .12, "sawtooth", .018, 48); } }
   error() { this.tone(105, .18, "square", .022, 72); }
   trainDestroyed() {

@@ -183,6 +183,8 @@ button { touch-action: manipulation; }
 }
 .tool-button:hover { color: #fff; border-color: #4a5b62; background: #162127; }
 .tool-button.active { color: #111; border-color: var(--accent); background: var(--accent); }
+.tool-button.unavailable,
+.tool-button.unavailable:hover { color: #748187; border-color: #243036; background: #0d1417; opacity: .34; cursor: not-allowed; }
 .tool-button:disabled,
 .tool-button:disabled:hover { color: #748187; border-color: #243036; background: #0d1417; opacity: .34; cursor: not-allowed; }
 .keycap {
@@ -331,6 +333,8 @@ button { touch-action: manipulation; }
 .confirm-card { width: min(520px, 100%); padding: 30px; border: 1px solid #71343b; background: #121013; box-shadow: 0 22px 75px #000; text-align: center; }
 .confirm-card h2 { margin: 10px 0 14px; font-size: 31px; font-weight: 900; }
 .confirm-card p { min-height: 3em; margin: 0 0 24px; color: #b8c4c7; line-height: 1.45; }
+.energy-warning-card { border-color: #8c7330; }
+.energy-warning-card .eyebrow { color: var(--accent); }
 .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .confirm-actions .btn { min-height: 48px; font-weight: 800; }
 

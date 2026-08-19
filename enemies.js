@@ -23,8 +23,23 @@ function spawnHiveNear(hive,spawnNumber=hive.spawnCount,level=hiveExpansionLevel
   return location?createHive(location.q,location.r,level,true):null;
 }
 
+function spawnEnemyAt(q,r,spawnNumber=state.nextId){
+  const reservations=enemySpaceReservations(),enemyId=`enemy-${state.nextId}`;
+  if(!isPassable(q,r)||hiveAt(q,r)||structureAt(q,r)||state.tracks.has(key(q,r))||trainAt(q,r)||ghostAt(q,r)||!enemyHexHasRoom(reservations,q,r))return null;
+  const slot=chooseEnemySpaceSlot(reservations,q,r,{id:enemyId,moveCount:spawnNumber});
+  if(slot===null)return null;
+  const p=enemyWorldPosition(q,r,slot),enemy={id:`enemy-${state.nextId++}`,type:"enemy",q,r,slot,x:p.x,y:p.y,fromQ:q,fromR:r,fromSlot:slot,toQ:q,toR:r,toSlot:slot,progress:1,moveCount:0,speed:ENEMY_SPEED,hp:1,maxHp:1,attackClock:0,nextPathAt:0,phase:hash(q,r,spawnNumber)*Math.PI*2};
+  state.enemies.push(enemy);return enemy;
+}
+
+function debugAddCreepAt(q,r){
+  const enemy=spawnEnemyAt(q,r,state.nextId);
+  if(!enemy)return fail("Cannot add a Creep on that hex.");
+  updateUI(true);render();toast("Debug: Creep added.","info");return enemy;
+}
+
 function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
-  const reservations=enemySpaceReservations(),constructionAnchors=playerConstructionAnchors(),enemyId=`enemy-${state.nextId}`;
+  const reservations=enemySpaceReservations(),constructionAnchors=playerConstructionAnchors();
   const options=[];
   for(let dq=-4;dq<=4;dq++){
     const r0=Math.max(-4,-dq-4),r1=Math.min(4,-dq+4);
@@ -36,10 +51,7 @@ function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
     }
   }
   options.sort((a,b)=>hash(b.q,b.r,(state.mapSeed+spawnNumber)|0)-hash(a.q,a.r,(state.mapSeed+spawnNumber)|0));
-  const location=options[0];if(!location)return null;
-  const slot=chooseEnemySpaceSlot(reservations,location.q,location.r,{id:enemyId,moveCount:spawnNumber}),p=enemyWorldPosition(location.q,location.r,slot);
-  const enemy={id:`enemy-${state.nextId++}`,type:"enemy",q:location.q,r:location.r,slot,x:p.x,y:p.y,fromQ:location.q,fromR:location.r,fromSlot:slot,toQ:location.q,toR:location.r,toSlot:slot,progress:1,moveCount:0,speed:ENEMY_SPEED,hp:1,maxHp:1,attackClock:0,nextPathAt:0,phase:hash(location.q,location.r,spawnNumber)*Math.PI*2};
-  state.enemies.push(enemy);return enemy;
+  const location=options[0];return location?spawnEnemyAt(location.q,location.r,spawnNumber):null;
 }
 
 function encroachingHiveLocation(spawnTime=state.nextEncroachmentAt){
@@ -519,7 +531,7 @@ function updateStructures(dt) {
         if(hive){
           const from=axialToWorld(structure.q,structure.r),to=axialToWorld(hive.q,hive.r);
           state.projectiles.push({x1:from.x,y1:from.y,x2:to.x,y2:to.y,life:.12,maxLife:.12});
-          structure.energy--;structure.cooldown=1;damageTarget(hive,1);sounds.shot();
+          structure.energy--;structure.cooldown=1;damageTarget(hive,1);sounds.shot();if(structure.energy<=0)showTurretEnergyWarning();
         }else if (enemy) {
           const from=axialToWorld(structure.q,structure.r);
           state.projectiles.push({x1:from.x,y1:from.y,x2:enemy.x,y2:enemy.y,life:.12,maxLife:.12});
@@ -527,7 +539,7 @@ function updateStructures(dt) {
           state.enemies=state.enemies.filter(e=>e.id!==enemy.id);
           if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;
           state.creepsNeutralized++;
-          burstAt(enemy.x,enemy.y,"#e35050",7); sounds.shot();
+          burstAt(enemy.x,enemy.y,"#e35050",7);sounds.shot();if(structure.energy<=0)showTurretEnergyWarning();
         }
       }
     }else if(structure.type==="artillery"){

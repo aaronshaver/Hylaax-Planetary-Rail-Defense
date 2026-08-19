@@ -48,7 +48,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(state.baseMaterial,materialBefore-12);assert.equal(state.baseEnergy,energyBefore-1);
   });
 
-  test("Artillery costs 100 Construction Material and 100 Energy and is built with 36 HP and 40 stored Energy",()=>{
+  test("Artillery costs 75 Construction Material and 75 Energy and is built with 36 HP and 40 stored Energy",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();state.trains=[];
     state.baseEnergy=150;
     let target=null;
@@ -62,7 +62,7 @@ describe("repairs, ghosts, and schedules", () => {
     const artillery=[...state.structures.values()][0];
     assert.equal(artillery.type,"artillery");assert.equal(artillery.hp,36);assert.equal(artillery.maxHp,36);
     assert.equal(artillery.energy,40);assert.equal(artillery.maxEnergy,40);
-    assert.equal(state.baseMaterial,materialBefore-100);assert.equal(state.baseEnergy,energyBefore-100);
+    assert.equal(state.baseMaterial,materialBefore-75);assert.equal(state.baseEnergy,energyBefore-75);
   });
 
   test("a Train at its own Stop instantly repairs a damaged Wall within three hexes",()=>{

@@ -29,7 +29,7 @@ const ARTILLERY_HIT_POINTS = 36;
 const ARTILLERY_MAX_ENERGY = 40;
 const ARTILLERY_FIRE_INTERVAL = 3;
 const ARTILLERY_SHELL_FLIGHT_SECONDS = .7;
-const ARTILLERY_SHOT_ENERGY = 20;
+const ARTILLERY_SHOT_ENERGY = 10;
 const ARTILLERY_CENTER_DAMAGE = 8;
 const ARTILLERY_SPLASH_DAMAGE = 5;
 const CREEP_HEX_CAPACITY = 7;
@@ -44,7 +44,7 @@ const COSTS = {
   turret: { material: 10, energy: 5 },
   mine: { material: 8, energy: 0 },
   wall: { material: 12, energy: 1 },
-  artillery: { material: 100, energy: 100 }
+  artillery: { material: 75, energy: 75 }
 };
 const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, artillery: 30 };
 const BASE_RESOURCE_TYPES = [
@@ -54,13 +54,14 @@ const BASE_RESOURCE_TYPES = [
 const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*(60*index-30);return {x:Math.cos(angle),y:Math.sin(angle)};});
 
 const ui = Object.fromEntries([
-  "hivesNeutralized", "creepsNeutralized", "timeSurvived", "hivesInWorld", "creepsInWorld",
+  "baseEnergyHud", "baseMaterialHud", "timeSurvived", "hivesInWorld", "creepsInWorld",
   "pauseToggle", "soundToggle", "selectionLabel",
   "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart",
-  "debugToggle", "debugMenu", "debugDestroyObject", "debugAddBaseResources",
+  "debugToggle", "debugMenu", "debugDestroyObject", "debugAddCreep", "debugAddBaseResources",
+  "turretEnergyDialog", "turretEnergyMessage", "turretEnergyOkay",
   "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt", "defeatEnergyMined", "defeatMaterialMined"
 ].map(id => [id, document.getElementById(id)]));
 
