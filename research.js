@@ -3,13 +3,13 @@
 const RESEARCH_UPGRADES = [
   {key:"turretFireRate",label:"50% Faster Turret Firing",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
   {key:"turretDamage",label:"50% Higher Turret Damage",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
-  {key:"turretRange",label:"50% Farther Turret Range",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
-  {key:"mineEfficiency",label:"50% Improved Mine Efficiency",multiplier:1.5,description:"Mining uses fewer resources, extending the life of the Resource Node under the Mine."},
+  {key:"turretRange",label:"20% Farther Turret Range",multiplier:1.2,description:"Applies to both Fixed Turrets and Turret Trains."},
+  {key:"mineEfficiency",label:"20% Improved Mine Efficiency",multiplier:1.2,description:"Mining uses fewer resources, extending the life of the Resource Node under the Mine."},
   {key:"trainCapacity",label:"50% Larger Train Capacity",multiplier:1.5,description:"All Train Supply wagons hold more resources."},
   {key:"trainSpeed",label:"50% Faster Trains",multiplier:1.5,description:"All Trains move 50% faster."},
   {key:"artilleryFireRate",label:"50% Faster Artillery Firing",multiplier:1.5,description:"Artillery fires 50% faster."},
   {key:"artilleryDamage",label:"50% Higher Artillery Damage",multiplier:1.5,description:"Both Artillery center and splash damage increase by 50%."},
-  {key:"artilleryRange",label:"50% Farther Artillery Range",multiplier:1.5,description:"Artillery range increases by 50%."},
+  {key:"artilleryRange",label:"20% Farther Artillery Range",multiplier:1.2,description:"Artillery range increases by 20%."},
   {key:"wallStrength",label:"50% Stronger Walls",multiplier:1.5,description:"Walls have 50% more Hit Points."},
   {key:"trackStrength",label:"400% Stronger Tracks",multiplier:5,description:"Tracks have 400% more Hit Points."},
   {key:"researchSpeed",label:"10% Faster Research",multiplier:1.1,description:"Research points are acquired 10% faster, e.g. not just 1 per second but instead 1.1."}
@@ -22,14 +22,14 @@ function researchMultiplier(keyName){const upgrade=researchUpgrade(keyName);retu
 function turretFireInterval(){return 1/researchMultiplier("turretFireRate");}
 function combatTrainFireInterval(){return .48/researchMultiplier("turretFireRate");}
 function turretDamage(){return researchMultiplier("turretDamage");}
-function turretRange(){return Math.floor(TURRET_RANGE*researchMultiplier("turretRange"));}
-function combatTrainRange(){return Math.floor(COMBAT_TRAIN_RANGE*researchMultiplier("turretRange"));}
+function turretRange(){return Math.round(TURRET_RANGE*researchMultiplier("turretRange"));}
+function combatTrainRange(){return Math.round(COMBAT_TRAIN_RANGE*researchMultiplier("turretRange"));}
 function mineEfficiency(){return researchMultiplier("mineEfficiency");}
 function trainCapacity(){return Math.floor(30*researchMultiplier("trainCapacity"));}
 function trainSpeed(){return 2.25*researchMultiplier("trainSpeed");}
 function artilleryFireInterval(){return ARTILLERY_FIRE_INTERVAL/researchMultiplier("artilleryFireRate");}
 function artilleryDamage(center=true){return (center?ARTILLERY_CENTER_DAMAGE:ARTILLERY_SPLASH_DAMAGE)*researchMultiplier("artilleryDamage");}
-function artilleryRange(){return Math.floor(ARTILLERY_RANGE*researchMultiplier("artilleryRange"));}
+function artilleryRange(){return Math.round(ARTILLERY_RANGE*researchMultiplier("artilleryRange"));}
 function wallHitPoints(){return WALL_HIT_POINTS*researchMultiplier("wallStrength");}
 function trackHitPoints(){return TRACK_HIT_POINTS*researchMultiplier("trackStrength");}
 function researchRate(){return researchMultiplier("researchSpeed");}
@@ -57,8 +57,8 @@ function buildResearch(q,r){
   for(const cell of footprint){const ghost=ghostAt(cell.q,cell.r);if(ghost)replacedGhosts.set(ghost.id,{ghost,site:nonMineConstructionSite(cell.q,cell.r)});}
   for(const {ghost,site} of replacedGhosts.values())replaceDestroyedSite(ghost,site);
   for(const cell of footprint){const site=nonMineConstructionSite(cell.q,cell.r);if(site.clearDepletedNode)clearDepletedResourceNode(cell.q,cell.r);}
-  const research={id:`research-${state.nextId++}`,type:"research",q,r,footprint:footprint.map(cell=>({...cell})),hp:RESEARCH_HIT_POINTS,maxHp:RESEARCH_HIT_POINTS};
-  state.structures.set(key(q,r),research);state.researchUnlocked=true;invalidateEnemyNavigation();sounds.place();
+  const research={id:`research-${state.nextId++}`,type:"research",q,r,footprint:footprint.map(cell=>({...cell})),hp:RESEARCH_HIT_POINTS,maxHp:RESEARCH_HIT_POINTS},firstResearch=!state.researchUnlocked;
+  state.structures.set(key(q,r),research);state.researchUnlocked=true;if(firstResearch)state.researchPoints+=30;invalidateEnemyNavigation();sounds.place();
   for(const cell of footprint)burst(cell.q,cell.r,"#b879ff",6);
   select("structure",research.id);return research;
 }
@@ -86,7 +86,7 @@ function purchaseResearchUpgrade(keyName){
   applyResearchUpgrade(keyName);sounds.place();toast(`${upgrade.label} Researched.`,"info");return true;
 }
 
-function updateResearch(dt){state.researchPoints+=dt*researchRate();}
+function updateResearch(dt){if(state.researchUnlocked)state.researchPoints+=dt*researchRate();}
 
 function addResearchPoints(amount=1000){
   state.researchPoints+=amount;sounds.place();updateUI(true);toast(`Debug: Added ${amount.toLocaleString()} Research points.`,"info");return amount;

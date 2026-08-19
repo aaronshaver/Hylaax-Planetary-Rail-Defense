@@ -151,7 +151,6 @@ class SoundBank {
   }
   place() { this.tone(150, .12, "square", .025, 260); }
   remove() { this.tone(170, .16, "sawtooth", .022, 65); }
-  dispatch() { this.tone(190, .38, "triangle", .038, 380); setTimeout(() => this.tone(250, .28, "triangle", .025, 470), 90); }
   shot() { const now = performance.now(); if (now - this.lastShot > 65) { this.lastShot = now; this.tone(430, .11, "triangle", .018, 240); this.tone(170, .13, "sine", .011, 105, .02); } }
   hit() { const now = performance.now(); if (now - this.lastHit > 500) { this.lastHit = now; this.tone(75, .12, "sawtooth", .018, 48); } }
   error() { this.tone(105, .18, "square", .022, 72); }

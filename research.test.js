@@ -17,15 +17,21 @@ function findResearchSite(){
 }
 
 describe("Research building and upgrades",()=>{
-  test("points accrue from survival immediately but stay hidden until Research is built",()=>{
+  test("the first Research building grants 30 points and only then begins passive accrual",()=>{
     const state=api.state;api.updateResearch(95.75);api.updateUI(true);
-    assert.equal(state.researchPoints,95.75);assert.equal(elements.get("researchPointsHud").textContent,"-");
+    assert.equal(state.researchPoints,0);assert.equal(elements.get("researchPointsHud").textContent,"-");
 
     const site=findResearchSite();assert.ok(site);state.baseMaterial=200;state.baseEnergy=200;
     const research=api.buildResearch(site.q,site.r);
     assert.ok(research);assert.equal(research.hp,300);assert.equal(research.maxHp,300);assert.equal(research.footprint.length,3);
     assert.equal(state.baseMaterial,100);assert.equal(state.baseEnergy,100);assert.equal(state.researchUnlocked,true);
-    assert.equal(elements.get("researchPointsHud").textContent,95);
+    assert.equal(state.researchPoints,30);assert.equal(elements.get("researchPointsHud").textContent,30);
+
+    api.updateResearch(5);api.updateUI(true);
+    assert.equal(state.researchPoints,35);assert.equal(elements.get("researchPointsHud").textContent,35);
+
+    const secondSite=findResearchSite();assert.ok(secondSite);assert.ok(api.buildResearch(secondSite.q,secondSite.r));
+    assert.equal(state.researchPoints,35,"additional Research buildings must not grant another 30 points");
   });
 
   test("all three triangular cells render R and select the same 300 HP building",()=>{
@@ -51,6 +57,8 @@ describe("Research building and upgrades",()=>{
     assert.equal((html.match(/• Costs 30 \(R\)esearch points\./g)||[]).length,12);
     assert.equal((html.match(/disabled aria-disabled="true"/g)||[]).length,12);
     assert.match(html,/Applies to both Fixed Turrets and Turret Trains/);
+    assert.match(html,/20% Farther Turret Range/);assert.match(html,/20% Farther Artillery Range/);
+    assert.match(html,/20% Improved Mine Efficiency/);
     assert.match(html,/Mining uses fewer resources, extending the life of the Resource Node under the Mine/);
     assert.match(html,/All Train Supply wagons hold more resources/);
   });
@@ -63,9 +71,9 @@ describe("Research building and upgrades",()=>{
     state.structures.set("6,6",wall);state.structures.set("5,5",turret);state.structures.set("4,4",artillery);state.tracks.set("7,7",track);state.selected={type:"structure",id:research.id};
     for(const upgrade of api.constants.RESEARCH_UPGRADES)assert.equal(api.purchaseResearchUpgrade(upgrade.key),true,upgrade.key);
 
-    assert.ok(Math.abs(api.turretFireInterval()-2/3)<1e-9);assert.ok(Math.abs(api.combatTrainFireInterval()-.32)<1e-9);assert.equal(api.turretDamage(),1.5);assert.equal(api.turretRange(),6);assert.equal(api.combatTrainRange(),9);
-    assert.equal(api.mineEfficiency(),1.5);assert.equal(train.wagons[0].capacity,45);assert.equal(train.speed,3.375);
-    assert.equal(api.artilleryFireInterval(),2);assert.equal(api.artilleryDamage(true),12);assert.equal(api.artilleryDamage(false),7.5);assert.equal(api.artilleryRange(),18);
+    assert.ok(Math.abs(api.turretFireInterval()-2/3)<1e-9);assert.ok(Math.abs(api.combatTrainFireInterval()-.32)<1e-9);assert.equal(api.turretDamage(),1.5);assert.equal(api.turretRange(),5);assert.equal(api.combatTrainRange(),7);
+    assert.equal(api.mineEfficiency(),1.2);assert.equal(train.wagons[0].capacity,45);assert.equal(train.speed,3.375);
+    assert.equal(api.artilleryFireInterval(),2);assert.equal(api.artilleryDamage(true),12);assert.equal(api.artilleryDamage(false),7.5);assert.equal(api.artilleryRange(),14);
     assert.equal(wall.maxHp,150);assert.equal(wall.hp,120);assert.equal(track.maxHp,5);assert.equal(track.hp,5);assert.equal(api.researchRate(),1.1);
     assert.ok(Math.abs(turret.cooldown-2/3)<1e-9);assert.equal(artillery.cooldown,2);
     assert.equal(api.wallHitPoints(),150);assert.equal(api.trackHitPoints(),5);assert.equal(api.trainCapacity(),45);assert.equal(api.trainSpeed(),3.375);
@@ -80,7 +88,7 @@ describe("Research building and upgrades",()=>{
     const matching=train.wagons.find(wagon=>wagon.role===terrain.resource);assert.ok(matching);matching.amount=0;
     if(terrain.resource==="energy")train.fuel=train.maxFuel;
     api.updateAutomaticLogistics();
-    assert.equal(matching.amount,30);assert.ok(Math.abs(api.resourceNodeAt(nodePosition.q,nodePosition.r).amount-80)<1e-9);
+    assert.equal(matching.amount,30);assert.ok(Math.abs(api.resourceNodeAt(nodePosition.q,nodePosition.r).amount-75)<1e-9);
   });
 
   test("Turret, Turret Train, and Artillery upgrades change live attacks immediately",()=>{

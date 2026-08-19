@@ -328,6 +328,20 @@ describe("repairs, ghosts, and schedules", () => {
     assert.match(api.selectionHtml(),/Stop B1 \(Turret Train B\)/);
   });
 
+  test("starting and visiting scheduled Stops no longer plays the recurring dispatch sound",()=>{
+    const state=api.state,train=state.trains[0];
+    moveTrain(train,3,0);state.tracks.clear();
+    state.tracks.set("3,0",makeTrack(3,0,["4,0"]));state.tracks.set("4,0",makeTrack(4,0,["3,0"]));
+    train.schedule=[{q:3,r:0},{q:4,r:0},{q:3,r:0}];train.scheduleComplete=true;train.scheduleTargetIndex=0;train.route=[];
+    let dispatches=0;const originalDispatch=api.sounds.dispatch;api.sounds.dispatch=()=>{dispatches++;};
+    try{
+      assert.equal(api.startScheduledLeg(train),true,"the current Stop should still be serviced");
+      state.elapsed=train.stopHoldUntil;train.servicingStop=false;
+      assert.equal(api.startScheduledLeg(train),true,"the next scheduled leg should still start");
+      assert.equal(dispatches,0);
+    }finally{api.sounds.dispatch=originalDispatch;}
+  });
+
   test("a depleted Train warning is throttled instead of being spammed", () => {
     const state = api.state;
     const train = state.trains[0];

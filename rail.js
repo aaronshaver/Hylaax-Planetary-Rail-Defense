@@ -453,10 +453,10 @@ function startScheduledLeg(train){
     if(totalCargo(train,"material")<REBUILD_COSTS.track){train.status="Schedule blocked — needs Construction Material";train.scheduleRetryAt=state.elapsed+1;return false;}
     if(!approach.path.length){train.status="Waiting to rebuild Track";train.scheduleRetryAt=state.elapsed+.1;return false;}
     train.route=approach.path;train.routePurpose="repair";train.progress=0;train.stepFrom=null;train.stepTo=null;train.servicingStop=false;train.status="En route to repair Track";
-    sounds.dispatch();return true;
+    return true;
   }
   train.route=path;train.routePurpose="schedule";train.progress=0;train.stepFrom=null;train.stepTo=null;train.servicingStop=false;train.status="En route";
-  sounds.dispatch();return true;
+  return true;
 }
 
 function updateTrainSchedules(){
