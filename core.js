@@ -26,7 +26,7 @@ const TURRET_RANGE = 4;
 const COMBAT_TRAIN_RANGE = 6;
 const ARTILLERY_RANGE = 12;
 const ARTILLERY_HIT_POINTS = 36;
-const ARTILLERY_MAX_ENERGY = 40;
+const ARTILLERY_MAX_ENERGY = 50;
 const ARTILLERY_FIRE_INTERVAL = 3;
 const ARTILLERY_SHELL_FLIGHT_SECONDS = .7;
 const ARTILLERY_SHOT_ENERGY = 10;
@@ -46,8 +46,8 @@ const COSTS = {
   turret: { material: 10, energy: 5 },
   mine: { material: 8, energy: 0 },
   wall: { material: 12, energy: 1 },
-  artillery: { material: 75, energy: 75 },
-  research: { material: 100, energy: 100 }
+  artillery: { material: 50, energy: 50 },
+  research: { material: 75, energy: 75 }
 };
 const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, artillery: 30, research: 30 };
 const BASE_RESOURCE_TYPES = [
@@ -57,7 +57,7 @@ const BASE_RESOURCE_TYPES = [
 const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*(60*index-30);return {x:Math.cos(angle),y:Math.sin(angle)};});
 
 const ui = Object.fromEntries([
-  "baseEnergyHud", "baseMaterialHud", "researchPointsHud", "timeSurvived", "hivesInWorld", "creepsInWorld",
+  "baseEnergyHud", "baseMaterialHud", "unminedMaterialHud", "unminedEnergyHud", "researchPointsHud", "timeSurvived", "hivesInWorld", "creepsInWorld",
   "pauseToggle", "soundToggle", "selectionLabel",
   "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "fpsValue",

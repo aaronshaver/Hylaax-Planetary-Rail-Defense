@@ -214,7 +214,7 @@ function buildArtillery(q,r){
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
   if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Artillery needs clear ground away from Track.");
   if(!payBase(COSTS.artillery,"Artillery"))return;
-  const artillery={id:`artillery-${state.nextId++}`,type:"artillery",q,r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:ARTILLERY_MAX_ENERGY,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
+  const artillery={id:`artillery-${state.nextId++}`,type:"artillery",q,r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:ARTILLERY_MAX_ENERGY,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:artilleryFireInterval(),showRangeUntil:state.elapsed+3.5};
   if(ghost)replaceDestroyedSite(ghost,site);
   state.structures.set(key(q,r),artillery);invalidateEnemyNavigation();sounds.place();burst(q,r,"#ef9b54",12);select("structure",artillery.id);
 }
@@ -386,9 +386,11 @@ function repairApproachFor(train,target){
   return {ghost:trackGhostAt(conceptualPath[breakIndex].q,conceptualPath[breakIndex].r),path:conceptualPath.slice(0,breakIndex)};
 }
 
+function scheduleMinimumStops(){return state.tutorial?.active?3:2;}
+
 function scheduleLoopIsReachable(train){
   const stops=train.schedule||[];
-  if(stops.length<3)return false;
+  if(stops.length<scheduleMinimumStops())return false;
   let position={q:train.q,r:train.r};
   let direction=train.wagons?.length?{q:train.q-train.wagons[0].q,r:train.r-train.wagons[0].r}:train.forwardDirection;
   for(const target of [...stops,stops[0]]){
@@ -409,28 +411,37 @@ function addScheduleStop(train,q,r){
   if(owner)return fail(`That Track is already Stop ${trainScheduleCode(owner)}${owner.schedule.findIndex(stop=>stop.q===q&&stop.r===r)+1}.`);
   const stops=train.schedule;
   const existingIndex=stops.findIndex(stop=>stop.q===q&&stop.r===r);
-  if(existingIndex===0){
-    if(stops.length<3)return fail("A schedule needs at least 3 stops before returning to its first stop.");
-    if(!scheduleLoopIsReachable(train))return fail("The schedule must form a forward-only Track loop.");
-    train.scheduleComplete=true;train.scheduleTargetIndex=0;train.servicingStop=false;train.stopHoldUntil=0;train.scheduleRetryAt=0;
-    state.scheduleTrainId=null;state.mode="select";
-    document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));
-    canvas.style.cursor="default";
-    toast(`${train.name} Schedule Complete.`,"info");sounds.place();tutorialEvent("schedule-completed",{trainId:train.id,train});updateUI(true);return;
-  }
-  if(existingIndex>0)return fail("Select the first stop again to complete the schedule.");
+  if(existingIndex>=0)return fail("That Stop is already in this Train's schedule.");
   if(stops.length>=9)return fail("A train schedule cannot have more than 9 stops.");
-  stops.push({q,r});sounds.place();updateUI(true);
+  stops.push({q,r});sounds.scheduleStop();updateUI(true);render();
+}
+
+function finishSchedule(train){
+  if(state.mode!=="schedule"||state.scheduleTrainId!==train.id)return false;
+  const minimum=scheduleMinimumStops();
+  if(train.schedule.length<minimum)return fail(`A schedule needs at least ${minimum} Stops.`);
+  if(!scheduleLoopIsReachable(train))return fail("The schedule must form a forward-only Track loop back to Stop 1.");
+  train.scheduleComplete=true;train.scheduleTargetIndex=0;train.servicingStop=false;train.stopHoldUntil=0;train.scheduleRetryAt=0;
+  state.scheduleTrainId=null;state.mode="select";state.selected=null;
+  document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));
+  canvas.style.cursor="default";
+  toast(`${train.name} Schedule Complete.`,"info");sounds.place();tutorialEvent("schedule-completed",{trainId:train.id,train});updateUI(true);render();return true;
+}
+
+function undoLastScheduleStop(train){
+  if(state.mode!=="schedule"||state.scheduleTrainId!==train.id||!train.schedule.length)return false;
+  train.schedule.pop();updateUI(true);render();return true;
 }
 
 function clearTrainSchedule(train){
   train.schedule=[];train.scheduleComplete=false;train.scheduleTargetIndex=0;train.servicingStop=false;train.stopHoldUntil=0;train.scheduleRetryAt=0;train.repairHoldUntil=0;train.repairResumeStatus=null;
-  if(train.stepFrom&&train.route.length)train.route=[train.route[0]];else train.route=[];train.routePurpose=null;
+  if(state.paused&&train.stepFrom){snapTrainToGrid(train);train.route=[];}
+  else if(train.stepFrom&&train.route.length)train.route=[train.route[0]];else train.route=[];train.routePurpose=null;
   train.status=train.stepFrom?"Stopping at next hex":"Idle";
   if(state.scheduleTrainId===train.id)state.scheduleTrainId=null;
   state.mode="select";
   document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));
-  canvas.style.cursor="default";updateUI(true);
+  canvas.style.cursor="default";updateUI(true);render();
 }
 
 function startScheduledLeg(train){

@@ -53,6 +53,18 @@ describe("rendering caches", () => {
     assert.equal(context.strokeCalls[0].strokeStyle,"rgba(112,189,119,.44)","persistent supply lines must render below every world object");
   });
 
+  test("Train Stop bubbles are raised, larger, and solid medium green",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state,{addTestTrain,makeTrack}=require("./harness.js"),train=addTestTrain(),stop={q:1,r:0};
+    train.schedule=[stop];state.tracks.set("1,0",makeTrack(1,0));context.textCalls.length=0;context.fillCalls.length=0;context.strokeCalls.length=0;
+
+    api.drawTrainStops();
+
+    const point=api.axialToWorld(stop.q,stop.r),label=context.textCalls.find(call=>call.text==="A1");
+    assert.match(label.font,/11px/);assert.equal(label.x,point.x);assert.equal(label.y,point.y+19);assert.equal(label.fillStyle,"#fff");
+    assert.ok(context.fillCalls.some(call=>call.fillStyle==="#3d8255"),"Stop bubble should use a solid medium-green fill");
+    assert.equal(context.strokeCalls.length,0,"Stop bubble should not have an outline");
+  });
+
   test("world activity messages use white text with a green outline",()=>{
     const context=elements.get("gameCanvas").context;
     api.showWorldActivity({q:2,r:2,type:"mine"},"Train A: Mined Energy");

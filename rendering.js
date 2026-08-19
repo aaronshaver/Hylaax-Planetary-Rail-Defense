@@ -139,10 +139,9 @@ function drawTrainStops(){
     const code=trainScheduleCode(train);
     activeScheduleStops(train).forEach(({stop,index})=>{
       const p=axialToWorld(stop.q,stop.r),label=`${code}${index+1}`;
-      ctx.save();ctx.font="900 10px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";
-      const width=Math.max(22,ctx.measureText(label).width+8);
-      roundedRectPath(p.x-width/2,p.y+14,width,14,5);ctx.fillStyle="rgba(8,13,16,.94)";ctx.fill();ctx.strokeStyle="#70bd77";ctx.lineWidth=1;ctx.stroke();
-      ctx.fillStyle="#fff1b4";ctx.fillText(label,p.x,p.y+21);ctx.restore();
+      ctx.save();ctx.font="900 11px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";const width=Math.max(22,ctx.measureText(label).width+8);
+      roundedRectPath(p.x-width/2,p.y+12,width,14,5);ctx.fillStyle="#3d8255";ctx.fill();
+      ctx.fillStyle="#fff";ctx.fillText(label,p.x,p.y+19);ctx.restore();
     });
   }
 }

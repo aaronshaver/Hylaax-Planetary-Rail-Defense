@@ -10,7 +10,7 @@ const TUTORIAL_MESSAGES = [
   "Click Fabricate and Place Build/Mine Train",
   "Do two clicks to place the Train: one for the head of the Train, another for its tail",
   "Click Add Schedule in the Train's pane on the right",
-  "Add at least three Stops, making sure there is a Stop by the Base, C resource node, and E resource node; be sure to click the first Stop again as the last Stop so that there is a loop",
+  "Add at least three Stops, making sure there is a Stop by the Base, C resource node, and E resource node; click Done Adding when you've finished adding Stops",
   "Click Build Mine",
   "Click on the C and E nodes to add Mines to them",
   "Click Build Turret",

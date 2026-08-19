@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { describe, test, beforeEach } = require("node:test");
-const { api, elements, makeEnemy, addTestTrain } = require("./harness.js");
+const { api, elements, makeEnemy, addTestTrain, makeTrack } = require("./harness.js");
 
 beforeEach(() => { api.reset(); });
 
@@ -36,11 +36,11 @@ describe("interface formatting", () => {
 
   test("unaffordable construction modes cannot be entered and an active one exits when funds fall short",()=>{
     const state=api.state;
-    state.baseMaterial=75;state.baseEnergy=74;
+    state.baseMaterial=50;state.baseEnergy=49;
     assert.equal(api.setMode("artillery"),false);
     assert.equal(state.mode,"select");
 
-    state.baseEnergy=75;assert.equal(api.setMode("artillery"),true);assert.equal(state.mode,"artillery");
+    state.baseEnergy=50;assert.equal(api.setMode("artillery"),true);assert.equal(state.mode,"artillery");
     state.baseEnergy=0;api.updateUI(true);
     assert.equal(state.mode,"select");
     assert.equal(elements.get("artilleryTool").disabled,false);assert.equal(elements.get("artilleryTool").ariaDisabled,"true");assert.equal(elements.get("artilleryTool").classList.contains("unavailable"),true);
@@ -52,6 +52,23 @@ describe("interface formatting", () => {
     assert.equal(elements.has("hivesNeutralized"),false);assert.equal(elements.has("creepsNeutralized"),false);
     const fs=require("node:fs"),path=require("node:path"),html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.ok(html.indexOf('id="baseMaterialHud"')<html.indexOf('id="baseEnergyHud"'),"Construction should appear before Energy in the HUD");
+    assert.ok(html.indexOf('id="baseEnergyHud"')<html.indexOf('id="unminedMaterialHud"')&&html.indexOf('id="unminedMaterialHud"')<html.indexOf('id="unminedEnergyHud"'));
+  });
+
+  test("the HUD totals resources only in active Mines connected to completed live Stops",()=>{
+    const state=api.state,train=addTestTrain(),material=api.resourceNodeAt(7,-2),energy=api.resourceNodeAt(-4,7);
+    api.setNodeAmount(material,81.9);api.setNodeAmount(energy,42.7);
+    state.structures.set(material.id,{id:"hud-material-mine",type:"mine",resource:"material",q:material.q,r:material.r,hp:22,maxHp:22});
+    state.structures.set(energy.id,{id:"hud-energy-mine",type:"mine",resource:"energy",q:energy.q,r:energy.r,hp:22,maxHp:22});
+    train.schedule=[{q:6,r:-2},{q:-3,r:7}];train.scheduleComplete=false;
+    state.tracks.set("6,-2",makeTrack(6,-2));state.tracks.set("-3,7",makeTrack(-3,7));api.updateUI(true);
+    assert.equal(elements.get("unminedMaterialHud").textContent,0);assert.equal(elements.get("unminedEnergyHud").textContent,0);
+
+    train.scheduleComplete=true;api.updateUI(true);
+    assert.equal(elements.get("unminedMaterialHud").textContent,81);assert.equal(elements.get("unminedEnergyHud").textContent,42);
+
+    state.tracks.delete("-3,7");api.updateUI(true);
+    assert.equal(elements.get("unminedMaterialHud").textContent,81);assert.equal(elements.get("unminedEnergyHud").textContent,0);
   });
 
   test("the loss screen shows lifetime Energy and Construction Material mined",()=>{

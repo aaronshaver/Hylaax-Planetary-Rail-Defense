@@ -24,7 +24,7 @@ describe("Research building and upgrades",()=>{
     const site=findResearchSite();assert.ok(site);state.baseMaterial=200;state.baseEnergy=200;
     const research=api.buildResearch(site.q,site.r);
     assert.ok(research);assert.equal(research.hp,300);assert.equal(research.maxHp,300);assert.equal(research.footprint.length,3);
-    assert.equal(state.baseMaterial,100);assert.equal(state.baseEnergy,100);assert.equal(state.researchUnlocked,true);
+    assert.equal(state.baseMaterial,125);assert.equal(state.baseEnergy,125);assert.equal(state.researchUnlocked,true);
     assert.equal(state.researchPoints,30);assert.equal(elements.get("researchPointsHud").textContent,30);
 
     api.updateResearch(5);api.updateUI(true);

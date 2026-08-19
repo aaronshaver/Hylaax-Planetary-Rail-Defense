@@ -74,6 +74,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.tutorial.step,8);
     api.tutorialEvent("schedule-started",{trainId:train.id,train});
     assert.equal(api.state.tutorial.step,9);
+    assert.equal(api.tutorialMessage(),"Step 9: Add at least three Stops, making sure there is a Stop by the Base, C resource node, and E resource node; click Done Adding when you've finished adding Stops");
 
     train.schedule=[loop[0],loop[5],loop[14]];
     train.scheduleComplete=true;

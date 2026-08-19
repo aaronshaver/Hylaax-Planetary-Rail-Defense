@@ -247,7 +247,7 @@ button { touch-action: manipulation; }
   backdrop-filter: blur(8px);
 }
 .top-left { top: 18px; left: 18px; width: min(360px, calc(100% - 36px)); padding: 12px 15px; }
-.hud-stat { color: #aebabe; font: 700 22px/1.4 ui-monospace, monospace; white-space: nowrap; }
+.hud-stat { color: #aebabe; font: 700 19.8px/1.4 ui-monospace, monospace; white-space: nowrap; }
 .hud-stat strong { color: var(--accent); font-weight: 900; }
 
 .tooltip .tooltip-inner {

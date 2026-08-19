@@ -291,12 +291,14 @@ function handleAction(action, element) {
   }
   if(action==="add-schedule"&&selected?.wagons){
     if(!trainStopped(selected))return fail("Clear the current schedule and wait for the train to stop first.");
-    if(selected.schedule?.length)return fail("Use Clear Schedule before creating a new schedule.");
-    selected.schedule=[];selected.scheduleComplete=false;selected.scheduleTargetIndex=0;selected.servicingStop=false;selected.stopHoldUntil=0;
+    if(selected.scheduleComplete)return fail("Use Clear Schedule before creating a new schedule.");
+    selected.schedule||=[];selected.scheduleComplete=false;selected.scheduleTargetIndex=0;selected.servicingStop=false;selected.stopHoldUntil=0;
     state.scheduleTrainId=selected.id;state.mode="schedule";canvas.style.cursor="crosshair";
     document.querySelectorAll("[data-mode]").forEach(button=>button.classList.remove("active"));
     tutorialEvent("schedule-started",{trainId:selected.id,train:selected});
   }
+  if(action==="finish-schedule"&&selected?.wagons)finishSchedule(selected);
+  if(action==="undo-last-stop"&&selected?.wagons)undoLastScheduleStop(selected);
   if(action==="clear-schedule"&&selected?.wagons)clearTrainSchedule(selected);
   if(action.startsWith("research-"))purchaseResearchUpgrade(action.slice("research-".length));
   updateUI(true);

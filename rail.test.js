@@ -6,6 +6,14 @@ const { api, elements, moveTrain, makeTrack, addTestTrain } = require("./harness
 
 beforeEach(() => { api.reset(); addTestTrain(); });
 
+function installScheduleRing(train){
+  const ring=[{q:1,r:0},{q:1,r:-1},{q:0,r:-1},{q:-1,r:0},{q:-1,r:1},{q:0,r:1}];
+  api.state.tracks.clear();
+  ring.forEach((position,index)=>{const previous=ring[(index+ring.length-1)%ring.length],next=ring[(index+1)%ring.length];api.state.tracks.set(api.key(position.q,position.r),makeTrack(position.q,position.r,[api.key(previous.q,previous.r),api.key(next.q,next.r)]));});
+  train.q=1;train.r=0;train.wagons[0].q=0;train.wagons[0].r=1;train.route=[];train.stepFrom=null;train.stepTo=null;
+  return ring;
+}
+
 describe("repairs, ghosts, and schedules", () => {
   test("a fixed Turret requires non-destroyed Track within three hexes",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
@@ -48,7 +56,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(state.baseMaterial,materialBefore-12);assert.equal(state.baseEnergy,energyBefore-1);
   });
 
-  test("Artillery costs 75 Construction Material and 75 Energy and is built with 36 HP and 40 stored Energy",()=>{
+  test("Artillery costs 50 Construction Material and 50 Energy, starts with and stores 50 Energy, and waits before its first shot",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();state.trains=[];
     state.baseEnergy=150;
     let target=null;
@@ -61,8 +69,10 @@ describe("repairs, ghosts, and schedules", () => {
 
     const artillery=[...state.structures.values()][0];
     assert.equal(artillery.type,"artillery");assert.equal(artillery.hp,36);assert.equal(artillery.maxHp,36);
-    assert.equal(artillery.energy,40);assert.equal(artillery.maxEnergy,40);
-    assert.equal(state.baseMaterial,materialBefore-75);assert.equal(state.baseEnergy,energyBefore-75);
+    assert.equal(artillery.energy,50);assert.equal(artillery.maxEnergy,50);assert.equal(artillery.cooldown,3);
+    assert.equal(state.baseMaterial,materialBefore-50);assert.equal(state.baseEnergy,energyBefore-50);
+    state.hives.clear();api.createHive(target.q+1,target.r,13);api.updateStructures(2.99);assert.equal(state.projectiles.length,0);assert.equal(artillery.energy,50);
+    api.updateStructures(.01);assert.equal(state.projectiles.at(-1).kind,"artillery-shell");assert.equal(artillery.energy,40);
   });
 
   test("a Train at its own Stop instantly repairs a damaged Wall within three hexes",()=>{
@@ -121,7 +131,7 @@ describe("repairs, ghosts, and schedules", () => {
     const cases=[
       {type:"turret",ghostType:"wall",cost:{material:10,energy:5},build:api.buildTurret},
       {type:"wall",ghostType:"artillery",cost:{material:12,energy:1},build:api.buildWall},
-      {type:"artillery",ghostType:"turret",cost:{material:75,energy:75},build:api.buildArtillery}
+      {type:"artillery",ghostType:"turret",cost:{material:50,energy:50},build:api.buildArtillery}
     ];
     for(const item of cases){
       api.reset();const state=api.state;state.tracks.clear();state.structures.clear();state.ghosts.clear();state.trains=[];state.baseMaterial=500;state.baseEnergy=500;
@@ -313,6 +323,53 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(`${train.schedule[0].q},${train.schedule[0].r}`, "4,0");
     state.selected = { type: "ghost", id: "4,0" };
     assert.match(api.selectionHtml(), /Destroyed Stop A1 \(Build\/Mine Train A\)/);
+  });
+
+  test("Done Adding automatically closes the loop, Undo removes one Stop, and placement uses the soft Stop sound",()=>{
+    const state=api.state,train=state.trains[0];installScheduleRing(train);state.selected={type:"train",id:train.id};state.mode="schedule";state.scheduleTrainId=train.id;train.schedule=[];
+    const calls=[],originalTone=api.sounds.tone;api.sounds.tone=(...args)=>calls.push(args);
+    try{
+      let html=api.selectionHtml();assert.match(html,/class="btn btn-quiet" data-action="undo-last-stop"[^>]*disabled[^>]*>Undo Last Stop<\/button>/,"Undo begins gray and disabled when no Stops exist");
+      api.addScheduleStop(train,1,0);html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="undo-last-stop"[^>]*>Undo Last Stop<\/button>/,"Undo turns yellow as soon as a Stop can be removed");assert.doesNotMatch(html,/data-action="undo-last-stop"[^>]*disabled/);
+      api.addScheduleStop(train,0,-1);api.addScheduleStop(train,-1,1);
+      html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="finish-schedule"[^>]*>Done Adding<\/button>/);assert.match(html,/class="btn btn-command" data-action="undo-last-stop"[^>]*>Undo Last Stop<\/button>/);assert.ok(html.indexOf("Done Adding")<html.indexOf("Undo Last Stop"));assert.doesNotMatch(html,/click the first Stop again/);
+      const context=elements.get("gameCanvas").context;context.textCalls.length=0;
+      assert.equal(api.undoLastScheduleStop(train),true);assert.equal(train.schedule.length,2);assert.deepEqual(context.textCalls.filter(call=>/^A\d+$/.test(call.text)).map(call=>call.text),["A1","A2"],"Undo must synchronously redraw the remaining Stop markers");api.addScheduleStop(train,-1,1);
+      assert.equal(api.finishSchedule(train),true);
+    }finally{api.sounds.tone=originalTone;}
+
+    assert.equal(train.scheduleComplete,true);assert.equal(train.schedule.length,3,"Stop 1 should not be duplicated at the end");assert.equal(train.scheduleTargetIndex,0);assert.equal(state.mode,"select");assert.equal(state.selected,null,"completing a schedule should return the right pane to its unselected Select Object state");
+    assert.equal(calls.filter(call=>call[2]==="sine"&&call[3]<=.012).length,8,"each of four Stop placements should use two soft sine sweeps");
+  });
+
+  test("normal schedules allow two Stops while tutorial schedules still require three",()=>{
+    const state=api.state,train=state.trains[0];installScheduleRing(train);
+    state.mode="schedule";state.scheduleTrainId=train.id;state.selected={type:"train",id:train.id};train.schedule=[{q:1,r:0},{q:-1,r:1}];
+    assert.equal(api.scheduleMinimumStops(),2);assert.equal(api.finishSchedule(train),true);assert.equal(train.scheduleComplete,true);
+
+    train.scheduleComplete=false;train.schedule=[{q:1,r:0},{q:-1,r:1}];state.mode="schedule";state.scheduleTrainId=train.id;state.selected={type:"train",id:train.id};state.tutorial={active:true,step:9,trainId:train.id};
+    assert.equal(api.scheduleMinimumStops(),3);assert.notEqual(api.finishSchedule(train),true);assert.equal(train.scheduleComplete,false);assert.equal(state.mode,"schedule");assert.doesNotMatch(api.selectionHtml(),/Click Track or Destroyed Track to add Stop|Add at least 3 Stops/);
+    train.schedule.splice(1,0,{q:0,r:-1});assert.equal(api.finishSchedule(train),true);assert.equal(train.scheduleComplete,true);
+  });
+
+  test("clearing a moving Train schedule while paused immediately enables Add Schedule",()=>{
+    const state=api.state,train=state.trains[0],segments=api.trainSegments(train),from=segments.map(segment=>({q:segment.q,r:segment.r})),to=[{q:4,r:0},...from.slice(0,-1)];
+    train.schedule=[{q:3,r:0},{q:4,r:0}];train.scheduleComplete=true;train.route=[{q:4,r:0}];train.stepFrom=from;train.stepTo=to;train.progress=.6;train.status="En route";state.paused=true;state.selected={type:"train",id:train.id};
+
+    api.clearTrainSchedule(train);
+
+    assert.equal(api.trainStopped(train),true);assert.equal(train.stepFrom,null);assert.equal(train.route.length,0);assert.equal(train.status,"Idle");
+    const html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="add-schedule"[^>]*>Add Schedule<\/button>/);assert.doesNotMatch(html,/data-action="add-schedule"[^>]*disabled/);
+  });
+
+  test("incomplete schedule and Track building modes can always be exited and resumed",()=>{
+    const state=api.state,train=state.trains[0],initialTrack=[...state.tracks.values()][0];state.selected={type:"train",id:train.id};
+    state.mode="schedule";state.scheduleTrainId=train.id;train.schedule=[{q:4,r:0}];train.scheduleComplete=false;
+    assert.equal(api.setMode("select"),true);assert.equal(state.scheduleTrainId,null);assert.match(api.selectionHtml(),/data-action="add-schedule"[^>]*>Add Schedule<\/button>/);
+
+    assert.equal(api.setMode("track"),true);api.layTrack(initialTrack.q,initialTrack.r);assert.ok(state.trackStart);
+    assert.equal(api.setMode("salvage"),true);assert.equal(state.trackStart,null,"switching tools must cancel the pending Track anchor");
+    api.deleteTrack(initialTrack.q,initialTrack.r);assert.equal(api.setMode("select"),true);assert.equal(state.mode,"select");
   });
 
   test("selected Stops include the full Train type and name", () => {

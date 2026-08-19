@@ -23,6 +23,8 @@ function makeInitialState() {
     base,
     structures: new Map(),
     hives: new Map(),
+    hiveProductionQueue: [],
+    hiveProductionAvailableAt: 0,
     ghosts: new Map(),
     nodeResources: new Map(),
     clearedResourceNodes: new Set(),
@@ -150,6 +152,7 @@ class SoundBank {
     osc.start(t); osc.stop(t + duration + .02);
   }
   place() { this.tone(150, .12, "square", .025, 260); }
+  scheduleStop() { this.tone(210, .13, "sine", .012, 420); this.tone(330, .1, "sine", .007, 560, .025); }
   remove() { this.tone(170, .16, "sawtooth", .022, 65); }
   shot() { const now = performance.now(); if (now - this.lastShot > 65) { this.lastShot = now; this.tone(430, .11, "triangle", .018, 240); this.tone(170, .13, "sine", .011, 105, .02); } }
   hit() { const now = performance.now(); if (now - this.lastHit > 500) { this.lastHit = now; this.tone(75, .12, "sawtooth", .018, 48); } }
@@ -266,10 +269,7 @@ function clearDeploymentReservation(refund=false){
 }
 
 function setMode(mode) {
-  if(state.mode==="schedule"&&mode!=="schedule"&&state.scheduleTrainId){
-    fail("Use Clear Schedule to exit stop adding mode.");
-    return false;
-  }
+  if(state.mode==="schedule"&&mode!=="schedule")state.scheduleTrainId=null;
   if(!constructionModeAffordable(mode)){fail(constructionModeUnavailableMessage(mode));updateUI(true);return false;}
   if (mode !== "track" || state.mode !== "track") state.trackStart = null;
   if(state.mode==="deploy"&&(mode!=="deploy"||state.deploymentPaid))clearDeploymentReservation(true);

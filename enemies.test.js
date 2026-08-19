@@ -56,6 +56,20 @@ describe("Hive and defense behavior", () => {
     assert.ok(api.hexDistance(hive, child) >= 2, "new Hives must have at least one non-Hive hex between them");
   });
 
+  test("simultaneously due Hives operate in randomized order with 50 to 200 ms staggering",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.hiveProductionQueue=[];state.hiveProductionAvailableAt=0;state.nextEncroachmentAt=Infinity;state.elapsed=60;
+    for(const [q,r] of [[12,0],[0,12],[-12,12]]){const hive=api.createHive(q,r,2,false,true);hive.nextSpawnAt=60;}
+
+    api.updateHives();
+
+    assert.equal(state.hiveProductionQueue.length,2,"only the first due Hive should operate immediately");assert.equal(state.enemies.length,2);
+    const times=state.hiveProductionQueue.map(operation=>operation.executeAt),gaps=[times[0]-60,times[1]-times[0]];
+    assert.ok(gaps.every(gap=>gap>=.05-1e-9&&gap<=.2+1e-9),`stagger gaps were ${gaps.join(", ")}`);
+    state.elapsed=times[0]-1e-5;assert.equal(api.processHiveProductionQueue(),0);
+    state.elapsed=times[0];assert.equal(api.processHiveProductionQueue(),1);assert.equal(state.hiveProductionQueue.length,1);
+    state.elapsed=times[1];assert.equal(api.processHiveProductionQueue(),1);assert.equal(state.hiveProductionQueue.length,0);assert.equal(state.enemies.length,6);
+  });
+
   test("Turrets prioritize a Hive over a closer Creep", () => {
     const state = api.state;
     const turret = { id: "turret-defense", type: "turret", q: 5, r: 0, hp: 18, maxHp: 18, energy: 3, maxEnergy: 20, cooldown: 0 };
