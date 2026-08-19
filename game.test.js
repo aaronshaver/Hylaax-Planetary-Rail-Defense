@@ -57,7 +57,7 @@ describe("game bootstrap", () => {
     for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool","researchTool"]){
       const title=html.match(new RegExp(`id="${id}"[^>]*title="([^"]+)"`))?.[1];assert.ok(title,id);assert.match(title,/(?:&#10;)?• Costs [^•]+\.$/,`${id} should end with its Costs bullet`);
       assert.match(title,/\(C\)onstruction Material/);
-      if(["turretTool","wallTool","artilleryTool"].includes(id))assert.match(title,/\(E\)nergy/);
+      if(["turretTool","artilleryTool"].includes(id))assert.match(title,/\(E\)nergy/);
     }
   });
 
@@ -69,7 +69,7 @@ describe("game bootstrap", () => {
 
   test("the Actions panel exposes Wall and Artillery and keeps Salvage/Clear on key 7",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-    assert.match(html,/data-mode="wall"[^>]*Costs 12 \(C\)onstruction Material and 1 \(E\)nergy[^>]*><span class="keycap">5<\/span>Build Wall/);
+    assert.match(html,/data-mode="wall"[^>]*Costs 12 \(C\)onstruction Material\.[^>]*><span class="keycap">5<\/span>Build Wall/);
     assert.match(html,/data-mode="artillery"[^>]*Costs 50 \(C\)onstruction Material and 50 \(E\)nergy[^>]*><span class="keycap">6<\/span>Build Artillery/);
     assert.match(html,/data-mode="salvage"[^>]*Clear destroyed objects without recovering resources[^>]*><span class="keycap">7<\/span>Salvage\/Clear Object/);
     assert.match(html,/data-mode="research"[^>]*Takes up three hexes \(triangular\)[^>]*Costs 75 \(C\)onstruction Material and 75 \(E\)nergy[^>]*><span class="keycap">8<\/span>Build Research/);
@@ -98,9 +98,9 @@ describe("game bootstrap", () => {
     assert.match(html,/id="turretEnergyOkay"[^>]*>Okay<\/button>/);
   });
 
-  test("the displayed and package versions are 3.3",()=>{
+  test("the displayed and package versions are 3.4",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 3\.3/);assert.match(html,/DEFENSE 3\.3/);assert.equal(packageJson.version,"3.3.0");
+    assert.match(html,/Planetary Rail Defense 3\.4/);assert.match(html,/DEFENSE 3\.4/);assert.equal(packageJson.version,"3.4.0");
   });
 });

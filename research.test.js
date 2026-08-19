@@ -113,4 +113,13 @@ describe("Research building and upgrades",()=>{
     for(const cell of ghost.footprint)assert.equal(api.ghostAt(cell.q,cell.r),ghost);
     state.mode="select";api.handleHexClick(ghost.footprint[1]);assert.deepEqual({...state.selected},{type:"ghost",id:ghost.id});
   });
+
+  test("salvaging healthy Research refunds its full configured Construction Material and Energy cost",()=>{
+    const state=api.state,research=addResearchBuilding(),materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
+
+    api.salvageStructure(research);
+
+    assert.equal(state.baseMaterial,materialBefore+api.constants.COSTS.research.material);assert.equal(state.baseEnergy,energyBefore+api.constants.COSTS.research.energy);
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 75 Construction Material and 75 Energy.");
+  });
 });

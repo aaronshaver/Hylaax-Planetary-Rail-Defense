@@ -45,7 +45,7 @@ const COSTS = {
   train: { material: 30, energy: 0 },
   turret: { material: 10, energy: 5 },
   mine: { material: 8, energy: 0 },
-  wall: { material: 12, energy: 1 },
+  wall: { material: 12, energy: 0 },
   artillery: { material: 50, energy: 50 },
   research: { material: 75, energy: 75 }
 };

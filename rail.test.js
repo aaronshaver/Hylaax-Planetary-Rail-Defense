@@ -38,7 +38,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal([...state.structures.values()][0].type,"turret");
   });
 
-  test("a Wall costs 12 Construction Material and 1 Energy and requires live Track within three hexes",()=>{
+  test("a Wall costs 12 Construction Material and no Energy and requires live Track within three hexes",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();state.trains=[];
     let target=null;
     for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
@@ -53,7 +53,7 @@ describe("repairs, ghosts, and schedules", () => {
     state.ghosts.clear();state.tracks.set(trackKey,makeTrack(trackPosition.q,trackPosition.r));api.buildWall(target.q,target.r);
     const wall=[...state.structures.values()][0];
     assert.equal(wall.type,"wall");assert.equal(wall.hp,100);assert.equal(wall.maxHp,100);
-    assert.equal(state.baseMaterial,materialBefore-12);assert.equal(state.baseEnergy,energyBefore-1);
+    assert.equal(state.baseMaterial,materialBefore-12);assert.equal(state.baseEnergy,energyBefore);
   });
 
   test("Artillery costs 50 Construction Material and 50 Energy, starts with and stores 50 Energy, and waits before its first shot",()=>{
@@ -130,7 +130,7 @@ describe("repairs, ghosts, and schedules", () => {
   test("the player can replace wreckage directly with any construction allowed on its terrain",()=>{
     const cases=[
       {type:"turret",ghostType:"wall",cost:{material:10,energy:5},build:api.buildTurret},
-      {type:"wall",ghostType:"artillery",cost:{material:12,energy:1},build:api.buildWall},
+      {type:"wall",ghostType:"artillery",cost:{material:12,energy:0},build:api.buildWall},
       {type:"artillery",ghostType:"turret",cost:{material:50,energy:50},build:api.buildArtillery}
     ];
     for(const item of cases){
@@ -197,6 +197,16 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 1 Construction Material.");
   });
 
+  test("healthy Mine, Wall, and Artillery salvage returns their configured resources",()=>{
+    const state=api.state;
+    const cases=[
+      {structure:{id:"mine-salvage",type:"mine",resource:"material",q:20,r:20,hp:22,maxHp:22},material:8,energy:0,message:"Salvaged 8 Construction Material."},
+      {structure:{id:"wall-salvage",type:"wall",q:21,r:20,hp:100,maxHp:100},material:12,energy:0,message:"Salvaged 12 Construction Material."},
+      {structure:{id:"artillery-salvage",type:"artillery",q:22,r:20,hp:36,maxHp:36,energy:17,maxEnergy:50},material:50,energy:17,message:"Salvaged 50 Construction Material and 17 Energy."}
+    ];
+    for(const item of cases){state.baseMaterial=0;state.baseEnergy=0;state.structures.set(api.key(item.structure.q,item.structure.r),item.structure);api.salvageStructure(item.structure);assert.equal(state.baseMaterial,item.material,item.structure.type);assert.equal(state.baseEnergy,item.energy,item.structure.type);assert.equal(elements.get("toastStack").children.at(-1).textContent,item.message);}
+  });
+
   test("invalid Salvage/Clear targets use the concise shared message",()=>{
     const state=api.state;api.setMode("salvage");api.handleHexClick({q:state.base.q,r:state.base.r});
     assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot Salvage/Clear this type of Object");
@@ -206,7 +216,7 @@ describe("repairs, ghosts, and schedules", () => {
     const state=api.state;state.tracks.clear();state.structures.clear();state.baseMaterial=0;state.baseEnergy=0;
     const wall={id:"remote-wall",type:"wall",q:20,r:-15,hp:100,maxHp:100};state.structures.set(api.key(wall.q,wall.r),wall);
     api.salvageStructure(wall);
-    assert.equal(state.structures.size,0);assert.equal(state.baseMaterial,8);
+    assert.equal(state.structures.size,0);assert.equal(state.baseMaterial,12);
 
     const ghost={id:"-18,14",type:"ghost",objectType:"wall",q:-18,r:14};state.ghosts.set(ghost.id,ghost);
     assert.equal(api.clearGhost(ghost),true);assert.equal(state.ghosts.size,0);

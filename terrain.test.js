@@ -94,6 +94,6 @@ describe("terrain generation", () => {
     const state=api.state,node=api.resourceNodeAt(7,-2);api.setNodeAmount(node,51);
     const mine={id:"mine-healthy",type:"mine",resource:node.resource,q:node.q,r:node.r,hp:22,maxHp:22};state.structures.set(node.id,mine);state.tracks.set("6,-2",{q:6,r:-2,hp:1,maxHp:1,links:new Set()});
     const materialBefore=state.baseMaterial;api.salvageStructure(mine);
-    assert.equal(state.structures.has(node.id),false);assert.equal(api.terrainAt(node.q,node.r).type,"resource");assert.equal(api.resourceNodeAt(node.q,node.r).amount,51);assert.equal(state.baseMaterial,materialBefore+6);
+    assert.equal(state.structures.has(node.id),false);assert.equal(api.terrainAt(node.q,node.r).type,"resource");assert.equal(api.resourceNodeAt(node.q,node.r).amount,51);assert.equal(state.baseMaterial,materialBefore+8);
   });
 });

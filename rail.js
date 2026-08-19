@@ -246,15 +246,15 @@ function clearDepletedResourceNode(q,r){
 
 function salvageStructure(structure) {
   if(structure.hp<1)return fail("Destroyed objects can only be cleared and do not return resources.");
-  const mat = structure.type === "research" ? 40 : structure.type === "artillery" ? 12 : structure.type === "turret" ? 4 : structure.type === "wall" ? 8 : 6;
-  const energy = ["turret","artillery"].includes(structure.type)?Math.floor(structure.energy):0;
+  const mat = structure.type === "research" ? COSTS.research.material : structure.type === "artillery" ? COSTS.artillery.material : structure.type === "turret" ? 4 : structure.type === "wall" ? COSTS.wall.material : structure.type === "mine" ? COSTS.mine.material : 6;
+  const energy = structure.type === "research" ? COSTS.research.energy : structure.type === "wall" ? COSTS.wall.energy : ["turret","artillery"].includes(structure.type)?Math.floor(structure.energy):0;
   if(structure.type==="mine")clearDepletedResourceNode(structure.q,structure.r);
   state.baseMaterial+=mat;state.baseEnergy+=energy;
   state.structures.delete(key(structure.q, structure.r));
   invalidateEnemyNavigation();
   state.selected = { type: "base", id: "base" };
   sounds.remove(); burst(structure.q, structure.r, "#9ba9ad", 8); updateUI(true);
-  toast(["turret","artillery"].includes(structure.type)?`Salvaged ${mat} Construction Material and ${energy} Energy.`:`Salvaged ${mat} Construction Material.`);
+  toast(energy>0?`Salvaged ${mat} Construction Material and ${energy} Energy.`:`Salvaged ${mat} Construction Material.`);
 }
 
 function clearGhost(ghost){
