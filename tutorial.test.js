@@ -26,7 +26,7 @@ describe("guided tutorial",()=>{
 
     assert.equal(api.state.paused,true);
     assert.equal(api.state.tutorial.step,1);
-    assert.equal(elements.get("tutorialText").textContent,"Step 1: Click Build Track in the Actions panel");
+    assert.equal(elements.get("tutorialText").textContent,"This is a tower defense game where automating train networks is the key to successful survival.\n\nStep 1: Click Build Track in the Actions panel");
     assert.equal(elements.get("pauseToggle").disabled,true);
   });
 
@@ -45,7 +45,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.tracks.size,1);
     assert.equal(api.state.trains.length,0);
     assert.equal(api.state.baseMaterial,150);
-    assert.equal(elements.get("tutorialText").textContent,"Step 1: Click Build Track in the Actions panel");
+    assert.equal(elements.get("tutorialText").textContent,"This is a tower defense game where automating train networks is the key to successful survival.\n\nStep 1: Click Build Track in the Actions panel");
   });
 
   test("requires the ordered build, Train, schedule, Mine, and Turret milestones",()=>{
@@ -99,7 +99,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.paused,true,"the final step must remain paused until Okay is clicked");
     assert.equal(elements.get("pauseToggle").disabled,true);
     assert.equal(elements.get("tutorialOkay").hidden,false);
-    assert.equal(elements.get("tutorialText").textContent,"Step 14: That's it!\n\nYou now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to pause the game catch your breath at any time.");
+    assert.equal(elements.get("tutorialText").textContent,"Step 14: You now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to pause the game catch your breath at any time.");
 
     api.finishTutorial();
     assert.equal(api.state.tutorial,null);

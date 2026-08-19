@@ -26,14 +26,13 @@ function advanceSimulation(seconds){
 }
 
 function resetPerformanceMetrics(now=performance.now()){
-  performanceWindowStart=now;performanceTicks=0;performanceFrames=0;
+  performanceWindowStart=now;performanceFrames=0;
 }
 
 function recordPerformance(now,ticks,rendered){
-  performanceTicks+=ticks;if(rendered)performanceFrames++;
+  if(rendered)performanceFrames++;
   const elapsed=now-performanceWindowStart;
   if(elapsed<1000)return;
-  ui.tpsValue.textContent=Math.round(performanceTicks*1000/elapsed);
   ui.fpsValue.textContent=Math.round(performanceFrames*1000/elapsed);
   resetPerformanceMetrics(now);
 }

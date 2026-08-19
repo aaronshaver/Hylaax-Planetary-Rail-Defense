@@ -7,6 +7,14 @@ const { api, elements, makeEnemy } = require("./harness.js");
 beforeEach(() => { api.reset(); });
 
 describe("rendering caches", () => {
+  test("Build Track glow uses wall-clock time and remains animated while paused",()=>{
+    const state=api.state;state.mode="track";state.paused=true;state.elapsed=0;
+    const first=api.trackGlowPhase(1000);state.elapsed=9999;
+    assert.equal(api.trackGlowPhase(1000),first,"simulation time must not affect the pulse");
+    assert.notEqual(api.trackGlowPhase(1250),first,"wall-clock time must advance the pulse");
+    assert.equal(api.trackGlowAnimationActive(),true,"paused Track mode must request animation frames");
+  });
+
   test("nearby activity messages stack in the defined priority order", () => {
     api.showWorldActivity({ q: 1, r: 0, type: "turret" }, "Train A: Supplied Turret with Energy");
     api.showWorldActivity({ q: 0, r: 1, type: "mine" }, "Train A: Mined Energy");
@@ -14,6 +22,35 @@ describe("rendering caches", () => {
     const layout = api.worldMessageLayout();
     assert.equal(layout.map(entry => entry.item.message).join("|"), "Train A: Repaired Base|Train A: Mined Energy|Train A: Supplied Turret with Energy");
     assert.ok(layout[0].y < layout[1].y && layout[1].y < layout[2].y);
+  });
+
+  test("every Train Stop persistently draws supply lines without needing selection",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state;
+    const {addTestTrain,makeTrack}=require("./harness.js"),train=addTestTrain(),stop={q:1,r:0};
+    train.schedule=[stop];state.tracks.set("1,0",makeTrack(1,0));state.selected=null;
+    const targets=[
+      state.base,
+      {id:"stop-turret",type:"turret",q:2,r:0,hp:18,maxHp:18,energy:0,maxEnergy:20},
+      {id:"stop-artillery",type:"artillery",q:1,r:-1,hp:36,maxHp:36,energy:0,maxEnergy:40},
+      {id:"stop-mine",type:"mine",q:2,r:-1,hp:22,maxHp:22,resource:"material"},
+      {id:"stop-wall",type:"wall",q:4,r:0,hp:100,maxHp:100}
+    ];
+    for(const target of targets.slice(1))state.structures.set(api.key(target.q,target.r),target);
+    state.structures.set("5,0",{id:"far-wall",type:"wall",q:5,r:0,hp:100,maxHp:100});
+    state.structures.set("3,-1",{id:"far-turret",type:"turret",q:3,r:-1,hp:18,maxHp:18,energy:0,maxEnergy:20});
+    context.strokeCalls.length=0;
+
+    api.drawStopSupplyLines();
+
+    const lines=context.strokeCalls.filter(call=>call.strokeStyle==="rgba(112,189,119,.44)"&&call.lineWidth===2.2),start=api.axialToWorld(stop.q,stop.r);
+    assert.equal(lines.length,5,"Base, Mine, Turret, Artillery, and a Wall three hexes away should connect");
+    assert.ok(lines.every(call=>call.path.length===2&&call.path[0].command==="moveTo"&&call.path[0].x===start.x&&call.path[0].y===start.y),"every line should begin at the center of the Stop's Track hex");
+    const endpoints=new Set(lines.map(call=>`${call.path[1].x},${call.path[1].y}`));
+    for(const target of targets){const point=api.axialToWorld(target.q,target.r);assert.ok(endpoints.has(`${point.x},${point.y}`),target.type);}
+    assert.equal(lines.some(call=>call.path.length>2),false,"the former large hex outline must not be drawn");
+
+    state.structures.delete("2,-1");context.strokeCalls.length=0;api.render();
+    assert.equal(context.strokeCalls[0].strokeStyle,"rgba(112,189,119,.44)","persistent supply lines must render below every world object");
   });
 
   test("world activity messages use white text with a green outline",()=>{

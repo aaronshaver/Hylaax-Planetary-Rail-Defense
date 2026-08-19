@@ -120,7 +120,7 @@ seedInitialHives();
 let width = 1, height = 1, dpr = 1;
 let lastWallTime = Date.now();
 let simulationAccumulator = 0;
-let performanceWindowStart = performance.now(), performanceTicks = 0, performanceFrames = 0;
+let performanceWindowStart = performance.now(), performanceFrames = 0;
 let terrainLayerSignature="",terrainLayerResources=[],terrainLayerBuilds=0,terrainLayerCells=0,terrainRevision=0;
 let selectionCache = "";
 let enemyNavigationVersion=0;

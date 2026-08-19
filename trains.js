@@ -155,6 +155,41 @@ function showTrainActivity(train,target,activity,duration=1.1){
   showWorldActivity(target,`${trainActivityName(train)} ${activity}`,duration);
 }
 
+function trainOccupiedHexKeys(train){return new Set(trainSegments(train).map(segment=>key(segment.q,segment.r)));}
+
+function trainsShareHex(first,second){
+  const occupied=trainOccupiedHexKeys(first);
+  return trainSegments(second).some(segment=>occupied.has(key(segment.q,segment.r)));
+}
+
+function snapTrainToGrid(train){
+  const segments=trainSegments(train),positions=train.stepFrom&&train.stepTo?(train.progress>=.5?train.stepTo:train.stepFrom):segments;
+  segments.forEach((segment,index)=>{
+    const position=positions[index]||segment,point=axialToWorld(position.q,position.r);
+    segment.q=position.q;segment.r=position.r;segment.x=point.x;segment.y=point.y;
+  });
+  train.stepFrom=null;train.stepTo=null;train.progress=0;
+  return segments.map(segment=>({q:segment.q,r:segment.r}));
+}
+
+function emergencyRefuelTrain(receiver){
+  if(!receiver.energyDepleted||receiver.fuel>.15||totalCargo(receiver,"energy")>0)return null;
+  const donor=state.trains.find(candidate=>candidate.id!==receiver.id&&totalCargo(candidate,"energy")>=2&&trainsShareHex(candidate,receiver));
+  if(!donor)return null;
+  const moved=removeCargo(donor,"energy",Math.min(totalCargo(donor,"energy")/2,receiver.maxFuel-receiver.fuel));
+  if(moved<=0)return null;
+  receiver.fuel+=moved;receiver.energyDepleted=false;receiver.nextEnergyWarningAt=0;receiver.status=`Fueled by Train ${trainScheduleCode(donor)}`;
+  showTrainActivity(donor,receiver,`Fueled Train ${trainScheduleCode(receiver)} with Energy`,1.35);
+  return {donor,receiver,moved};
+}
+
+function updateEmergencyTrainRefueling(){
+  let transfers=0;
+  for(const train of state.trains)if(train.energyDepleted)snapTrainToGrid(train);
+  for(const receiver of state.trains)if(emergencyRefuelTrain(receiver))transfers++;
+  return transfers;
+}
+
 function showTrainEnergyWarning(train){
   if(!train.energyDepleted||train.fuel>.15||totalCargo(train,"energy")>0)return false;
   if(state.elapsed<(train.nextEnergyWarningAt??0))return false;
@@ -209,6 +244,7 @@ function updateAutomaticRepair(train) {
 
 function updateAutomaticLogistics() {
   const cargoChangedTrains=new Set();
+  updateEmergencyTrainRefueling();
   updateAutomaticRebuild();
   for(const structure of state.structures.values()){
     if(structure.type!=="mine")continue;
@@ -276,7 +312,7 @@ function updateTrains(dt) {
       const pulled = removeCargo(train,"energy",1);
       if (pulled > 0) {train.fuel += pulled;train.energyDepleted=false;}
       else {
-        train.route = []; train.routePurpose=null; train.stepFrom = null; train.stepTo = null; train.status = "Stuck — no Energy";
+        snapTrainToGrid(train);train.route = []; train.routePurpose=null; train.status = "Stuck — no Energy";
         train.energyDepleted=true;showTrainEnergyWarning(train);
         continue;
       }

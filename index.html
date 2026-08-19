@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 3.1</title>
+  <title>Planetary Rail Defense 3.2</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 3.1 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 3.2 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -21,8 +21,8 @@
       </div>
 
       <div class="bottom-debug-row">
-        <div id="performanceStatus" class="hud performance-status" aria-label="Simulation and rendering performance">
-          TPS <strong id="tpsValue">0</strong> · FPS <strong id="fpsValue">0</strong>
+        <div id="performanceStatus" class="hud performance-status" aria-label="Rendering performance">
+          FPS <strong id="fpsValue">0</strong>
         </div>
         <button id="debugToggle" class="debug-toggle" type="button" aria-label="Toggle Debug menu" aria-controls="debugMenu" aria-expanded="false" title="Debug">D</button>
       </div>
@@ -34,9 +34,9 @@
 
       <div id="toastStack" class="toast-stack" aria-live="polite"></div>
       <div id="tutorialPrompt" class="tutorial-prompt d-none" hidden role="status" aria-live="polite">
+        <button id="tutorialRestart" class="btn tutorial-restart"><svg class="tutorial-restart-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3 2.5 6.5 6 10M3 6.5h6.1a4 4 0 1 1-3.2 6.4"/></svg><span>Restart Tutorial</span></button>
         <div id="tutorialText"></div>
         <button id="tutorialOkay" class="btn btn-command d-none" hidden>Okay</button>
-        <button id="tutorialRestart" class="btn tutorial-restart">Restart Tutorial</button>
       </div>
       <div id="gameOver" class="game-over d-none" hidden>
         <div class="game-over-card">
@@ -66,7 +66,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 3.1</span></h1>
+          <h1>RAIL<br><span>DEFENSE 3.2</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" title="Pause simulation" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -107,10 +107,12 @@
     <button id="debugAddResearchPoints" class="btn debug-action">Add Research Points</button>
     <div class="debug-menu-note">Adds 1,000 Research points.</div>
   </aside>
-  <div id="remindersDialog" class="reminders-overlay" role="dialog" aria-modal="true" aria-labelledby="remindersTitle" aria-describedby="remindersNotice">
+  <div id="remindersDialog" class="reminders-overlay" role="dialog" aria-modal="true" aria-label="Before starting" aria-describedby="remindersNotice">
     <div class="reminders-card">
-      <h2 id="remindersTitle">This is a fun web game</h2>
-      <p id="remindersNotice">Please play on a desktop or laptop computer; mobile is not well-supported.</p>
+      <ul id="remindersNotice" class="reminders-list">
+        <li>Please play on a desktop or laptop computer; mobile is not well-supported.</li>
+        <li>To get the latest features and fixes, do CTRL-SHIFT-R or CMD-SHIFT-R to force a cache refresh</li>
+      </ul>
       <div class="reminders-actions">
         <button id="remindersTutorial" class="btn btn-command">Start Game with Tutorial (recommended for new players)</button>
         <button id="remindersContinue" class="btn btn-cyan">Start Game (no tutorial)</button>
@@ -134,7 +136,7 @@
     <div class="confirm-card energy-warning-card">
       <div class="eyebrow">ENERGY WARNING</div>
       <h2 id="turretEnergyTitle">Turret Out of Energy</h2>
-      <p id="turretEnergyMessage">One of your turrets ran out of Energy. Remember: you must supply Turrets with Energy by having a Train Stop adjacent to the Turret and a Train loaded with Energy so that it can re-supply the Turret.</p>
+      <p id="turretEnergyMessage">One of your Turrets ran out of Energy. Both (T)urrets and (A)rtillery must be supplied with Energy by a Build/Mine Train loaded with Energy at an adjacent Train Stop.</p>
       <button id="turretEnergyOkay" class="btn btn-command">Okay</button>
     </div>
   </div>

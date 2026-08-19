@@ -15,12 +15,13 @@ const TUTORIAL_MESSAGES = [
   "Click on the C and E nodes to add Mines to them",
   "Click Build Turret",
   "Place a Turret one tile away from one of the Train Stops",
-  "That's it!\n\nYou now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to pause the game catch your breath at any time."
+  "You now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to pause the game catch your breath at any time."
 ];
+const TUTORIAL_INTRO="This is a tower defense game where automating train networks is the key to successful survival.";
 
 function tutorialLocksPause(){return Boolean(state.tutorial?.active);}
 
-function tutorialMessage(step=state.tutorial?.step){return step?`Step ${step}: ${TUTORIAL_MESSAGES[step]}`:"";}
+function tutorialMessage(step=state.tutorial?.step){return step?`${step===1?`${TUTORIAL_INTRO}\n\n`:""}Step ${step}: ${TUTORIAL_MESSAGES[step]}`:"";}
 
 function syncTutorialUI(){
   const active=Boolean(state.tutorial?.active);

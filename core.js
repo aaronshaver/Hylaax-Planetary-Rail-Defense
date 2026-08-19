@@ -60,7 +60,7 @@ const ui = Object.fromEntries([
   "baseEnergyHud", "baseMaterialHud", "researchPointsHud", "timeSurvived", "hivesInWorld", "creepsInWorld",
   "pauseToggle", "soundToggle", "selectionLabel",
   "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool",
-  "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "tpsValue", "fpsValue",
+  "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "fpsValue",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart",
   "debugToggle", "debugMenu", "debugDestroyObject", "debugAddCreep", "debugAddBaseResources", "debugAddResearchPoints",

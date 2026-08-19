@@ -29,6 +29,23 @@ describe("game bootstrap", () => {
     assert.doesNotMatch(html,/I'm working on this Sun 16 Aug/);
   });
 
+  test("the opening dialog uses two medium-size reminder bullets",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+    assert.doesNotMatch(html,/This is a fun web game/);
+    assert.match(html,/<ul id="remindersNotice" class="reminders-list">[\s\S]*<li>Please play on a desktop or laptop computer; mobile is not well-supported\.<\/li>[\s\S]*<li>To get the latest features and fixes, do CTRL-SHIFT-R or CMD-SHIFT-R to force a cache refresh<\/li>[\s\S]*<\/ul>/);
+  });
+
+  test("the lower-left performance display keeps FPS and removes TPS",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+    assert.match(html,/FPS <strong id="fpsValue">0<\/strong>/);assert.doesNotMatch(html,/\bTPS\b|id="tpsValue"/);
+  });
+
+  test("Restart Tutorial appears before the tutorial text with a flat back icon",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),prompt=html.match(/<div id="tutorialPrompt"[\s\S]*?<\/div>\s*<div id="gameOver"/)?.[0]||"";
+    assert.ok(prompt.indexOf('id="tutorialRestart"')<prompt.indexOf('id="tutorialText"'));
+    assert.match(prompt,/id="tutorialRestart"[\s\S]*tutorial-restart-icon[\s\S]*Restart Tutorial/);
+  });
+
   test("Action tooltips use readable bullets without Base-inventory wording",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/title="• Select units and structures\."/);
@@ -71,13 +88,13 @@ describe("game bootstrap", () => {
   test("the turret Energy warning has the requested one-time guidance",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/id="turretEnergyDialog"[^>]*hidden[^>]*role="dialog"/);
-    assert.match(html,/One of your turrets ran out of Energy\. Remember: you must supply Turrets with Energy by having a Train Stop adjacent to the Turret and a Train loaded with Energy so that it can re-supply the Turret\./);
+    assert.match(html,/One of your Turrets ran out of Energy\. Both \(T\)urrets and \(A\)rtillery must be supplied with Energy by a Build\/Mine Train loaded with Energy at an adjacent Train Stop\./);
     assert.match(html,/id="turretEnergyOkay"[^>]*>Okay<\/button>/);
   });
 
-  test("the displayed and package versions are 3.1",()=>{
+  test("the displayed and package versions are 3.2",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 3\.1/);assert.match(html,/DEFENSE 3\.1/);assert.equal(packageJson.version,"3.1.0");
+    assert.match(html,/Planetary Rail Defense 3\.2/);assert.match(html,/DEFENSE 3\.2/);assert.equal(packageJson.version,"3.2.0");
   });
 });

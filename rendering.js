@@ -109,9 +109,12 @@ function drawTracks(){
   }
 }
 
-function drawBuildTrackGlow(){
+function trackGlowPhase(now=performance.now()){return .5+.5*Math.sin(now/1000*5.5);}
+function trackGlowAnimationActive(){return state.mode==="track";}
+
+function drawBuildTrackGlow(now=performance.now()){
   if(state.mode!=="track")return;
-  const pulse=.5+.5*Math.sin(state.elapsed*5.5),color="#b879ff";
+  const pulse=trackGlowPhase(now),color="#b879ff";
   ctx.save();ctx.globalCompositeOperation="screen";ctx.lineCap="round";ctx.strokeStyle=color;ctx.fillStyle=color;ctx.globalAlpha=.22+pulse*.2;ctx.shadowColor=color;ctx.shadowBlur=12+pulse*12;
   for(const track of state.tracks.values()){
     const p=axialToWorld(track.q,track.r);
@@ -144,20 +147,24 @@ function drawTrainStops(){
   }
 }
 
-function drawSelectedStopServiceRange(){
-  if(state.selected?.type!=="track"&&!(state.selected?.type==="ghost"&&state.selected.objectType==="track"))return;
-  const center=fromKey(state.selected.id);
-  if(!scheduleStopAt(center.q,center.r))return;
-  const cells=[center,...neighbors(center.q,center.r)],cellKeys=new Set(cells.map(cell=>key(cell.q,cell.r)));
-  const edgeDirections=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
-  ctx.save();ctx.strokeStyle="#70bd77";ctx.lineWidth=1.35;
-  for(const cell of cells){
-    const p=axialToWorld(cell.q,cell.r);
-    edgeDirections.forEach(([dq,dr],side)=>{
-      if(cellKeys.has(key(cell.q+dq,cell.r+dr)))return;
-      const a=HEX_CORNERS[side],b=HEX_CORNERS[(side+1)%6];
-      ctx.beginPath();ctx.moveTo(p.x+HEX*a.x,p.y+HEX*a.y);ctx.lineTo(p.x+HEX*b.x,p.y+HEX*b.y);ctx.stroke();
-    });
+function stopSupplyTargets(stop){
+  return [state.base,...state.structures.values()].filter(target=>target.hp>0&&(
+    (["base","turret","artillery","mine"].includes(target.type)&&hexDistance(stop,target)===1)||
+    (target.type==="wall"&&hexDistance(stop,target)<=3)
+  ));
+}
+
+function stopSupplyConnections(){
+  const connections=[];
+  for(const train of state.trains)for(const {stop} of activeScheduleStops(train))for(const target of stopSupplyTargets(stop))connections.push({stop,target});
+  return connections;
+}
+
+function drawStopSupplyLines(){
+  ctx.save();ctx.strokeStyle="rgba(112,189,119,.44)";ctx.lineWidth=2.2;ctx.lineCap="round";
+  for(const {stop,target} of stopSupplyConnections()){
+    const start=axialToWorld(stop.q,stop.r),end=axialToWorld(target.q,target.r);
+    ctx.beginPath();ctx.moveTo(start.x,start.y);ctx.lineTo(end.x,end.y);ctx.stroke();
   }
   ctx.restore();
 }
@@ -422,5 +429,5 @@ function screenShakeActive(){return state.screenShakeUntilWallTime?state.screenS
 
 function render(){
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ensureTerrainLayer();const shake=screenShakeOffset();ctx.save();ctx.translate(shake.x,shake.y);ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,0,0,width,height);ctx.save();ctx.translate(width/2,height/2);ctx.scale(state.camera.zoom,state.camera.zoom);ctx.translate(-state.camera.x,-state.camera.y);
-  drawResourceNodes();drawTurretRanges();drawTracks();drawSelectedStopServiceRange();drawGhosts();drawTrainStops();drawEffects();drawHives();drawBase();drawStructures();drawSelection();drawTrains();drawBuildTrackGlow();drawEnemies();drawHover();drawWorldMessages();ctx.restore();ctx.restore();
+  drawStopSupplyLines();drawResourceNodes();drawTurretRanges();drawTracks();drawGhosts();drawTrainStops();drawEffects();drawHives();drawBase();drawStructures();drawSelection();drawTrains();drawBuildTrackGlow();drawEnemies();drawHover();drawWorldMessages();ctx.restore();ctx.restore();
 }
