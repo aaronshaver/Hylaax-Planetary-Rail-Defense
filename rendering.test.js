@@ -190,13 +190,28 @@ describe("rendering caches", () => {
     assert.equal(context.strokeCalls.some(call=>call.strokeStyle==="#79502f"),false);
   });
 
-  test("each Train car keeps its circular Train-code badge without inter-car connectors",()=>{
+  test("each Train car uses a Train Stop-green circular badge with white Train-code text",()=>{
     const context=elements.get("gameCanvas").context;
     const { addTestTrain }=require("./harness.js");addTestTrain("builder");
     context.textCalls.length=0;context.fillCalls.length=0;context.strokeCalls.length=0;api.drawTrains();
     assert.deepEqual(context.textCalls.map(call=>call.text),["S","S","L","A","A","A"]);
-    assert.equal(context.fillCalls.filter(call=>call.fillStyle==="rgba(9,14,17,.96)"&&call.path.some(item=>item.command==="arc"&&item.r===8)).length,3);
-    assert.equal(context.strokeCalls.some(call=>call.strokeStyle==="#79502f"||call.strokeStyle==="#b88a50"),false);
+    assert.equal(context.fillCalls.filter(call=>call.fillStyle==="#3d8255"&&call.path.some(item=>item.command==="arc"&&item.r===8)).length,3);
+    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="#fff"&&call.lineWidth===1&&call.path.some(item=>item.command==="arc"&&item.r===8)).length,3);
+    assert.equal(context.textCalls.filter(call=>call.text==="A"&&call.fillStyle==="#fff"&&call.font==="900 10px ui-monospace, monospace").length,3);
+    assert.equal(context.strokeCalls.some(call=>call.strokeStyle==="#79502f"||call.strokeStyle==="#b88a50"||call.strokeStyle==="#e6b94a"),false);
+  });
+
+  test("each Train car keeps its assigned subtle color shade",()=>{
+    const context=elements.get("gameCanvas").context;
+    const { addTestTrain }=require("./harness.js"),train=addTestTrain("builder");
+    train.colorShade=0;train.wagons[0].colorShade=2;train.wagons[1].colorShade=0;context.fillRectCalls.length=0;
+
+    api.drawTrains();
+    const firstColors=context.fillRectCalls.filter(call=>call.width===28&&call.height===18).map(call=>call.fillStyle);
+    assert.deepEqual(firstColors,["#a88a42","#2a666c","#872a32"]);
+
+    context.fillRectCalls.length=0;api.drawTrains();
+    assert.deepEqual(context.fillRectCalls.filter(call=>call.width===28&&call.height===18).map(call=>call.fillStyle),firstColors,"car shades should remain stable across renders");
   });
 
   test("Turret Trains have a purple locomotive with no visible weapon or center mount",()=>{

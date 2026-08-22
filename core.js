@@ -58,6 +58,12 @@ const BASE_RESOURCE_TYPES = [
   { key: "material", stateKey: "baseMaterial", label: "Construction Material" },
   { key: "energy", stateKey: "baseEnergy", label: "Energy" }
 ];
+const TRAIN_CAR_COLORS = {
+  material:["#705c2c","#8c7337","#a88a42"],
+  energy:["#2a666c","#347f87","#3e98a2"],
+  builder:["#872a32","#a9343e","#cb3e4a"],
+  combat:["#533361","#684079","#7d4d91"]
+};
 const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*(60*index-30);return {x:Math.cos(angle),y:Math.sin(angle)};});
 
 const ui = Object.fromEntries([
@@ -91,6 +97,8 @@ function trainCode(index) {
 }
 
 function trainName(index,type="builder") {return `${type==="combat"?"Turret Train":"Build/Mine Train"} ${trainCode(index)}`;}
+function randomTrainColorShade(){return Math.floor(Math.random()*3);}
+function trainCarColor(family,shade=1){return TRAIN_CAR_COLORS[family]?.[clamp(Math.round(shade),0,2)]||TRAIN_CAR_COLORS.builder[1];}
 
 function axialToWorld(q, r) {
   return { x: HEX * SQRT3 * (q + r / 2), y: HEX * 1.5 * r };

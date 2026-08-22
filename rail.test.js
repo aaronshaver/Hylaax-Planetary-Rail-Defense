@@ -257,6 +257,8 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(state.trains[0].hp,50);
     assert.equal(state.trains[0].maxHp,50);
     assert.ok(state.trains[0].wagons.every(wagon=>wagon.hp===50&&wagon.maxHp===50));
+    assert.ok(Number.isInteger(state.trains[0].colorShade)&&state.trains[0].colorShade>=0&&state.trains[0].colorShade<=2);
+    assert.ok(state.trains[0].wagons.every(wagon=>Number.isInteger(wagon.colorShade)&&wagon.colorShade>=0&&wagon.colorShade<=2));
   });
 
   test("a Build/Mine Train renders immediately when deployed while the tutorial-like game state is paused",()=>{

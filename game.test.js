@@ -95,9 +95,9 @@ describe("game bootstrap", () => {
     assert.match(html,/id="turretEnergyOkay"[^>]*>OK<\/button>/);
   });
 
-  test("the displayed and package versions are 4.0",()=>{
+  test("the displayed and package versions are 3.5",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 4\.0/);assert.match(html,/DEFENSE 4\.0/);assert.equal(packageJson.version,"4.0.0");
+    assert.match(html,/Planetary Rail Defense 3\.5/);assert.match(html,/DEFENSE 3\.5/);assert.equal(packageJson.version,"3.5.0");
   });
 });

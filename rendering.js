@@ -353,14 +353,14 @@ function drawTrains(){
     train.wagons.forEach(wagon=>{
       ctx.save();ctx.translate(wagon.x,wagon.y);ctx.rotate(wagon.heading||0);
       if(state.selected?.id===train.id)drawTrainSelectionRing();
-      ctx.fillStyle=wagon.type==="energy"?"#347f87":"#8c7337";
+      ctx.fillStyle=trainCarColor(wagon.type,wagon.colorShade);
       ctx.strokeStyle=wagon.type==="energy"?"#83edf2":"#f2cb69";
       ctx.lineWidth=2;ctx.fillRect(-14,-9,28,18);ctx.strokeRect(-14,-9,28,18);
       ctx.restore();
       ctx.save();ctx.fillStyle="#f3f7f8";ctx.font="800 13px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("S",wagon.x,wagon.y+.5);ctx.restore();
       if(focused)drawMiniBar(wagon.x-14,wagon.y-17,28,wagon.hp/wagon.maxHp,wagon.hp<5?"#e34747":"#70bd77");
     });
-    const combatLocomotive=train.trainType==="combat";ctx.save();ctx.translate(train.x,train.y);ctx.rotate(train.heading);if(state.selected?.id===train.id)drawTrainSelectionRing();ctx.shadowBlur=12;ctx.shadowColor=combatLocomotive?"#b879ff":"#e34747";ctx.fillStyle=combatLocomotive?"#684079":"#a9343e";ctx.strokeStyle=combatLocomotive?"#d6a4ff":"#ff8790";ctx.lineWidth=2;ctx.fillRect(-14,-9,28,18);ctx.strokeRect(-14,-9,28,18);ctx.beginPath();ctx.moveTo(14,-7);ctx.lineTo(22,0);ctx.lineTo(14,7);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+    const combatLocomotive=train.trainType==="combat";ctx.save();ctx.translate(train.x,train.y);ctx.rotate(train.heading);if(state.selected?.id===train.id)drawTrainSelectionRing();ctx.shadowBlur=12;ctx.shadowColor=combatLocomotive?"#b879ff":"#e34747";ctx.fillStyle=trainCarColor(combatLocomotive?"combat":"builder",train.colorShade);ctx.strokeStyle=combatLocomotive?"#d6a4ff":"#ff8790";ctx.lineWidth=2;ctx.fillRect(-14,-9,28,18);ctx.strokeRect(-14,-9,28,18);ctx.beginPath();ctx.moveTo(14,-7);ctx.lineTo(22,0);ctx.lineTo(14,7);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
     ctx.save();ctx.fillStyle="#fff4f4";ctx.font="900 13px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText("L",train.x,train.y+.5);ctx.restore();
     drawTrainCarBadges(train);
     if(focused){drawMiniBar(train.x-16,train.y-17,32,train.hp/train.maxHp,train.hp<5?"#e34747":"#70bd77");drawMiniBar(train.x-16,train.y+18,32,train.fuel/train.maxFuel,"#60d5db");}
@@ -376,8 +376,8 @@ function drawTrainCarBadges(train){
     else if(previous){dx=segment.x-previous.x;dy=segment.y-previous.y;}
     else {dx=-Math.cos(train.heading);dy=-Math.sin(train.heading);}
     const distance=Math.hypot(dx,dy)||1,x=segment.x+dx/distance*24,y=segment.y+dy/distance*24;
-    ctx.save();ctx.fillStyle="rgba(9,14,17,.96)";ctx.strokeStyle="#e6b94a";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.fill();ctx.stroke();
-    ctx.fillStyle="#fff1b4";ctx.font="900 10px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(label,x,y+.5);ctx.restore();
+    ctx.save();ctx.fillStyle="#3d8255";ctx.strokeStyle="#fff";ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#fff";ctx.font="900 10px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(label,x,y+.5);ctx.restore();
   });
 }
 
