@@ -7,9 +7,16 @@ const { api } = require("./harness.js");
 beforeEach(() => { api.reset(); });
 
 describe("terrain generation", () => {
-  test("Resource Nodes generate between 250 and 1,500 units",()=>{
+  test("Construction Nodes generate 250–1,500 units while Energy Nodes generate 40% more",()=>{
     assert.equal(api.constants.NODE_MIN_CAPACITY,250);assert.equal(api.constants.NODE_MAX_CAPACITY,1500);
-    for(let q=-40;q<=40;q++)for(let r=-40;r<=40;r++)if(api.terrainAt(q,r).type==="resource"){const node=api.resourceNodeAt(q,r);assert.ok(node.amount>=250&&node.amount<=1500);}
+    assert.equal(api.constants.ENERGY_NODE_MIN_CAPACITY,350);assert.equal(api.constants.ENERGY_NODE_MAX_CAPACITY,2100);
+    let constructionNodes=0,energyNodes=0;
+    for(let q=-40;q<=40;q++)for(let r=-40;r<=40;r++)if(api.terrainAt(q,r).type==="resource"){
+      const node=api.resourceNodeAt(q,r);
+      if(node.resource==="energy"){energyNodes++;assert.ok(node.amount>=350&&node.amount<=2100);}
+      else {constructionNodes++;assert.ok(node.amount>=250&&node.amount<=1500);}
+    }
+    assert.ok(constructionNodes>0&&energyNodes>0);
   });
 
   test("tree hexes use stable one-, two-, and three-tree variants", () => {

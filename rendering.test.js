@@ -237,17 +237,17 @@ describe("rendering caches", () => {
     assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#373e41"&&call.path.length>=10),"Wall should include visible brick joints");
   });
 
-  test("Build Wall previews its three-hex repair range around the hovered tile",()=>{
+  test("Build Wall previews its five-hex repair range around the hovered tile",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
     state.mode="wall";state.hover={q:4,r:2};context.strokeCalls.length=0;
 
     api.drawTurretRanges();
 
     const boundary=context.strokeCalls.filter(call=>call.strokeStyle==="rgba(230,185,74,.5)"&&call.lineWidth===1.4);
-    assert.equal(boundary.length,18,"a radius-three hex has 18 boundary tiles");
+    assert.equal(boundary.length,30,"a radius-five hex has 30 boundary tiles");
   });
 
-  test("a selected Wall keeps showing its three-hex repair range",()=>{
+  test("a selected Wall keeps showing its five-hex repair range",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
     const wall={id:"wall-selected-range",type:"wall",q:3,r:-1,hp:100,maxHp:100};
     state.structures.set(api.key(wall.q,wall.r),wall);state.mode="select";state.hover=null;state.selected={type:"structure",id:wall.id};context.strokeCalls.length=0;
@@ -255,7 +255,7 @@ describe("rendering caches", () => {
     api.drawTurretRanges();
 
     const boundary=context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)"&&call.lineWidth===1.4);
-    assert.equal(boundary.length,18,"selected Wall range should persist without a placement hover");
+    assert.equal(boundary.length,30,"selected Wall range should persist without a placement hover");
   });
 
   test("a fixed Turret blue range appears only when selected in Select Object mode",()=>{
@@ -274,7 +274,7 @@ describe("rendering caches", () => {
     assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="rgba(230,185,74,.5)"),"Build Turret mode should retain its orange placement range");
   });
 
-  test("Artillery renders a centered A and a selected 12-hex range",()=>{
+  test("Artillery renders a centered A and a selected 11-hex range",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
     const artillery={id:"artillery-art",type:"artillery",q:4,r:-2,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};
     state.structures.set(api.key(artillery.q,artillery.r),artillery);state.mode="select";state.selected={type:"structure",id:artillery.id};context.textCalls.length=0;context.strokeCalls.length=0;
@@ -284,7 +284,7 @@ describe("rendering caches", () => {
     assert.ok(label);assert.equal(label.fillStyle,"#fff4ea");
 
     context.strokeCalls.length=0;api.drawTurretRanges();
-    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)"&&call.lineWidth===1.4).length,72,"a radius-12 hex has 72 boundary tiles");
+    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)"&&call.lineWidth===1.4).length,66,"a radius-11 hex has 66 boundary tiles");
 
     state.mode="artillery";state.hover={q:6,r:-2};context.strokeCalls.length=0;api.drawTurretRanges();
     assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)").length,0,"Build Artillery mode must never show the selected Artillery's blue range");

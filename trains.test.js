@@ -36,12 +36,12 @@ describe("resource logistics", () => {
     const state=api.state,receiver=state.trains[0],donor=addTestTrain();
     positionTrain(receiver,[{q:10,r:0},{q:9,r:0},{q:8,r:0}]);positionTrain(donor,[{q:8,r:0},{q:7,r:0},{q:6,r:0}]);
     receiver.fuel=0;receiver.energyDepleted=true;receiver.wagons[1].amount=0;
-    donor.wagons[1].amount=10;
+    donor.wagons[1].amount=9;
     const turret={id:"refuel-priority-turret",type:"turret",q:8,r:-1,hp:18,maxHp:18,energy:0,maxEnergy:20,cooldown:0};state.structures.set(api.key(turret.q,turret.r),turret);
 
     api.updateAutomaticLogistics();
 
-    assert.equal(receiver.fuel,5);assert.equal(receiver.energyDepleted,false);
+    assert.equal(receiver.fuel,4);assert.equal(receiver.energyDepleted,false);
     assert.equal(donor.wagons[1].amount,0);assert.equal(turret.energy,5,"the emergency transfer must receive half before the Turret gets the remainder");
     assert.ok(state.worldMessages.some(item=>item.message==="Train B: Fueled Train A with Energy"));
   });

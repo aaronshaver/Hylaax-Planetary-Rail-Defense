@@ -4,22 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 3.5</title>
+  <title>Planetary Rail Defense 3.6</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 3.5 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 3.6 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
-      <div class="hud top-left">
-        <div class="hud-stat">Base Construction: <strong id="baseMaterialHud">0</strong></div>
-        <div class="hud-stat">Base Energy: <strong id="baseEnergyHud">0</strong></div>
-        <div class="hud-stat">Unmined Construction: <strong id="unminedMaterialHud">0</strong></div>
-        <div class="hud-stat">Unmined Energy: <strong id="unminedEnergyHud">0</strong></div>
-        <div class="hud-stat">Research Points: <strong id="researchPointsHud">0</strong></div>
-        <div class="hud-stat">Time Survived: <strong id="timeSurvived">00h 00m 00s</strong></div>
+      <div class="top-left-stack">
+        <div class="hud top-left">
+          <div class="hud-stat">Base Construction: <strong id="baseMaterialHud">0</strong></div>
+          <div class="hud-stat">Base Energy: <strong id="baseEnergyHud">0</strong></div>
+          <div class="hud-stat">Unmined Construction: <strong id="unminedMaterialHud">0</strong></div>
+          <div class="hud-stat">Unmined Energy: <strong id="unminedEnergyHud">0</strong></div>
+          <div class="hud-stat">Research Points: <strong id="researchPointsHud">0</strong></div>
+          <div class="hud-stat">Time Survived: <strong id="timeSurvived">00h 00m 00s</strong></div>
+        </div>
+        <button id="centerBaseButton" class="btn center-base-button" type="button">Center Map on Base</button>
       </div>
 
       <div class="bottom-debug-row">
@@ -65,7 +68,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 3.5</span></h1>
+          <h1>RAIL<br><span>DEFENSE 3.6</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" title="Pause simulation" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -78,13 +81,12 @@
         <div class="tool-grid" role="group" aria-label="Actions">
           <button id="selectTool" class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="• Select units and structures."><span class="keycap">1</span>Select Object</button>
           <button id="trackTool" class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 1 C, 0 E"><span class="keycap">2</span>Build Track</button>
-          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 10 C, 5 E"><span class="keycap">3</span>Build Turret</button>
-          <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 8 C, 0 E"><span class="keycap">4</span>Build Mine</button>
-          <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 12 C, 0 E"><span class="keycap">5</span>Build Wall</button>
-          <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 50 C, 50 E"><span class="keycap">6</span>Build Artillery</button>
+          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 10 C, 5 E&#10;Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">3</span>Build Turret</button>
+          <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 8 C, 0 E&#10;Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">4</span>Build Mine</button>
+          <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 12 C, 0 E&#10;Must be built within 5 hexes of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">5</span>Build Wall</button>
+          <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 50 C, 50 E&#10;Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">6</span>Build Artillery</button>
           <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="• Salvage healthy Track, Turrets, Artillery, Mines, Walls, Research, or Trains to recover resources.&#10;• Clear destroyed objects without recovering resources, even when there is nothing to salvage.&#10;• Removing a Mine leaves any Resource Node with remaining resources in place.&#10;• Salvaging a Train requires confirmation and removes its schedule."><span class="keycap">7</span>Salvage/Clear Object</button>
           <button id="researchTool" class="btn tool-button" data-mode="research" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 50 C, 50 E"><span class="keycap">8</span>Build Research</button>
-          <button id="centerBaseButton" class="btn tool-button" type="button" data-bs-toggle="tooltip" data-bs-placement="left" title="• Center the map on the Base without changing zoom."><span class="keycap">9</span>Center Map on Base</button>
         </div>
       </section>
 

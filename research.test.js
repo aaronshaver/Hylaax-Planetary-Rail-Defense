@@ -47,40 +47,54 @@ describe("Research building and upgrades",()=>{
     const state=api.state;addResearchBuilding();state.researchPoints=100;
     assert.equal(api.purchaseResearchUpgrade("turretDamage"),true);
     assert.equal(api.purchaseResearchUpgrade("turretDamage"),true);
-    assert.equal(state.researchPoints,40);assert.equal(api.researchUpgradeCount("turretDamage"),2);assert.equal(api.turretDamage(),2.25);
+    assert.equal(state.researchPoints,40);assert.equal(api.researchUpgradeCount("turretDamage"),2);assert.equal(api.turretDamage(),3);
   });
 
   test("the Research pane exposes grouped upgrade buttons without hover tooltips",()=>{
     const state=api.state;addResearchBuilding();state.researchPoints=29;
     const html=api.selectionHtml();
-    assert.equal((html.match(/data-action="research-/g)||[]).length,12);
-    assert.equal((html.match(/disabled aria-disabled="true"/g)||[]).length,12);
+    assert.equal((html.match(/data-action="research-/g)||[]).length,15);
+    assert.equal((html.match(/disabled aria-disabled="true"/g)||[]).length,15);
     assert.doesNotMatch(html,/data-bs-toggle="tooltip"|title="/);
     for(const heading of ["Turrets (Fixed and Train)","Artillery","Trains and Mining","Infrastructure","Other"])assert.match(html,new RegExp(heading.replace(/[()]/g,"\\$&")));
     assert.match(html,/\+20% Turret Range \(1\)/);assert.match(html,/\+20% Artillery Range \(1\)/);
+    assert.match(html,/\+25% Turret Energy Storage \(1\)/);assert.match(html,/\+25% Artillery Energy Storage \(1\)/);
     assert.match(html,/\+20% Mining Efficiency \(1\)/);
+    assert.match(html,/\+25% Load\/Unload Efficiency \(1\)/);
     assert.match(html,/1 Research point\(s\) gained for each second of survival/);
     assert.match(html,/All Research items cost 30 Research points/);
   });
 
-  test("all twelve upgrades immediately update existing units and expose upgraded future values",()=>{
+  test("all fifteen upgrades immediately update existing units and expose upgraded future values",()=>{
     const state=api.state,research=addResearchBuilding();state.researchPoints=1000;
     const train=addTestTrain(),wall={id:"wall-existing",type:"wall",q:6,r:6,hp:80,maxHp:100},track=makeTrack(7,7);
     const turret={id:"turret-existing",type:"turret",q:5,r:5,hp:18,maxHp:18,energy:20,maxEnergy:20,cooldown:1};
-    const artillery={id:"artillery-existing",type:"artillery",q:4,r:4,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:3};
+    const artillery={id:"artillery-existing",type:"artillery",q:4,r:4,hp:36,maxHp:36,energy:40,maxEnergy:50,cooldown:3};
     state.structures.set("6,6",wall);state.structures.set("5,5",turret);state.structures.set("4,4",artillery);state.tracks.set("7,7",track);state.selected={type:"structure",id:research.id};
     for(const upgrade of api.constants.RESEARCH_UPGRADES)assert.equal(api.purchaseResearchUpgrade(upgrade.key),true,upgrade.key);
 
-    assert.ok(Math.abs(api.turretFireInterval()-2/3)<1e-9);assert.ok(Math.abs(api.combatTrainFireInterval()-.32)<1e-9);assert.equal(api.turretDamage(),1.5);assert.equal(api.turretRange(),5);assert.equal(api.combatTrainRange(),7);
+    assert.ok(Math.abs(api.turretFireInterval()-2/3)<1e-9);assert.ok(Math.abs(api.combatTrainFireInterval()-.32)<1e-9);assert.equal(api.turretDamage(),2);assert.equal(api.turretRange(),4);assert.equal(api.combatTrainRange(),7);
     assert.equal(api.mineEfficiency(),1.2);assert.equal(train.wagons[0].capacity,45);assert.equal(train.speed,2.8125);
-    assert.equal(api.artilleryFireInterval(),2);assert.equal(api.artilleryDamage(true),12);assert.equal(api.artilleryDamage(false),7.5);assert.equal(api.artilleryRange(),14);
+    assert.equal(api.artilleryFireInterval(),2);assert.equal(api.artilleryDamage(true),12);assert.equal(api.artilleryDamage(false),8);assert.equal(api.artilleryDamageAtDistance(2),2);assert.equal(api.artilleryRange(),13);
+    assert.equal(api.turretEnergyStorage(),25);assert.equal(turret.maxEnergy,25);assert.equal(turret.energy,20);
+    assert.equal(api.artilleryEnergyStorage(),63);assert.equal(artillery.maxEnergy,63);assert.equal(artillery.energy,40);
     assert.equal(wall.maxHp,150);assert.equal(wall.hp,120);assert.equal(track.maxHp,2);assert.equal(track.hp,2);assert.equal(api.researchRate(),1.25);
     assert.ok(Math.abs(turret.cooldown-2/3)<1e-9);assert.equal(artillery.cooldown,2);
-    assert.equal(api.wallHitPoints(),150);assert.equal(api.trackHitPoints(),2);assert.equal(api.trainCapacity(),45);assert.equal(api.trainSpeed(),2.8125);
+    assert.equal(api.wallHitPoints(),150);assert.equal(api.trackHitPoints(),2);assert.equal(api.trainCapacity(),45);assert.equal(api.trainSpeed(),2.8125);assert.equal(api.loadUnloadDuration(),1.5);
   });
 
-  test("improved Mines fill the same capacity while consuming fewer Resource Node units",()=>{
-    const state=api.state,research=addResearchBuilding();state.researchPoints=30;api.purchaseResearchUpgrade("mineEfficiency");
+  test("Load/Unload Efficiency shortens Stop holds without shortening activity messages",()=>{
+    const state=api.state;addResearchBuilding();state.researchPoints=30;const train=addTestTrain();state.elapsed=10;train.servicingStop=true;train.stopHoldUntil=12;
+    assert.equal(api.purchaseResearchUpgrade("loadUnloadEfficiency"),true);
+    assert.equal(api.loadUnloadDuration(),1.5);assert.equal(train.stopHoldUntil,11.5,"an active Stop hold should shorten immediately");
+
+    moveTrain(train,api.basePerimeter()[0].q,api.basePerimeter()[0].r);train.wagons[0].amount=5;state.baseMaterial=0;state.worldMessages=[];
+    api.serviceBaseLogistics(train);
+    const message=state.worldMessages.find(item=>item.message==="Train A: Unloaded Resources to Base");assert.ok(message);assert.equal(message.until-state.elapsed,1.25);
+  });
+
+  test("improved Mines transact only whole resource units while consuming fewer Resource Node units",()=>{
+    const state=api.state,research=addResearchBuilding();state.researchPoints=60;api.purchaseResearchUpgrade("mineEfficiency");api.purchaseResearchUpgrade("mineEfficiency");
     const train=addTestTrain(),nodePosition=(()=>{for(let q=-15;q<=15;q++)for(let r=-15;r<=15;r++)if(api.terrainAt(q,r).type==="resource"&&api.hexDistance({q,r},state.base)>4)return {q,r};return null;})();
     assert.ok(nodePosition);moveTrain(train,nodePosition.q+1,nodePosition.r);train.wagons[0].amount=0;train.wagons[0].capacity=30;
     const terrain=api.terrainAt(nodePosition.q,nodePosition.r),node=api.resourceNodeAt(nodePosition.q,nodePosition.r);api.setNodeAmount(node,100);
@@ -88,7 +102,8 @@ describe("Research building and upgrades",()=>{
     const matching=train.wagons.find(wagon=>wagon.role===terrain.resource);assert.ok(matching);matching.amount=0;
     if(terrain.resource==="energy")train.fuel=train.maxFuel;
     api.updateAutomaticLogistics();
-    assert.equal(matching.amount,30);assert.ok(Math.abs(api.resourceNodeAt(nodePosition.q,nodePosition.r).amount-75)<1e-9);
+    assert.equal(matching.amount,30);assert.equal(api.resourceNodeAt(nodePosition.q,nodePosition.r).amount,79);
+    assert.ok(Number.isInteger(matching.amount));assert.ok(Number.isInteger(api.resourceNodeAt(nodePosition.q,nodePosition.r).amount));
   });
 
   test("Turret, Turret Train, and Artillery upgrades change live attacks immediately",()=>{
@@ -97,10 +112,10 @@ describe("Research building and upgrades",()=>{
 
     state.hives.clear();const turret={id:"upgraded-turret",type:"turret",q:4,r:4,hp:18,maxHp:18,energy:20,maxEnergy:20,cooldown:0};state.structures.set("4,4",turret);
     const turretTarget=api.createHive(5,4,10);api.updateStructures(0);
-    assert.equal(turretTarget.hp,8.5);assert.ok(Math.abs(turret.cooldown-2/3)<1e-9);
+    assert.equal(turretTarget.hp,8);assert.ok(Math.abs(turret.cooldown-2/3)<1e-9);
 
     state.hives.clear();const combat=addTestTrain("combat"),combatTarget=api.createHive(combat.q+1,combat.r,10);api.updateCombatTrains(.5);
-    assert.equal(combatTarget.hp,8.5,"Turret Train damage should share the Turret damage upgrade");assert.ok(Math.abs(combat.combatCooldown-.32)<1e-9);
+    assert.equal(combatTarget.hp,8,"Turret Train damage should share the Turret damage upgrade");assert.ok(Math.abs(combat.combatCooldown-.32)<1e-9);
 
     state.hives.clear();const artillery={id:"upgraded-artillery",type:"artillery",q:-4,r:-4,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};state.structures.set("-4,-4",artillery);
     const artilleryTarget=api.createHive(-3,-4,20);assert.equal(api.fireArtillery(artillery),true);assert.equal(artillery.cooldown,2);

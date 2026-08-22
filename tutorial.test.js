@@ -55,7 +55,8 @@ describe("guided tutorial",()=>{
     api.tutorialEvent("track-selected");
     assert.equal(api.state.tutorial.step,3);
     assert.equal(api.tutorialMessage(),"Step 3: Click nearby hex tiles to add one more Track segment.\n\nIf at any point you run out of Construction Material, simply use the Salvage/Clear Object tool to destroy and reclaim some of your constructions and try again with a more efficient layout.");
-    api.state.tracks.set("2,0",makeTrack(2,0));
+    let addedQ=2;while(api.state.tracks.has(`${addedQ},0`))addedQ++;
+    api.state.tracks.set(`${addedQ},0`,makeTrack(addedQ,0));
     api.tutorialEvent("track-built");
     assert.equal(api.state.tutorial.step,4);
 

@@ -248,7 +248,10 @@ button { touch-action: manipulation; }
   box-shadow: 0 10px 28px rgba(0,0,0,.24);
   backdrop-filter: blur(8px);
 }
-.top-left { top: 18px; left: 18px; width: max-content; max-width: calc(100% - 36px); padding: 12px 15px; }
+.top-left-stack { position: absolute; z-index: 3; top: 18px; left: 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; max-width: calc(100% - 36px); }
+.top-left { position: static; width: max-content; max-width: 100%; padding: 12px 15px; }
+.center-base-button { padding: 7.5px 13.5px; border: 1px solid #354249; border-radius: 3px; background: rgba(10,15,18,.88); color: #aebabe; font: 700 18px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.center-base-button:hover { border-color: #77878d; background: #172126; color: #fff; }
 .hud-stat { color: #aebabe; font: 700 19.8px/1.4 ui-monospace, monospace; white-space: nowrap; }
 .hud-stat strong { color: var(--accent); font-weight: 900; }
 .feedback-contact { position: absolute; z-index: 3; right: 16px; bottom: 17px; color: #e6c85b; font: 700 14.3px/1.3 ui-monospace, monospace; text-align: right; white-space: nowrap; pointer-events: none; text-shadow: 0 2px 5px #000; }
@@ -358,5 +361,5 @@ button { touch-action: manipulation; }
   #commandPanel { width: 100%; height: 100%; border-left: 0; border-top: 1px solid #2b383d; }
   .panel-header { display: none; }
   .selection-section { min-height: 210px; }
-  .top-left { top: 10px; left: 10px; }
+  .top-left-stack { top: 10px; left: 10px; }
 }

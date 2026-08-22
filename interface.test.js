@@ -65,10 +65,10 @@ describe("interface formatting", () => {
     assert.equal(elements.get("unminedMaterialHud").textContent,0);assert.equal(elements.get("unminedEnergyHud").textContent,0);
 
     train.scheduleComplete=true;api.updateUI(true);
-    assert.equal(elements.get("unminedMaterialHud").textContent,81);assert.equal(elements.get("unminedEnergyHud").textContent,42);
+    assert.equal(elements.get("unminedMaterialHud").textContent,82);assert.equal(elements.get("unminedEnergyHud").textContent,43);
 
     state.tracks.delete("-3,7");api.updateUI(true);
-    assert.equal(elements.get("unminedMaterialHud").textContent,81);assert.equal(elements.get("unminedEnergyHud").textContent,0);
+    assert.equal(elements.get("unminedMaterialHud").textContent,82);assert.equal(elements.get("unminedEnergyHud").textContent,0);
   });
 
   test("the loss screen shows lifetime Energy and Construction Material mined",()=>{
@@ -112,11 +112,17 @@ describe("interface formatting", () => {
     assert.match(api.selectionHtml(),/A Train at an adjacent Stop instantly Mines and loads Energy/);
   });
 
+  test("Turret selection describes shot cadence and labels its shot Energy",()=>{
+    const turret={id:"turret-copy",type:"turret",q:5,r:-2,hp:20,maxHp:20,energy:20,maxEnergy:20,cooldown:0};
+    api.state.structures.set(api.key(turret.q,turret.r),turret);api.state.selected={type:"structure",id:turret.id};
+    const html=api.selectionHtml();assert.match(html,/Range 3 hexes/);assert.match(html,/Shoots every 1 second\(s\) for 1 damage/);assert.match(html,/ENERGY FOR SHOTS/);
+  });
+
   test("Artillery selection reports its range, cadence, three damage rings, and friendly-fire safety",()=>{
     const artillery={id:"artillery-copy",type:"artillery",q:6,r:-2,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};
     api.state.structures.set(api.key(artillery.q,artillery.r),artillery);api.state.selected={type:"structure",id:artillery.id};
     const html=api.selectionHtml();
-    assert.match(html,/Artillery/);assert.match(html,/Targets Hives only/);assert.match(html,/Range 12 hexes/);assert.match(html,/Lobs a shell every 3 seconds/);assert.match(html,/10 Energy per shot/);assert.match(html,/8 center damage \+ 5 adjacent-ring damage \+ 1 outer-ring damage per hex/);assert.match(html,/Creeps can take splash damage/);assert.match(html,/No friendly fire/);
+    assert.match(html,/Artillery/);assert.match(html,/Targets Hives only/);assert.match(html,/Range 11 hexes/);assert.match(html,/Shoot every 3 seconds/);assert.match(html,/Uses 10 Energy per shot/);assert.match(html,/8 center damage \+ 5 adjacent-ring damage \+ 1 outer-ring damage per hex/);assert.match(html,/Creeps can take splash damage/);assert.match(html,/No friendly fire/);assert.match(html,/ENERGY FOR SHOTS/);
   });
 
   test("the selection label is hidden only when nothing is selected",()=>{
@@ -165,6 +171,7 @@ describe("interface formatting", () => {
     api.handleHexClick({q:train.wagons[1].q,r:train.wagons[1].r});
     let html=api.selectionHtml();
     assert.match(html,/Build\/Mine Train A: Energy Supply/);
+    assert.match(html,/ENERGY FOR FUEL/);
     assert.match(html,/Supply 1 · CONSTRUCTION MATERIAL/);
     assert.doesNotMatch(html,/Wagon/);
     assert.ok(html.indexOf("Add Schedule")<html.indexOf("Clear Schedule"));

@@ -46,9 +46,11 @@ describe("game bootstrap", () => {
     assert.match(css,/\.feedback-contact \{[^}]*right: 16px;[^}]*font: 700 14\.3px\/1\.3[^}]*text-align: right;/);
   });
 
-  test("Center Map on Base is the ninth button in the right-side Actions grid",()=>{
-    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),actions=html.match(/<div class="tool-grid"[^>]*>[\s\S]*?<\/div>/)?.[0]||"";
-    assert.equal((actions.match(/<button /g)||[]).length,9);assert.match(actions,/id="centerBaseButton"[^>]*>[\s\S]*<span class="keycap">9<\/span>Center Map on Base<\/button>/);assert.ok(actions.indexOf('id="researchTool"')<actions.indexOf('id="centerBaseButton"'));
+  test("Center Map on Base is a small button below the upper-left HUD instead of an Action",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),css=fs.readFileSync(path.join(__dirname,"styles.css"),"utf8"),actions=html.match(/<div class="tool-grid"[^>]*>[\s\S]*?<\/div>/)?.[0]||"",topLeft=html.match(/<div class="top-left-stack">[\s\S]*?<\/button>\s*<\/div>/)?.[0]||"";
+    assert.equal((actions.match(/<button /g)||[]).length,8);assert.doesNotMatch(actions,/centerBaseButton/);assert.match(topLeft,/<\/div>\s*<button id="centerBaseButton" class="btn center-base-button" type="button">Center Map on Base<\/button>/);
+    assert.match(css,/\.center-base-button \{[^}]*padding: 7\.5px 13\.5px;[^}]*font: 700 18px\/1\.2/);
+    const game=fs.readFileSync(path.join(__dirname,"game.js"),"utf8");assert.doesNotMatch(game,/e\.key==="9"/);
   });
 
   test("Restart Tutorial appears before the tutorial text with a flat back icon",()=>{
@@ -57,12 +59,18 @@ describe("game bootstrap", () => {
     assert.match(prompt,/id="tutorialRestart"[\s\S]*tutorial-restart-icon[\s\S]*Restart Tutorial/);
   });
 
-  test("buildable Action tooltips show only their C and E costs",()=>{
+  test("buildable Action tooltips show costs plus required Train Stop distance",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/title="• Select units and structures\."/);
     assert.doesNotMatch(html,/Select a Train to create or clear its automatic schedule/);
-    const expected={trackTool:"Costs 1 C, 0 E",turretTool:"Costs 10 C, 5 E",mineTool:"Costs 8 C, 0 E",wallTool:"Costs 12 C, 0 E",artilleryTool:"Costs 50 C, 50 E",researchTool:"Costs 50 C, 50 E"};
+    const oneStop="Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired",fiveStops="Must be built within 5 hexes of a Train Stop so that it can be resupplied and/or repaired";
+    const expected={trackTool:"Costs 1 C, 0 E",turretTool:`Costs 10 C, 5 E&#10;${oneStop}`,mineTool:`Costs 8 C, 0 E&#10;${oneStop}`,wallTool:`Costs 12 C, 0 E&#10;${fiveStops}`,artilleryTool:`Costs 50 C, 50 E&#10;${oneStop}`,researchTool:"Costs 50 C, 50 E"};
     for(const [id,cost] of Object.entries(expected)){const title=html.match(new RegExp(`id="${id}"[^>]*title="([^"]+)"`))?.[1];assert.equal(title,cost,id);}
+  });
+
+  test("legacy three-hex Track construction rules are gone",()=>{
+    const sources=["rail.js","trains.js","interface.js","index.html"].map(file=>fs.readFileSync(path.join(__dirname,file),"utf8")).join("\n");
+    assert.doesNotMatch(sources,/trackWithinRange|liveTrackWithinRange|requireNearbyTrack|within (?:three|3) hexes of (?:non-destroyed )?Track/i);
   });
 
   test("the Actions panel exposes Wall and Artillery and keeps Salvage/Clear on key 7",()=>{
@@ -95,9 +103,9 @@ describe("game bootstrap", () => {
     assert.match(html,/id="turretEnergyOkay"[^>]*>OK<\/button>/);
   });
 
-  test("the displayed and package versions are 3.5",()=>{
+  test("the displayed and package versions are 3.6",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 3\.5/);assert.match(html,/DEFENSE 3\.5/);assert.equal(packageJson.version,"3.5.0");
+    assert.match(html,/Planetary Rail Defense 3\.6/);assert.match(html,/DEFENSE 3\.6/);assert.equal(packageJson.version,"3.6.0");
   });
 });

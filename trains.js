@@ -120,16 +120,16 @@ function unloadCargoToBaseTarget(train,type){
 function serviceBaseLogistics(train) {
   if(train.trainType==="combat"){
     const energyLoaded=refuelAtBase(train)+fillBaseCargo(train);
-    if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy from Base",1.25);
+    if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy from Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
     return;
   }
   const emptyOnArrival=new Set(train.wagons.filter(w=>w.amount<=.0001).map(w=>w.id));
   let energyLoaded=refuelAtBase(train);
   const material=unloadCargoToBaseTarget(train,"material");
   const energy=unloadCargoToBaseTarget(train,"energy");
-  if(material+energy>0)showTrainActivity(train,state.base,"Unloaded Resources to Base",1.25);
+  if(material+energy>0)showTrainActivity(train,state.base,"Unloaded Resources to Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
   for(const wagon of train.wagons.filter(w=>emptyOnArrival.has(w.id))){const moved=fillWagonFromBase(train,wagon);if((wagon.role||wagon.type)==="energy")energyLoaded+=moved;}
-  if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy from Base",1.25);
+  if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy from Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
 }
 
 function nearestTrain(structure, range = 3) {
@@ -174,10 +174,10 @@ function snapTrainToGrid(train){
 }
 
 function emergencyRefuelTrain(receiver){
-  if(!receiver.energyDepleted||receiver.fuel>.15||totalCargo(receiver,"energy")>0)return null;
+  if(!receiver.energyDepleted||receiver.fuel>0||totalCargo(receiver,"energy")>0)return null;
   const donor=state.trains.find(candidate=>candidate.id!==receiver.id&&totalCargo(candidate,"energy")>=2&&trainsShareHex(candidate,receiver));
   if(!donor)return null;
-  const moved=removeCargo(donor,"energy",Math.min(totalCargo(donor,"energy")/2,receiver.maxFuel-receiver.fuel));
+  const moved=removeCargo(donor,"energy",Math.min(Math.floor(totalCargo(donor,"energy")/2),receiver.maxFuel-receiver.fuel));
   if(moved<=0)return null;
   receiver.fuel+=moved;receiver.energyDepleted=false;receiver.nextEnergyWarningAt=0;receiver.status=`Fueled by Train ${trainScheduleCode(donor)}`;
   showTrainActivity(donor,receiver,`Fueled Train ${trainScheduleCode(receiver)} with Energy`,1.35);
@@ -192,7 +192,7 @@ function updateEmergencyTrainRefueling(){
 }
 
 function showTrainEnergyWarning(train){
-  if(!train.energyDepleted||train.fuel>.15||totalCargo(train,"energy")>0)return false;
+  if(!train.energyDepleted||train.fuel>0||totalCargo(train,"energy")>0)return false;
   if(state.elapsed<(train.nextEnergyWarningAt??0))return false;
   showTrainActivity(train,train,"Ran Out of Energy",1.35);
   train.nextEnergyWarningAt=state.elapsed+2.5;
@@ -228,13 +228,13 @@ function updateAutomaticRepair(train) {
   const nextTrackKey=train.route[0]?key(train.route[0].q,train.route[0].r):null;
   const stop=scheduleStopAt(train.q,train.r),atOwnStop=trainStopped(train)&&stop?.train.id===train.id;
   const targets=[state.base,...state.structures.values(),...state.tracks.values()]
-    .filter(target=>target.hp<target.maxHp&&(target.type==="wall"?atOwnStop&&hexDistance(train,target)<=3:(target.type==="base"?distanceToStructure(train,target):hexDistance(train,target))<=1))
+    .filter(target=>target.hp<target.maxHp&&(target.type==="wall"?atOwnStop&&hexDistance(train,target)<=5:(target.type==="base"?distanceToStructure(train,target):hexDistance(train,target))<=1))
     .sort((a,b)=>Number(key(b.q,b.r)===nextTrackKey&&repairPriority(b)===0)-Number(key(a.q,a.r)===nextTrackKey&&repairPriority(a)===0)||repairPriority(a)-repairPriority(b)||(a.type==="base"?distanceToStructure(train,a):hexDistance(train,a))-(b.type==="base"?distanceToStructure(train,b):hexDistance(train,b))||(a.hp/a.maxHp)-(b.hp/b.maxHp));
   const target=targets[0];
   if(!target)return false;
   const isTrack=state.tracks.get(key(target.q,target.r))===target;
   const missing=target.maxHp-target.hp,available=totalCargo(train,"material");
-  const materialCost=isTrack?1:Math.min(missing,available);
+  const materialCost=isTrack?1:Math.min(Math.ceil(missing),Math.floor(available));
   if(materialCost<=0)return false;
   removeCargo(train,"material",materialCost);target.hp=isTrack?target.maxHp:Math.min(target.maxHp,target.hp+materialCost);
   const fullyRepaired=target.hp>=target.maxHp-.0001,label=repairLabel(target);
@@ -252,15 +252,16 @@ function updateAutomaticLogistics() {
     const train=nearestStoppedLoco(structure,1,candidate=>candidate.trainType!=="combat");
     if(!train)continue;
     const node=resourceNodeAt(structure.q,structure.r);
-    const available=node?.amount||0,efficiency=mineEfficiency(),availableOutput=available*efficiency;
-    const fuelMoved=structure.resource==="energy"?Math.min(Math.max(0,train.maxFuel-train.fuel),availableOutput):0;
+    const available=Math.floor(node?.amount||0),efficiency=mineEfficiency(),fuelRoom=structure.resource==="energy"?Math.floor(Math.max(0,train.maxFuel-train.fuel)):0,cargoRoom=Math.floor(cargoSpace(train,structure.resource)),outputRoom=fuelRoom+cargoRoom;
+    const sourceUnits=Math.min(available,Math.ceil(outputRoom/efficiency)),availableOutput=Math.min(outputRoom,Math.floor(sourceUnits*efficiency));
+    const fuelMoved=Math.min(fuelRoom,availableOutput);
     if(fuelMoved>0){train.fuel+=fuelMoved;train.energyDepleted=false;}
     const extractable=Math.floor(Math.min(cargoSpace(train,structure.resource),Math.max(0,availableOutput-fuelMoved)));
     const moved=addCargo(train,structure.resource,extractable);
     if(fuelMoved+moved>0){
       state.stats[structure.resource==="energy"?"energyMined":"materialMined"]+=fuelMoved+moved;
       cargoChangedTrains.add(train.id);
-      setNodeAmount(node,node.amount-(fuelMoved+moved)/efficiency);
+      setNodeAmount(node,node.amount-Math.min(sourceUnits,Math.ceil((fuelMoved+moved)/efficiency)));
       showTrainActivity(train,structure,`Mined ${resourceLabel(structure.resource)}`,1.25);
     }
   }
@@ -311,7 +312,7 @@ function updateTrains(dt) {
     if(train.repairHoldUntil){train.repairHoldUntil=0;train.status=train.repairResumeStatus||(train.route.length?"En route":"Idle");train.repairResumeStatus=null;}
     if(!train.stepFrom&&updateAutomaticRepair(train))continue;
     if (!train.route.length) continue;
-    if (!train.stepFrom && train.fuel <= .15) {
+    if (!train.stepFrom && train.fuel<=0) {
       const pulled = removeCargo(train,"energy",1);
       if (pulled > 0) {train.fuel += pulled;train.energyDepleted=false;}
       else {
@@ -337,7 +338,7 @@ function updateTrains(dt) {
         segment.q = train.stepTo[index].q; segment.r = train.stepTo[index].r;
         const p = axialToWorld(segment.q,segment.r); segment.x = p.x; segment.y = p.y;
       });
-      train.route.shift(); train.progress = 0; train.fuel = Math.max(0,train.fuel - .18);
+      train.route.shift();train.progress=0;train.fuelUseAccumulator=(train.fuelUseAccumulator||0)+.18;const wholeEnergyUsed=Math.floor(train.fuelUseAccumulator+1e-9);if(wholeEnergyUsed>0){train.fuel=Math.max(0,train.fuel-wholeEnergyUsed);train.fuelUseAccumulator-=wholeEnergyUsed;}
       train.stepFrom = null; train.stepTo = null;
       if (!train.route.length) {
         const completedPurpose=train.routePurpose;train.routePurpose=null;
@@ -345,7 +346,7 @@ function updateTrains(dt) {
           train.status="Waiting to rebuild Track";train.scheduleRetryAt=state.elapsed;
         }else if(train.scheduleComplete){
           const reached=train.scheduleTargetIndex;
-          train.servicingStop=true;train.stopHoldUntil=state.elapsed+1;train.scheduleTargetIndex=(reached+1)%train.schedule.length;train.status=`At Stop ${trainScheduleCode(train)}${reached+1}`;
+          train.servicingStop=true;train.stopHoldUntil=state.elapsed+loadUnloadDuration();train.scheduleTargetIndex=(reached+1)%train.schedule.length;train.status=`At Stop ${trainScheduleCode(train)}${reached+1}`;
         }else train.status="Idle";
       }
     }

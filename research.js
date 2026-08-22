@@ -4,12 +4,15 @@ const RESEARCH_UPGRADES = [
   {key:"turretFireRate",group:"Turrets (Fixed and Train)",label:"+50% Turret Firing Rate",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
   {key:"turretDamage",group:"Turrets (Fixed and Train)",label:"+50% Turret Damage",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
   {key:"turretRange",group:"Turrets (Fixed and Train)",label:"+20% Turret Range",multiplier:1.2,description:"Applies to both Fixed Turrets and Turret Trains."},
+  {key:"turretEnergyStorage",group:"Turrets (Fixed and Train)",label:"+25% Turret Energy Storage",multiplier:1.25,description:"Fixed Turrets store 25% more Energy."},
   {key:"artilleryFireRate",group:"Artillery",label:"+50% Artillery Firing Rate",multiplier:1.5,description:"Artillery fires 50% more frequently."},
   {key:"artilleryDamage",group:"Artillery",label:"+50% Artillery Damage",multiplier:1.5,description:"Artillery center and splash damage increase by 50%."},
   {key:"artilleryRange",group:"Artillery",label:"+20% Artillery Range",multiplier:1.2,description:"Artillery range increases by 20%."},
+  {key:"artilleryEnergyStorage",group:"Artillery",label:"+25% Artillery Energy Storage",multiplier:1.25,description:"Artillery stores 25% more Energy."},
   {key:"trainCapacity",group:"Trains and Mining",label:"+50% Train Capacity",multiplier:1.5,description:"All Train Supply wagons hold 50% more resources."},
   {key:"trainSpeed",group:"Trains and Mining",label:"+25% Train Speed",multiplier:1.25,description:"All Trains move 25% faster."},
   {key:"mineEfficiency",group:"Trains and Mining",label:"+20% Mining Efficiency",multiplier:1.2,description:"Mining uses fewer resources, extending the life of the Resource Node under the Mine."},
+  {key:"loadUnloadEfficiency",group:"Trains and Mining",label:"+25% Load/Unload Efficiency",multiplier:.75,description:"Trains spend 25% less time stopped at each Train Stop."},
   {key:"wallStrength",group:"Infrastructure",label:"+50% Wall Hit Points",multiplier:1.5,description:"Walls have 50% more Hit Points."},
   {key:"trackStrength",group:"Infrastructure",label:"+100% Track Hit Points",multiplier:2,description:"Tracks have 100% more Hit Points."},
   {key:"researchSpeed",group:"Other",label:"+25% Research Rate",multiplier:1.25,description:"Research points are acquired 25% faster."}
@@ -18,19 +21,23 @@ const RESEARCH_UPGRADES = [
 function researchUpgrade(keyName){return RESEARCH_UPGRADES.find(upgrade=>upgrade.key===keyName)||null;}
 function researchUpgradeCount(keyName){return state.researchUpgrades?.[keyName]||0;}
 function researchMultiplier(keyName){const upgrade=researchUpgrade(keyName);return upgrade?Math.pow(upgrade.multiplier,researchUpgradeCount(keyName)):1;}
+function researchedWholeValue(base,keyName){const upgrade=researchUpgrade(keyName);let value=base;for(let level=0;level<researchUpgradeCount(keyName);level++)value=Math.ceil(value*upgrade.multiplier);return value;}
 
 function turretFireInterval(){return 1/researchMultiplier("turretFireRate");}
 function combatTrainFireInterval(){return .48/researchMultiplier("turretFireRate");}
-function turretDamage(){return researchMultiplier("turretDamage");}
+function turretDamage(){return researchedWholeValue(1,"turretDamage");}
 function turretRange(){return Math.round(TURRET_RANGE*researchMultiplier("turretRange"));}
 function combatTrainRange(){return Math.round(COMBAT_TRAIN_RANGE*researchMultiplier("turretRange"));}
+function turretEnergyStorage(){return Math.ceil(20*researchMultiplier("turretEnergyStorage"));}
 function mineEfficiency(){return researchMultiplier("mineEfficiency");}
-function trainCapacity(){return Math.floor(30*researchMultiplier("trainCapacity"));}
+function trainCapacity(){return Math.ceil(30*researchMultiplier("trainCapacity"));}
 function trainSpeed(){return 2.25*researchMultiplier("trainSpeed");}
+function loadUnloadDuration(){return BASE_TRAIN_STOP_SECONDS*researchMultiplier("loadUnloadEfficiency");}
 function artilleryFireInterval(){return ARTILLERY_FIRE_INTERVAL/researchMultiplier("artilleryFireRate");}
-function artilleryDamage(center=true){return (center?ARTILLERY_CENTER_DAMAGE:ARTILLERY_SPLASH_DAMAGE)*researchMultiplier("artilleryDamage");}
-function artilleryDamageAtDistance(distance){return (distance===0?ARTILLERY_CENTER_DAMAGE:distance===1?ARTILLERY_SPLASH_DAMAGE:ARTILLERY_OUTER_SPLASH_DAMAGE)*researchMultiplier("artilleryDamage");}
+function artilleryDamage(center=true){return researchedWholeValue(center?ARTILLERY_CENTER_DAMAGE:ARTILLERY_SPLASH_DAMAGE,"artilleryDamage");}
+function artilleryDamageAtDistance(distance){return researchedWholeValue(distance===0?ARTILLERY_CENTER_DAMAGE:distance===1?ARTILLERY_SPLASH_DAMAGE:ARTILLERY_OUTER_SPLASH_DAMAGE,"artilleryDamage");}
 function artilleryRange(){return Math.round(ARTILLERY_RANGE*researchMultiplier("artilleryRange"));}
+function artilleryEnergyStorage(){return Math.ceil(ARTILLERY_MAX_ENERGY*researchMultiplier("artilleryEnergyStorage"));}
 function wallHitPoints(){return WALL_HIT_POINTS*researchMultiplier("wallStrength");}
 function trackHitPoints(){return TRACK_HIT_POINTS*researchMultiplier("trackStrength");}
 function researchRate(){return researchMultiplier("researchSpeed");}
@@ -71,8 +78,11 @@ function applyResearchUpgrade(keyName){
     for(const train of state.trains)if(train.trainType==="combat")train.combatCooldown=Math.max(0,(train.combatCooldown||0)/(upgrade.multiplier));
   }
   if(keyName==="artilleryFireRate")for(const structure of state.structures.values())if(structure.type==="artillery")structure.cooldown=Math.max(0,structure.cooldown/(upgrade.multiplier));
-  if(keyName==="trainCapacity")for(const train of state.trains)for(const wagon of train.wagons){wagon.baseCapacity??=wagon.capacity/oldMultiplier;wagon.capacity=Math.floor(wagon.baseCapacity*newMultiplier);}
+  if(keyName==="turretEnergyStorage")for(const turret of [...state.structures.values()].filter(structure=>structure.type==="turret")){turret.baseMaxEnergy??=20;turret.maxEnergy=Math.ceil(turret.baseMaxEnergy*newMultiplier);turret.energy=Math.ceil(turret.energy);}
+  if(keyName==="artilleryEnergyStorage")for(const artillery of [...state.structures.values()].filter(structure=>structure.type==="artillery")){artillery.baseMaxEnergy??=ARTILLERY_MAX_ENERGY;artillery.maxEnergy=Math.ceil(artillery.baseMaxEnergy*newMultiplier);artillery.energy=Math.ceil(artillery.energy);}
+  if(keyName==="trainCapacity")for(const train of state.trains)for(const wagon of train.wagons){wagon.baseCapacity??=wagon.capacity/oldMultiplier;wagon.capacity=Math.ceil(wagon.baseCapacity*newMultiplier);}
   if(keyName==="trainSpeed")for(const train of state.trains){train.baseSpeed??=train.speed/oldMultiplier;train.speed=train.baseSpeed*newMultiplier;}
+  if(keyName==="loadUnloadEfficiency")for(const train of state.trains)if(train.servicingStop){const remaining=Math.max(0,(train.stopHoldUntil||state.elapsed)-state.elapsed);train.stopHoldUntil=state.elapsed+remaining*upgrade.multiplier;}
   if(keyName==="wallStrength")for(const wall of [...state.structures.values()].filter(structure=>structure.type==="wall")){const ratio=wall.maxHp?wall.hp/wall.maxHp:1;wall.baseMaxHp??=wall.maxHp/oldMultiplier;wall.maxHp=wall.baseMaxHp*newMultiplier;wall.hp=wall.maxHp*ratio;}
   if(keyName==="trackStrength")for(const track of state.tracks.values()){const ratio=track.maxHp?track.hp/track.maxHp:1;track.baseMaxHp??=track.maxHp/oldMultiplier;track.maxHp=track.baseMaxHp*newMultiplier;track.hp=track.maxHp*ratio;}
   updateUI(true);render();

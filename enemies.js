@@ -18,14 +18,22 @@ function hiveSpawnCandidates(hive,spawnNumber=hive.spawnCount){
   return candidates.sort((a,b)=>b.score-a.score);
 }
 
+function hiveSpawnDelay(q,r,spawnNumber=0,spawnTime=state.elapsed){return Math.min(30,1+Math.floor(hash(q,r,(state.mapSeed+spawnNumber*2377+Math.floor(spawnTime*1000))|0)*30));}
+
+function queueHiveSpawn(location,{kind="replication",level=2,spawnNumber=0,spawnTime=state.elapsed,sourceHiveId=null,forceFirstCreepBatch=false,encroachmentMinute=null}={}){
+  if(!location)return null;
+  const delay=hiveSpawnDelay(location.q,location.r,spawnNumber,spawnTime),operation={kind,q:location.q,r:location.r,level,spawnNumber,spawnTime,sourceHiveId,forceFirstCreepBatch,encroachmentMinute,delay,executeAt:state.elapsed+delay};
+  state.hiveSpawnQueue.push(operation);state.hiveSpawnQueue.sort((a,b)=>a.executeAt-b.executeAt||a.q-b.q||a.r-b.r);return operation;
+}
+
 function spawnHiveNear(hive,spawnNumber=hive.spawnCount,level=hiveExpansionLevel(hive,state.elapsed)){
   const constructionAnchors=playerConstructionAnchors(),location=hiveSpawnCandidates(hive,spawnNumber).find(candidate=>hiveHexOpen(candidate.q,candidate.r,constructionAnchors));
-  return location?createHive(location.q,location.r,level,true):null;
+  return queueHiveSpawn(location,{kind:"replication",level,spawnNumber,spawnTime:state.elapsed,sourceHiveId:hive.id});
 }
 
 function spawnEnemyAt(q,r,spawnNumber=state.nextId){
   const reservations=enemySpaceReservations(),enemyId=`enemy-${state.nextId}`;
-  if(!isPassable(q,r)||hiveAt(q,r)||structureAt(q,r)||state.tracks.has(key(q,r))||trainAt(q,r)||ghostAt(q,r)||!enemyHexHasRoom(reservations,q,r))return null;
+  if(!isPassable(q,r)||hiveAt(q,r)||(state.hiveSpawnQueue||[]).some(operation=>operation.q===q&&operation.r===r)||structureAt(q,r)||state.tracks.has(key(q,r))||trainAt(q,r)||ghostAt(q,r)||!enemyHexHasRoom(reservations,q,r))return null;
   const slot=chooseEnemySpaceSlot(reservations,q,r,{id:enemyId,moveCount:spawnNumber});
   if(slot===null)return null;
   const p=enemyWorldPosition(q,r,slot),enemy={id:`enemy-${state.nextId++}`,type:"enemy",q,r,slot,x:p.x,y:p.y,fromQ:q,fromR:r,fromSlot:slot,toQ:q,toR:r,toSlot:slot,progress:1,moveCount:0,speed:ENEMY_SPEED,hp:1,maxHp:1,attackClock:0,nextPathAt:0,phase:hash(q,r,spawnNumber)*Math.PI*2};
@@ -47,11 +55,29 @@ function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
       const distance=hexDistance({q:0,r:0},{q:dq,r:dr});
       if(distance<1||distance>4)continue;
       const position={q:hive.q+dq,r:hive.r+dr};
-      if(isPassable(position.q,position.r)&&outsidePlayerConstructionBuffer(position.q,position.r,ENEMY_SPAWN_BUFFER,constructionAnchors)&&!hiveAt(position.q,position.r)&&!structureAt(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r))options.push(position);
+      if(isPassable(position.q,position.r)&&outsidePlayerConstructionBuffer(position.q,position.r,ENEMY_SPAWN_BUFFER,constructionAnchors)&&!hiveAt(position.q,position.r)&&!(state.hiveSpawnQueue||[]).some(operation=>operation.q===position.q&&operation.r===position.r)&&!structureAt(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r))options.push(position);
     }
   }
   options.sort((a,b)=>hash(b.q,b.r,(state.mapSeed+spawnNumber)|0)-hash(a.q,a.r,(state.mapSeed+spawnNumber)|0));
   const location=options[0];return location?spawnEnemyAt(location.q,location.r,spawnNumber):null;
+}
+
+function creepSpawnDelay(q,r,spawnNumber=0,spawnTime=state.elapsed){return Math.min(30,1+Math.floor(hash(q,r,(state.mapSeed+spawnNumber*4211+Math.floor(spawnTime*1000))|0)*30));}
+
+function queueCreepBatch(hive,count,spawnNumber,spawnTime=state.elapsed){
+  const delay=creepSpawnDelay(hive.q,hive.r,spawnNumber,spawnTime),operation={kind:"creep-batch",hiveId:hive.id,q:hive.q,r:hive.r,count,spawnNumber,spawnTime,delay,executeAt:state.elapsed+delay};
+  state.creepSpawnQueue.push(operation);state.creepSpawnQueue.sort((a,b)=>a.executeAt-b.executeAt||a.spawnNumber-b.spawnNumber);return operation;
+}
+
+function processCreepSpawnQueue(){
+  let processed=0;
+  while(state.creepSpawnQueue.length&&state.creepSpawnQueue[0].executeAt<=state.elapsed+1e-9){
+    const operation=state.creepSpawnQueue.shift(),source=[...state.hives.values()].find(candidate=>candidate.id===operation.hiveId);let spawned=false;
+    for(let creep=0;creep<operation.count;creep++)spawned=Boolean(spawnEnemyFromHive(operation,operation.spawnNumber*32+creep))||spawned;
+    if(spawned&&source)source.productionPulseUntil=state.elapsed+.75;
+    processed++;
+  }
+  return processed;
 }
 
 function encroachingHiveLocation(spawnTime=state.nextEncroachmentAt){
@@ -74,12 +100,10 @@ function encroachingHiveLocation(spawnTime=state.nextEncroachmentAt){
   return null;
 }
 
-function spawnEncroachingHive(spawnTime=state.nextEncroachmentAt){
+function spawnEncroachingHive(spawnTime=state.nextEncroachmentAt,spawnNumber=0){
   const location=encroachingHiveLocation(spawnTime);
   if(!location)return null;
-  const hive=createHive(location.q,location.r,hiveUnlockedLevel(spawnTime),true,true);
-  hive.encroaching=true;hive.encroachmentMinute=Math.floor(spawnTime/60);
-  return hive;
+  return queueHiveSpawn(location,{kind:"encroachment",level:hiveUnlockedLevel(spawnTime),spawnNumber,spawnTime,forceFirstCreepBatch:true,encroachmentMinute:Math.floor(spawnTime/60)});
 }
 
 function encroachingHiveCount(spawnTime=state.nextEncroachmentAt){
@@ -91,9 +115,26 @@ function encroachmentOccurs(spawnTime=state.nextEncroachmentAt,mapSeed=state.map
 function updateEncroachingHives(){
   for(let cycles=0;state.elapsed>=state.nextEncroachmentAt&&cycles<64;cycles++){
     const spawnTime=state.nextEncroachmentAt,count=encroachmentOccurs(spawnTime)?encroachingHiveCount(spawnTime):0;
-    for(let index=0;index<count;index++)spawnEncroachingHive(spawnTime);
+    for(let index=0;index<count;index++)spawnEncroachingHive(spawnTime,index);
     state.nextEncroachmentAt+=60;
   }
+}
+
+function processHiveSpawnQueue(){
+  let spawned=0;
+  while(state.hiveSpawnQueue.length&&state.hiveSpawnQueue[0].executeAt<=state.elapsed+1e-9){
+    const operation=state.hiveSpawnQueue.shift(),constructionAnchors=playerConstructionAnchors();let location=operation;
+    if(!hiveHexOpen(location.q,location.r,constructionAnchors)){
+      if(operation.kind==="encroachment")location=encroachingHiveLocation(operation.spawnTime);
+      else location=hiveSpawnCandidates(operation,operation.spawnNumber).find(candidate=>hiveHexOpen(candidate.q,candidate.r,constructionAnchors));
+    }
+    if(!location)continue;
+    const hive=createHive(location.q,location.r,operation.level,true,operation.forceFirstCreepBatch);
+    if(operation.kind==="encroachment"){hive.encroaching=true;hive.encroachmentMinute=operation.encroachmentMinute;}
+    const source=[...state.hives.values()].find(candidate=>candidate.id===operation.sourceHiveId);if(source)source.productionPulseUntil=state.elapsed+.75;
+    spawned++;
+  }
+  return spawned;
 }
 
 function hiveProductionDelay(hive,spawnNumber){return .05+hash(hive.q,hive.r,(state.mapSeed+spawnNumber*1877)|0)*.15;}
@@ -119,11 +160,10 @@ function queueDueHiveProductions(){
 function produceHiveOperation(operation){
   const hive=state.hives.get(key(operation.q,operation.r));
   if(!hive||hive.id!==operation.hiveId)return false;
-  const rate=hive.level;let produced=false,spawnedHive=null;
-  if(!operation.forceCreepBatch&&hiveReplicationRoll(hive,operation.spawnNumber,rate))spawnedHive=spawnHiveNear(hive,operation.spawnNumber,hiveExpansionLevel(hive,operation.spawnTime));
-  if(spawnedHive)produced=true;
-  else for(let creep=0;creep<rate;creep++)produced=Boolean(spawnEnemyFromHive(hive,operation.spawnNumber*32+creep))||produced;
-  if(produced)hive.productionPulseUntil=state.elapsed+.75;
+  const rate=hive.level;let produced=false,hiveSpawnQueued=null;
+  if(!operation.forceCreepBatch&&hiveReplicationRoll(hive,operation.spawnNumber,rate))hiveSpawnQueued=spawnHiveNear(hive,operation.spawnNumber,hiveExpansionLevel(hive,operation.spawnTime));
+  if(hiveSpawnQueued)produced=true;
+  else produced=Boolean(queueCreepBatch(hive,rate,operation.spawnNumber,operation.spawnTime));
   return produced;
 }
 
@@ -134,7 +174,7 @@ function processHiveProductionQueue(){
 }
 
 function updateHives(){
-  updateEncroachingHives();queueDueHiveProductions();processHiveProductionQueue();
+  processHiveSpawnQueue();processCreepSpawnQueue();updateEncroachingHives();queueDueHiveProductions();processHiveProductionQueue();
 }
 
 function targetHexFor(enemy,target) {
@@ -322,13 +362,13 @@ function rebuildGhost(ghost,train){
       if(neighbor){rebuilt.links.add(linkedKey);neighbor.links.add(ghost.id);}else{const neighborGhost=state.ghosts.get(linkedKey);if(neighborGhost?.objectType==="track"&&!neighborGhost.links.includes(ghost.id))neighborGhost.links.push(ghost.id);}
     }
   }else if(ghost.objectType==="turret"){
-    rebuilt={id:`turret-${state.nextId++}`,type:"turret",q:ghost.q,r:ghost.r,hp:TURRET_HIT_POINTS,maxHp:TURRET_HIT_POINTS,energy:0,maxEnergy:20,cooldown:0};
+    rebuilt={id:`turret-${state.nextId++}`,type:"turret",q:ghost.q,r:ghost.r,hp:TURRET_HIT_POINTS,maxHp:TURRET_HIT_POINTS,energy:0,maxEnergy:turretEnergyStorage(),baseMaxEnergy:20,cooldown:0};
     state.structures.set(ghost.id,rebuilt);
   }else if(ghost.objectType==="wall"){
     const maxHp=wallHitPoints();rebuilt={id:`wall-${state.nextId++}`,type:"wall",q:ghost.q,r:ghost.r,hp:maxHp,maxHp,baseMaxHp:WALL_HIT_POINTS};
     state.structures.set(ghost.id,rebuilt);
   }else if(ghost.objectType==="artillery"){
-    rebuilt={id:`artillery-${state.nextId++}`,type:"artillery",q:ghost.q,r:ghost.r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:0,maxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
+    rebuilt={id:`artillery-${state.nextId++}`,type:"artillery",q:ghost.q,r:ghost.r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:0,maxEnergy:artilleryEnergyStorage(),baseMaxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
     state.structures.set(ghost.id,rebuilt);
   }else if(ghost.objectType==="research"){
     rebuilt={id:`research-${state.nextId++}`,type:"research",q:ghost.q,r:ghost.r,footprint:structureFootprint(ghost).map(cell=>({...cell})),hp:RESEARCH_HIT_POINTS,maxHp:RESEARCH_HIT_POINTS};

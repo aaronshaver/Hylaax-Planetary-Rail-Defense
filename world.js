@@ -23,6 +23,8 @@ function makeInitialState() {
     base,
     structures: new Map(),
     hives: new Map(),
+    hiveSpawnQueue: [],
+    creepSpawnQueue: [],
     hiveProductionQueue: [],
     hiveProductionAvailableAt: 0,
     ghosts: new Map(),
@@ -99,6 +101,7 @@ function hiveHexOpen(q,r,constructionAnchors=playerConstructionAnchors()){
   if(!outsidePlayerConstructionBuffer(q,r,ENEMY_SPAWN_BUFFER,constructionAnchors))return false;
   if(structureAt(q,r)||state.tracks.has(key(q,r))||ghostAt(q,r)||trainClaimsHex(q,r))return false;
   if([...state.hives.values()].some(hive=>hexDistance(hive,{q,r})<=1))return false;
+  if((state.hiveSpawnQueue||[]).some(operation=>hexDistance(operation,{q,r})<=1))return false;
   return !state.enemies.some(enemy=>enemy.q===q&&enemy.r===r);
 }
 
@@ -187,6 +190,7 @@ function resize() {
 }
 
 function centerMapOnBase(){
+  if(state.mode==="schedule")setMode("select");
   const center=structureWorldCenter(state.base);
   state.camera.x=center.x;state.camera.y=center.y;render();canvas.focus();return center;
 }
@@ -225,12 +229,13 @@ function resourceNodeAt(q,r) {
   const terrain=terrainAt(q,r);
   if(terrain.type!=="resource")return null;
   const nodeKey=key(q,r);
-  const maxAmount=NODE_MIN_CAPACITY+Math.floor(terrainHash(q,r,707)*(NODE_MAX_CAPACITY-NODE_MIN_CAPACITY+1));
+  const minCapacity=terrain.resource==="energy"?ENERGY_NODE_MIN_CAPACITY:NODE_MIN_CAPACITY,maxCapacity=terrain.resource==="energy"?ENERGY_NODE_MAX_CAPACITY:NODE_MAX_CAPACITY;
+  const maxAmount=minCapacity+Math.floor(terrainHash(q,r,707)*(maxCapacity-minCapacity+1));
   return {id:nodeKey,type:"node",resource:terrain.resource,q,r,amount:state.nodeResources.get(nodeKey)??maxAmount,maxAmount};
 }
 
 function setNodeAmount(node,amount) {
-  const remaining=clamp(amount,0,node.maxAmount);
+  const remaining=clamp(Math.ceil(amount),0,node.maxAmount);
   state.nodeResources.set(key(node.q,node.r),remaining);
   node.amount=remaining;
 }
@@ -279,8 +284,8 @@ function clearDeploymentReservation(refund=false){
 }
 
 function setMode(mode,clearSelection=false) {
-  if(state.mode==="schedule"&&mode!=="schedule")state.scheduleTrainId=null;
   if(!constructionModeAffordable(mode)){fail(constructionModeUnavailableMessage(mode));updateUI(true);return false;}
+  if(state.mode==="schedule"&&mode!=="schedule")discardScheduleDraft();
   if (mode !== "track" || state.mode !== "track") state.trackStart = null;
   if(state.mode==="deploy"&&(mode!=="deploy"||state.deploymentPaid))clearDeploymentReservation(true);
   if(mode==="select"&&clearSelection)state.selected=null;

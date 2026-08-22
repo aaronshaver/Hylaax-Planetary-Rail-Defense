@@ -14,56 +14,64 @@ function installScheduleRing(train){
   return ring;
 }
 
+function installCompletedStop(position,train=api.state.trains[0]||addTestTrain()){
+  api.state.tracks.set(api.key(position.q,position.r),makeTrack(position.q,position.r));
+  train.schedule=[{q:position.q,r:position.r}];train.scheduleComplete=true;
+  return train;
+}
+
 describe("repairs, ghosts, and schedules", () => {
-  test("a fixed Turret requires non-destroyed Track within three hexes",()=>{
+  test("a fixed Turret requires a completed Train Stop within one hex",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
+    assert.equal(api.constructionStopRequirement(1),"Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired");
+    assert.equal(api.constructionStopRequirement(5),"Must be built within 5 hexes of a Train Stop so that it can be resupplied and/or repaired");
     let target=null;
     for(let q=-10;q<=10&&!target;q++)for(let r=-10;r<=10&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>4)target={q,r};
     assert.ok(target);
-    const trackPosition={q:target.q+3,r:target.r},trackKey=api.key(trackPosition.q,trackPosition.r);
-    state.ghosts.set(trackKey,{id:trackKey,type:"ghost",objectType:"track",...trackPosition,hp:0,maxHp:1,links:[]});
+    const trackPosition={q:target.q+1,r:target.r},trackKey=api.key(trackPosition.q,trackPosition.r),train=state.trains[0];
+    state.tracks.set(trackKey,makeTrack(trackPosition.q,trackPosition.r));train.schedule=[trackPosition];train.scheduleComplete=false;
     const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
 
     api.buildTurret(target.q,target.r);
 
-    assert.equal(state.structures.size,0,"destroyed Track must not enable Turret placement");
+    assert.equal(state.structures.size,0,"an unfinished schedule must not enable Turret placement");
     assert.equal(state.baseMaterial,materialBefore);assert.equal(state.baseEnergy,energyBefore);
 
-    state.ghosts.clear();state.tracks.set(trackKey,makeTrack(trackPosition.q,trackPosition.r));
-    assert.equal(api.liveTrackWithinRange(target),true,"three hexes is allowed");
-    assert.equal(api.liveTrackWithinRange({q:target.q-1,r:target.r}),false,"four hexes is outside the limit");
+    train.scheduleComplete=true;
+    assert.equal(api.trainStopWithinRange(target,1),true,"one hex is allowed");
+    assert.equal(api.trainStopWithinRange({q:target.q-1,r:target.r},1),false,"two hexes is outside the limit");
     api.buildTurret(target.q,target.r);
 
     assert.equal(state.structures.size,1);
     assert.equal([...state.structures.values()][0].type,"turret");
   });
 
-  test("a Wall costs 12 Construction Material and no Energy and requires live Track within three hexes",()=>{
-    const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();state.trains=[];
+  test("a Wall costs 12 Construction Material and no Energy and requires a Train Stop within five hexes",()=>{
+    const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
     let target=null;
     for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
     assert.ok(target);
-    const trackPosition={q:target.q+3,r:target.r},trackKey=api.key(trackPosition.q,trackPosition.r),materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
-    state.ghosts.set(trackKey,{id:trackKey,type:"ghost",objectType:"track",...trackPosition,hp:0,maxHp:1,links:[]});
+    const trackPosition={q:target.q+6,r:target.r},materialBefore=state.baseMaterial,energyBefore=state.baseEnergy,train=state.trains[0];
+    installCompletedStop(trackPosition,train);
 
     api.buildWall(target.q,target.r);
-    assert.equal(state.structures.size,0,"destroyed Track must not enable Wall placement");
+    assert.equal(state.structures.size,0,"six hexes must not enable Wall placement");
     assert.equal(state.baseMaterial,materialBefore);assert.equal(state.baseEnergy,energyBefore);
 
-    state.ghosts.clear();state.tracks.set(trackKey,makeTrack(trackPosition.q,trackPosition.r));api.buildWall(target.q,target.r);
+    state.tracks.clear();installCompletedStop({q:target.q+5,r:target.r},train);api.buildWall(target.q,target.r);
     const wall=[...state.structures.values()][0];
     assert.equal(wall.type,"wall");assert.equal(wall.hp,100);assert.equal(wall.maxHp,100);
     assert.equal(state.baseMaterial,materialBefore-12);assert.equal(state.baseEnergy,energyBefore);
   });
 
   test("Artillery starts with 50 Energy, fires its first payload immediately, then uses its normal delay",()=>{
-    const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();state.trains=[];
+    const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
     state.baseEnergy=150;
     let target=null;
     for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
     assert.ok(target);
-    const trackPosition={q:target.q+3,r:target.r},trackKey=api.key(trackPosition.q,trackPosition.r),materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
-    state.tracks.set(trackKey,makeTrack(trackPosition.q,trackPosition.r));
+    const trackPosition={q:target.q+1,r:target.r},materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
+    installCompletedStop(trackPosition);
 
     api.buildArtillery(target.q,target.r);
 
@@ -75,9 +83,9 @@ describe("repairs, ghosts, and schedules", () => {
     api.updateStructures(2.99);assert.equal(artillery.energy,40);api.updateStructures(.01);assert.equal(state.projectiles.at(-1).kind,"artillery-shell");assert.equal(artillery.energy,30);
   });
 
-  test("a Train at its own Stop instantly repairs a damaged Wall within three hexes",()=>{
+  test("a Train at its own Stop instantly repairs a damaged Wall within five hexes",()=>{
     const state=api.state,train=state.trains[0];moveTrain(train,0,0);train.schedule=[{q:0,r:0}];train.scheduleComplete=true;train.route=[];train.wagons[0].amount=20;
-    const wall={id:"damaged-wall",type:"wall",q:0,r:3,hp:80,maxHp:100};state.structures.set(api.key(wall.q,wall.r),wall);
+    const wall={id:"damaged-wall",type:"wall",q:0,r:5,hp:80,maxHp:100};state.structures.set(api.key(wall.q,wall.r),wall);
 
     assert.equal(api.updateAutomaticRepair(train),true);
     assert.equal(wall.hp,100);assert.equal(train.wagons[0].amount,0);
@@ -137,7 +145,7 @@ describe("repairs, ghosts, and schedules", () => {
       api.reset();const state=api.state;state.tracks.clear();state.structures.clear();state.ghosts.clear();state.trains=[];state.baseMaterial=500;state.baseEnergy=500;
       let target=null;
       for(let q=-15;q<=15&&!target;q++)for(let r=-15;r<=15&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
-      assert.ok(target);state.tracks.set(api.key(target.q+1,target.r),makeTrack(target.q+1,target.r));
+      assert.ok(target);installCompletedStop({q:target.q+1,r:target.r});
       const ghostKey=api.key(target.q,target.r);state.ghosts.set(ghostKey,{id:ghostKey,type:"ghost",objectType:item.ghostType,...target});
       const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;item.build(target.q,target.r);
       assert.equal(state.ghosts.has(ghostKey),false,`${item.type} wreckage should be replaced`);
@@ -146,7 +154,7 @@ describe("repairs, ghosts, and schedules", () => {
     }
 
     api.reset();const state=api.state;state.tracks.clear();state.structures.clear();state.ghosts.clear();state.trains=[];
-    const node=api.resourceNodeAt(7,-2),mineKey=api.key(node.q,node.r);state.tracks.set("6,-2",makeTrack(6,-2));
+    const node=api.resourceNodeAt(7,-2),mineKey=api.key(node.q,node.r);installCompletedStop({q:6,r:-2});
     state.ghosts.set(mineKey,{id:mineKey,type:"ghost",objectType:"wall",q:node.q,r:node.r});
     const materialBefore=state.baseMaterial;api.buildMine(node.q,node.r);
     assert.equal(state.ghosts.has(mineKey),false);assert.equal(state.structures.get(mineKey).type,"mine");assert.equal(state.baseMaterial,materialBefore-8);
@@ -154,7 +162,7 @@ describe("repairs, ghosts, and schedules", () => {
 
   test("a non-Mine cannot replace wreckage on a Resource Node that still has resources",()=>{
     const state=api.state,node=api.resourceNodeAt(7,-2),nodeKey=api.key(node.q,node.r);state.trains=[];state.structures.clear();state.ghosts.clear();state.tracks.clear();state.baseMaterial=500;state.baseEnergy=500;
-    state.tracks.set("6,-2",makeTrack(6,-2));state.ghosts.set(nodeKey,{id:nodeKey,type:"ghost",objectType:"turret",q:node.q,r:node.r});
+    installCompletedStop({q:6,r:-2});state.ghosts.set(nodeKey,{id:nodeKey,type:"ghost",objectType:"turret",q:node.q,r:node.r});
     const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;api.buildArtillery(node.q,node.r);
     assert.equal(state.structures.has(nodeKey),false);assert.equal(state.ghosts.has(nodeKey),true);assert.equal(state.baseMaterial,materialBefore);assert.equal(state.baseEnergy,energyBefore);
     api.buildMine(node.q,node.r);assert.equal(state.ghosts.has(nodeKey),false);assert.equal(state.structures.get(nodeKey).type,"mine");
@@ -162,7 +170,7 @@ describe("repairs, ghosts, and schedules", () => {
 
   test("an exhausted Resource Node and its wreckage can be replaced by another construction",()=>{
     const state=api.state,node=api.resourceNodeAt(7,-2),nodeKey=api.key(node.q,node.r);state.trains=[];state.structures.clear();state.ghosts.clear();state.tracks.clear();state.baseMaterial=500;state.baseEnergy=500;
-    api.setNodeAmount(node,0);state.tracks.set("6,-2",makeTrack(6,-2));state.ghosts.set(nodeKey,{id:nodeKey,type:"ghost",objectType:"mine",resource:node.resource,q:node.q,r:node.r});
+    api.setNodeAmount(node,0);installCompletedStop({q:6,r:-2});state.ghosts.set(nodeKey,{id:nodeKey,type:"ghost",objectType:"mine",resource:node.resource,q:node.q,r:node.r});
     api.buildArtillery(node.q,node.r);
     assert.equal(state.ghosts.has(nodeKey),false);assert.equal(state.structures.get(nodeKey).type,"artillery");assert.equal(api.terrainAt(node.q,node.r).type,"ground");
   });
@@ -382,10 +390,11 @@ describe("repairs, ghosts, and schedules", () => {
     const html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="add-schedule"[^>]*>Add Schedule<\/button>/);assert.doesNotMatch(html,/data-action="add-schedule"[^>]*disabled/);
   });
 
-  test("incomplete schedule and Track building modes can always be exited and resumed",()=>{
+  test("leaving Add Schedule deletes the unfinished schedule but preserves the Train",()=>{
     const state=api.state,train=state.trains[0],initialTrack=[...state.tracks.values()][0];state.selected={type:"train",id:train.id};
     state.mode="schedule";state.scheduleTrainId=train.id;train.schedule=[{q:4,r:0}];train.scheduleComplete=false;
-    assert.equal(api.setMode("select"),true);assert.equal(state.scheduleTrainId,null);assert.match(api.selectionHtml(),/data-action="add-schedule"[^>]*>Add Schedule<\/button>/);
+    assert.equal(api.setMode("turret"),true);assert.equal(state.scheduleTrainId,null);assert.equal(train.schedule.length,0);assert.equal(train.scheduleComplete,false);assert.ok(state.trains.includes(train));
+    assert.match(api.selectionHtml(),/data-action="add-schedule"[^>]*>Add Schedule<\/button>/);
 
     assert.equal(api.setMode("track"),true);api.layTrack(initialTrack.q,initialTrack.r);assert.ok(state.trackStart);
     assert.equal(api.setMode("salvage"),true);assert.equal(state.trackStart,null,"switching tools must cancel the pending Track anchor");
@@ -413,6 +422,7 @@ describe("repairs, ghosts, and schedules", () => {
     let dispatches=0;const originalDispatch=api.sounds.dispatch;api.sounds.dispatch=()=>{dispatches++;};
     try{
       assert.equal(api.startScheduledLeg(train),true,"the current Stop should still be serviced");
+      assert.equal(train.stopHoldUntil-state.elapsed,2,"the base Train Stop hold should be two seconds");
       state.elapsed=train.stopHoldUntil;train.servicingStop=false;
       assert.equal(api.startScheduledLeg(train),true,"the next scheduled leg should still start");
       assert.equal(dispatches,0);
