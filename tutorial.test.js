@@ -8,7 +8,7 @@ beforeEach(() => { api.reset(); });
 
 function installTutorialLoop(){
   const positions=[
-    {q:1,r:0},{q:2,r:-1},{q:3,r:-2},{q:4,r:-2},{q:5,r:-2},{q:6,r:-2},
+    {q:2,r:0},{q:2,r:-1},{q:3,r:-2},{q:4,r:-2},{q:5,r:-2},{q:6,r:-2},
     {q:5,r:-1},{q:4,r:0},{q:3,r:1},{q:2,r:2},{q:1,r:3},{q:0,r:4},{q:-1,r:5},{q:-2,r:6},{q:-3,r:6},
     {q:-2,r:5},{q:-1,r:4},{q:0,r:3},{q:1,r:2},{q:1,r:1}
   ];
@@ -93,7 +93,7 @@ describe("guided tutorial",()=>{
     api.tutorialEvent("mode",{mode:"turret"});
     assert.equal(api.state.tutorial.step,13);
 
-    const turret={id:"tutorial-turret",type:"turret",q:1,r:-1};
+    const turret={id:"tutorial-turret",type:"turret",q:3,r:0};
     api.state.structures.set(api.key(turret.q,turret.r),turret);
     api.tutorialEvent("turret-built",{turret});
     assert.equal(api.state.tutorial.step,14);

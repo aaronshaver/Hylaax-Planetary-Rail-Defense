@@ -29,6 +29,7 @@ function handleHexClick(hex) {
   if (state.mode === "salvage") {
     if(train)return requestTrainSalvage(train);
     if (state.tracks.has(key(q,r))) return removeTrack(q,r);
+    if (structure?.type === "research" && structure.hp > 0) return requestResearchSalvage(structure);
     if (structure && structure.type !== "base") return salvageStructure(structure);
     if(ghost)return clearGhost(ghost);
     return fail("Cannot Salvage/Clear this type of Object");
@@ -84,7 +85,7 @@ function payBase(cost,item) {
 }
 
 function trainStopped(train) { return !train.route.length && !train.stepFrom; }
-function locoNearBase(train) { return trainStopped(train) && hexDistance(train,state.base)<=1; }
+function locoNearBase(train) { return trainStopped(train) && distanceToStructure(train,state.base)===1; }
 
 function fillWagonFromBase(train,wagon) {
   const type=wagon.role||wagon.type;
@@ -227,8 +228,8 @@ function updateAutomaticRepair(train) {
   const nextTrackKey=train.route[0]?key(train.route[0].q,train.route[0].r):null;
   const stop=scheduleStopAt(train.q,train.r),atOwnStop=trainStopped(train)&&stop?.train.id===train.id;
   const targets=[state.base,...state.structures.values(),...state.tracks.values()]
-    .filter(target=>target.hp<target.maxHp&&(target.type==="wall"?atOwnStop&&hexDistance(train,target)<=3:hexDistance(train,target)<=1))
-    .sort((a,b)=>Number(key(b.q,b.r)===nextTrackKey&&repairPriority(b)===0)-Number(key(a.q,a.r)===nextTrackKey&&repairPriority(a)===0)||repairPriority(a)-repairPriority(b)||hexDistance(train,a)-hexDistance(train,b)||(a.hp/a.maxHp)-(b.hp/b.maxHp));
+    .filter(target=>target.hp<target.maxHp&&(target.type==="wall"?atOwnStop&&hexDistance(train,target)<=3:(target.type==="base"?distanceToStructure(train,target):hexDistance(train,target))<=1))
+    .sort((a,b)=>Number(key(b.q,b.r)===nextTrackKey&&repairPriority(b)===0)-Number(key(a.q,a.r)===nextTrackKey&&repairPriority(a)===0)||repairPriority(a)-repairPriority(b)||(a.type==="base"?distanceToStructure(train,a):hexDistance(train,a))-(b.type==="base"?distanceToStructure(train,b):hexDistance(train,b))||(a.hp/a.maxHp)-(b.hp/b.maxHp));
   const target=targets[0];
   if(!target)return false;
   const isTrack=state.tracks.get(key(target.q,target.r))===target;

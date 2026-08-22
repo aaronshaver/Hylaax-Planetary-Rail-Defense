@@ -19,7 +19,10 @@ describe("geometry and initial state", () => {
     const state = api.state;
     const [track]=state.tracks.values();
     assert.equal(state.tracks.size, 1);
-    assert.equal(api.hexDistance(track,state.base),1);
+    assert.equal(api.structureFootprint(state.base).length,4);
+    assert.equal(api.basePerimeter().length,10);
+    for(const cell of api.structureFootprint(state.base))assert.equal(api.structureAt(cell.q,cell.r),state.base);
+    assert.equal(api.distanceToStructure(track,state.base),1);
     assert.equal(track.links.size,0);
     assert.equal(state.trains.length,0);
     assert.equal(state.baseMaterial, 150);

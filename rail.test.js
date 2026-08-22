@@ -169,9 +169,9 @@ describe("repairs, ghosts, and schedules", () => {
 
   test("Build Track can replace non-Track wreckage without a separate clear action",()=>{
     const state=api.state;state.trains=[];state.tracks.clear();state.ghosts.clear();
-    state.tracks.set("0,0",makeTrack(0,0));state.ghosts.set("1,0",{id:"1,0",type:"ghost",objectType:"wall",q:1,r:0});state.trackStart={q:0,r:0};
-    api.layTrack(1,0);
-    assert.equal(state.ghosts.has("1,0"),false);assert.equal(state.tracks.has("1,0"),true);assert.equal(api.tracksAreLinked({q:0,r:0},{q:1,r:0}),true);
+    state.tracks.set("4,0",makeTrack(4,0));state.ghosts.set("5,0",{id:"5,0",type:"ghost",objectType:"wall",q:5,r:0});state.trackStart={q:4,r:0};
+    api.layTrack(5,0);
+    assert.equal(state.ghosts.has("5,0"),false);assert.equal(state.tracks.has("5,0"),true);assert.equal(api.tracksAreLinked({q:4,r:0},{q:5,r:0}),true);
   });
 
   test("the player can rebuild destroyed Track directly without losing its links",()=>{
@@ -207,6 +207,14 @@ describe("repairs, ghosts, and schedules", () => {
     for(const item of cases){state.baseMaterial=0;state.baseEnergy=0;state.structures.set(api.key(item.structure.q,item.structure.r),item.structure);api.salvageStructure(item.structure);assert.equal(state.baseMaterial,item.material,item.structure.type);assert.equal(state.baseEnergy,item.energy,item.structure.type);assert.equal(elements.get("toastStack").children.at(-1).textContent,item.message);}
   });
 
+  test("healthy Research salvage requires OK and Cancel leaves it intact",()=>{
+    const state=api.state,research={id:"research-confirm",type:"research",q:12,r:12,hp:300,maxHp:300,footprint:[{q:12,r:12},{q:13,r:12},{q:12,r:13}]};state.structures.set("12,12",research);state.baseMaterial=0;state.baseEnergy=0;
+    api.setMode("salvage");api.handleHexClick({q:12,r:12});
+    assert.equal(elements.get("confirmDialog").hidden,false);assert.equal(elements.get("confirmMessage").textContent,"Are you sure you want to Salvage the Research building?");assert.equal(state.structures.has("12,12"),true);
+    api.cancelTrainSalvage();assert.equal(state.structures.has("12,12"),true);
+    api.handleHexClick({q:12,r:12});assert.equal(api.confirmTrainSalvage(),true);assert.equal(state.structures.has("12,12"),false);assert.equal(state.baseMaterial,50);assert.equal(state.baseEnergy,50);
+  });
+
   test("invalid Salvage/Clear targets use the concise shared message",()=>{
     const state=api.state;api.setMode("salvage");api.handleHexClick({q:state.base.q,r:state.base.r});
     assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot Salvage/Clear this type of Object");
@@ -236,10 +244,10 @@ describe("repairs, ghosts, and schedules", () => {
 
   test("a newly deployed Turret Train starts with 10 Energy in its wagon",()=>{
     const state=api.state;state.trains=[];state.tracks.clear();
-    state.tracks.set("1,0",makeTrack(1,0,["2,0"]));state.tracks.set("2,0",makeTrack(2,0,["1,0"]));
+    state.tracks.set("3,0",makeTrack(3,0,["4,0"]));state.tracks.set("4,0",makeTrack(4,0,["3,0"]));
     state.deploymentPaid=true;state.deploymentTrainType="combat";
 
-    api.deployTrain(2,0);api.deployTrain(1,0);
+    api.deployTrain(4,0);api.deployTrain(3,0);
 
     assert.equal(state.trains.length,1);
     assert.equal(state.trains[0].trainType,"combat");
@@ -253,10 +261,10 @@ describe("repairs, ghosts, and schedules", () => {
 
   test("a Build/Mine Train renders immediately when deployed while the tutorial-like game state is paused",()=>{
     const state=api.state,context=elements.get("gameCanvas").context;state.paused=true;state.trains=[];state.tracks.clear();
-    state.tracks.set("1,0",makeTrack(1,0,["2,0"]));state.tracks.set("2,0",makeTrack(2,0,["1,0","3,0"]));state.tracks.set("3,0",makeTrack(3,0,["2,0"]));
+    state.tracks.set("3,0",makeTrack(3,0,["4,0"]));state.tracks.set("4,0",makeTrack(4,0,["3,0","5,0"]));state.tracks.set("5,0",makeTrack(5,0,["4,0"]));
     state.deploymentPaid=true;state.deploymentTrainType="builder";context.textCalls.length=0;
 
-    api.deployTrain(3,0);api.deployTrain(1,0);
+    api.deployTrain(5,0);api.deployTrain(3,0);
 
     assert.equal(state.trains.length,1);assert.equal(state.trains[0].trainType,"builder");
     assert.ok(context.textCalls.some(call=>call.text==="L"),"successful paused deployment should synchronously render the Locomotive");

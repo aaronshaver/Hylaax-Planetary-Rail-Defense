@@ -189,7 +189,7 @@ function buildTurret(q, r) {
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
   if (!isPassable(q, r) || site.terrain.type === "resource" || structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("Turrets need clear ground away from track.");
   if(!payBase(COSTS.turret,"Turret"))return;
-  const turret = { id: `turret-${state.nextId++}`, type: "turret", q, r, hp: 18, maxHp: 18, energy: 20, maxEnergy: 20, cooldown: 0, showRangeUntil: state.elapsed + 3.5 };
+  const turret = { id: `turret-${state.nextId++}`, type: "turret", q, r, hp: TURRET_HIT_POINTS, maxHp: TURRET_HIT_POINTS, energy: 20, maxEnergy: 20, cooldown: 0 };
   if(ghost)replaceDestroyedSite(ghost,site);
   state.structures.set(key(q,r), turret);
   invalidateEnemyNavigation();
@@ -269,15 +269,24 @@ function clearGhost(ghost){
 
 function requestTrainSalvage(train){
   state.pendingTrainSalvageId=train.id;
+  state.pendingResearchSalvageId=null;
   ui.confirmMessage.innerHTML=`<strong>${train.name}</strong> and all of its schedule stops will be removed. 30 Construction Material and all carried resources will return to Base.`;
   ui.confirmDialog.hidden=false;ui.confirmDialog.classList.remove("d-none");ui.confirmYes.focus();
 }
 
+function requestResearchSalvage(research){
+  state.pendingResearchSalvageId=research.id;state.pendingTrainSalvageId=null;
+  ui.confirmMessage.textContent="Are you sure you want to Salvage the Research building?";
+  ui.confirmDialog.hidden=false;ui.confirmDialog.classList.remove("d-none");ui.confirmYes.focus();
+}
+
 function cancelTrainSalvage(){
-  state.pendingTrainSalvageId=null;ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");canvas.focus();
+  state.pendingTrainSalvageId=null;state.pendingResearchSalvageId=null;ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");canvas.focus();
 }
 
 function confirmTrainSalvage(){
+  const research=[...state.structures.values()].find(candidate=>candidate.id===state.pendingResearchSalvageId);
+  if(research){cancelTrainSalvage();salvageStructure(research);return true;}
   const train=state.trains.find(candidate=>candidate.id===state.pendingTrainSalvageId);
   if(!train){cancelTrainSalvage();return false;}
   const carriedMaterial=totalCargo(train,"material"),carriedEnergy=totalCargo(train,"energy");

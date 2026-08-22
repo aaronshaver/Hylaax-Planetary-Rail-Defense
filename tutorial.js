@@ -63,7 +63,7 @@ function tutorialLoopTargets(){
       for(const linkedKey of state.tracks.get(trackKey)?.links||[])if(unseen.delete(linkedKey))componentQueue.push(linkedKey);
     }
     const positions=componentKeys.map(fromKey);
-    if(!positions.some(position=>hexDistance(position,state.base)<=1))continue;
+    if(!positions.some(position=>distanceToStructure(position,state.base)===1))continue;
     const material=nearbyResource(positions,"material"),energy=nearbyResource(positions,"energy");
     if(material&&energy)return {material,energy,trackKeys:new Set(componentKeys)};
   }
@@ -72,7 +72,7 @@ function tutorialLoopTargets(){
 
 function tutorialScheduleTargets(train){
   if(!train?.scheduleComplete||train.schedule.length<3)return null;
-  if(!train.schedule.some(stop=>hexDistance(stop,state.base)<=1))return null;
+  if(!train.schedule.some(stop=>distanceToStructure(stop,state.base)===1))return null;
   const material=nearbyResource(train.schedule,"material"),energy=nearbyResource(train.schedule,"energy");
   return material&&energy?{material,energy}:null;
 }

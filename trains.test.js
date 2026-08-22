@@ -12,6 +12,14 @@ function positionTrain(train,positions){
 }
 
 describe("resource logistics", () => {
+  test("all ten hexes around the four-cell Base service Trains",()=>{
+    const state=api.state,train=state.trains[0],perimeter=api.basePerimeter();assert.equal(perimeter.length,10);
+    for(const stop of perimeter){
+      moveTrain(train,stop.q,stop.r);train.wasNearBase=false;train.fuel=train.maxFuel;train.wagons[0].amount=1;train.wagons[1].amount=0;state.baseMaterial=0;state.baseEnergy=0;
+      api.updateAutomaticLogistics();assert.equal(state.baseMaterial,1,`${stop.q},${stop.r} should service the Base`);
+    }
+  });
+
   test("a Train that runs out of Energy snaps every car to its nearest complete hex",()=>{
     const train=api.state.trains[0],from=[{q:8,r:0},{q:7,r:0},{q:6,r:0}],to=[{q:9,r:0},{q:8,r:0},{q:7,r:0}];
     positionTrain(train,from);train.stepFrom=from;train.stepTo=to;train.progress=.7;
@@ -40,7 +48,7 @@ describe("resource logistics", () => {
 
   test("the Base reports Energy loaded into a Train",()=>{
     const state=api.state,train=state.trains[0];
-    moveTrain(train,1,0);train.fuel=10;train.wagons[0].amount=1;train.wagons[1].amount=0;state.baseEnergy=50;
+    moveTrain(train,2,0);train.fuel=10;train.wagons[0].amount=1;train.wagons[1].amount=0;state.baseEnergy=50;
 
     api.serviceBaseLogistics(train);
 
@@ -52,7 +60,7 @@ describe("resource logistics", () => {
   test("the Base accepts each resource only up to 110", () => {
     const state = api.state;
     const train = state.trains[0];
-    moveTrain(train, 1, 0);
+    moveTrain(train, 2, 0);
     train.fuel = train.maxFuel;
     train.wagons[0].amount = 30;
     train.wagons[1].amount = 30;
@@ -72,13 +80,13 @@ describe("resource logistics", () => {
   test("a Turret receives Energy before the nearby Base", () => {
     const state = api.state;
     const train = state.trains[0];
-    moveTrain(train, 1, 0);
+    moveTrain(train, 2, 0);
     train.fuel = train.maxFuel;
     train.wagons[0].amount = 0;
     train.wagons[1].amount = 20;
     train.wasNearBase = false;
     state.baseEnergy = 90;
-    const turret = { id: "turret-priority", type: "turret", q: 1, r: -1, hp: 18, maxHp: 18, energy: 12, maxEnergy: 20, cooldown: 0 };
+    const turret = { id: "turret-priority", type: "turret", q: 3, r: -1, hp: 18, maxHp: 18, energy: 12, maxEnergy: 20, cooldown: 0 };
     state.structures.set(api.key(turret.q, turret.r), turret);
 
     api.updateAutomaticLogistics();

@@ -1,18 +1,18 @@
 "use strict";
 
 const RESEARCH_UPGRADES = [
-  {key:"turretFireRate",label:"50% Faster Turret Firing",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
-  {key:"turretDamage",label:"50% Higher Turret Damage",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
-  {key:"turretRange",label:"20% Farther Turret Range",multiplier:1.2,description:"Applies to both Fixed Turrets and Turret Trains."},
-  {key:"mineEfficiency",label:"20% Improved Mine Efficiency",multiplier:1.2,description:"Mining uses fewer resources, extending the life of the Resource Node under the Mine."},
-  {key:"trainCapacity",label:"50% Larger Train Capacity",multiplier:1.5,description:"All Train Supply wagons hold more resources."},
-  {key:"trainSpeed",label:"50% Faster Trains",multiplier:1.5,description:"All Trains move 50% faster."},
-  {key:"artilleryFireRate",label:"50% Faster Artillery Firing",multiplier:1.5,description:"Artillery fires 50% faster."},
-  {key:"artilleryDamage",label:"50% Higher Artillery Damage",multiplier:1.5,description:"Both Artillery center and splash damage increase by 50%."},
-  {key:"artilleryRange",label:"20% Farther Artillery Range",multiplier:1.2,description:"Artillery range increases by 20%."},
-  {key:"wallStrength",label:"50% Stronger Walls",multiplier:1.5,description:"Walls have 50% more Hit Points."},
-  {key:"trackStrength",label:"400% Stronger Tracks",multiplier:5,description:"Tracks have 400% more Hit Points."},
-  {key:"researchSpeed",label:"10% Faster Research",multiplier:1.1,description:"Research points are acquired 10% faster, e.g. not just 1 per second but instead 1.1."}
+  {key:"turretFireRate",group:"Turrets (Fixed and Train)",label:"+50% Turret Firing Rate",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
+  {key:"turretDamage",group:"Turrets (Fixed and Train)",label:"+50% Turret Damage",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
+  {key:"turretRange",group:"Turrets (Fixed and Train)",label:"+20% Turret Range",multiplier:1.2,description:"Applies to both Fixed Turrets and Turret Trains."},
+  {key:"artilleryFireRate",group:"Artillery",label:"+50% Artillery Firing Rate",multiplier:1.5,description:"Artillery fires 50% more frequently."},
+  {key:"artilleryDamage",group:"Artillery",label:"+50% Artillery Damage",multiplier:1.5,description:"Artillery center and splash damage increase by 50%."},
+  {key:"artilleryRange",group:"Artillery",label:"+20% Artillery Range",multiplier:1.2,description:"Artillery range increases by 20%."},
+  {key:"trainCapacity",group:"Trains and Mining",label:"+50% Train Capacity",multiplier:1.5,description:"All Train Supply wagons hold 50% more resources."},
+  {key:"trainSpeed",group:"Trains and Mining",label:"+25% Train Speed",multiplier:1.25,description:"All Trains move 25% faster."},
+  {key:"mineEfficiency",group:"Trains and Mining",label:"+20% Mining Efficiency",multiplier:1.2,description:"Mining uses fewer resources, extending the life of the Resource Node under the Mine."},
+  {key:"wallStrength",group:"Infrastructure",label:"+50% Wall Hit Points",multiplier:1.5,description:"Walls have 50% more Hit Points."},
+  {key:"trackStrength",group:"Infrastructure",label:"+100% Track Hit Points",multiplier:2,description:"Tracks have 100% more Hit Points."},
+  {key:"researchSpeed",group:"Other",label:"+25% Research Rate",multiplier:1.25,description:"Research points are acquired 25% faster."}
 ];
 
 function researchUpgrade(keyName){return RESEARCH_UPGRADES.find(upgrade=>upgrade.key===keyName)||null;}
@@ -29,6 +29,7 @@ function trainCapacity(){return Math.floor(30*researchMultiplier("trainCapacity"
 function trainSpeed(){return 2.25*researchMultiplier("trainSpeed");}
 function artilleryFireInterval(){return ARTILLERY_FIRE_INTERVAL/researchMultiplier("artilleryFireRate");}
 function artilleryDamage(center=true){return (center?ARTILLERY_CENTER_DAMAGE:ARTILLERY_SPLASH_DAMAGE)*researchMultiplier("artilleryDamage");}
+function artilleryDamageAtDistance(distance){return (distance===0?ARTILLERY_CENTER_DAMAGE:distance===1?ARTILLERY_SPLASH_DAMAGE:ARTILLERY_OUTER_SPLASH_DAMAGE)*researchMultiplier("artilleryDamage");}
 function artilleryRange(){return Math.round(ARTILLERY_RANGE*researchMultiplier("artilleryRange"));}
 function wallHitPoints(){return WALL_HIT_POINTS*researchMultiplier("wallStrength");}
 function trackHitPoints(){return TRACK_HIT_POINTS*researchMultiplier("trackStrength");}
@@ -83,7 +84,7 @@ function purchaseResearchUpgrade(keyName){
   if(state.researchPoints+1e-9<RESEARCH_UPGRADE_COST)return fail(`Needs ${RESEARCH_UPGRADE_COST} Research points.`);
   state.researchPoints-=RESEARCH_UPGRADE_COST;
   state.researchUpgrades[keyName]=researchUpgradeCount(keyName)+1;
-  applyResearchUpgrade(keyName);sounds.place();toast(`${upgrade.label} Researched.`,"info");return true;
+  applyResearchUpgrade(keyName);sounds.place();toast(`${upgrade.label} (${researchUpgradeCount(keyName)}) Researched.`,"info");return true;
 }
 
 function updateResearch(dt){if(state.researchUnlocked)state.researchPoints+=dt*researchRate();}

@@ -4,46 +4,43 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 3.4</title>
+  <title>Planetary Rail Defense 4.0</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 3.4 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 4.0 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
       <div class="hud top-left">
         <div class="hud-stat">Base Construction: <strong id="baseMaterialHud">0</strong></div>
         <div class="hud-stat">Base Energy: <strong id="baseEnergyHud">0</strong></div>
-        <div class="hud-stat">Unmined C Left: <strong id="unminedMaterialHud">0</strong></div>
-        <div class="hud-stat">Unmined E Left: <strong id="unminedEnergyHud">0</strong></div>
+        <div class="hud-stat">Unmined Construction: <strong id="unminedMaterialHud">0</strong></div>
+        <div class="hud-stat">Unmined Energy: <strong id="unminedEnergyHud">0</strong></div>
         <div class="hud-stat">Research Points: <strong id="researchPointsHud">0</strong></div>
         <div class="hud-stat">Time Survived: <strong id="timeSurvived">00h 00m 00s</strong></div>
       </div>
 
       <div class="bottom-debug-row">
+        <button id="debugToggle" class="debug-toggle" type="button" aria-label="Toggle Debug menu" aria-controls="debugMenu" aria-expanded="false" title="Debug">D</button>
         <div id="performanceStatus" class="hud performance-status" aria-label="Rendering performance">
           FPS <strong id="fpsValue">0</strong>
         </div>
-        <button id="debugToggle" class="debug-toggle" type="button" aria-label="Toggle Debug menu" aria-controls="debugMenu" aria-expanded="false" title="Debug">D</button>
       </div>
 
-      <div id="worldPopulationStatus" class="hud world-population-status" aria-label="Current world population">
-        <div>Hives in world: <strong id="hivesInWorld">0</strong></div>
-        <div>Creeps in world: <strong id="creepsInWorld">0</strong></div>
-      </div>
+      <div class="feedback-contact">Feature request? Bug report? email AaronShaverEng [at] gmail {dot} com</div>
 
       <div id="toastStack" class="toast-stack" aria-live="polite"></div>
       <div id="tutorialPrompt" class="tutorial-prompt d-none" hidden role="status" aria-live="polite">
         <button id="tutorialRestart" class="btn tutorial-restart"><svg class="tutorial-restart-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3 2.5 6.5 6 10M3 6.5h6.1a4 4 0 1 1-3.2 6.4"/></svg><span>Restart Tutorial</span></button>
         <div id="tutorialText"></div>
-        <button id="tutorialOkay" class="btn btn-command d-none" hidden>Okay</button>
+        <button id="tutorialOkay" class="btn btn-command d-none" hidden>OK</button>
       </div>
       <div id="gameOver" class="game-over d-none" hidden>
         <div class="game-over-card">
           <div class="eyebrow text-danger">BASE LOST</div>
-          <h1>THE BIO-HOSTILE BROKE THROUGH</h1>
+          <h1>THE CREEP BROKE THROUGH</h1>
           <div class="defeat-stats">
             <div><span>Survival Time</span><strong id="survivalTime">00h 00m 00s</strong></div>
             <div><span>Hives Neutralized</span><strong id="defeatHivesNeutralized">0</strong></div>
@@ -68,7 +65,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 3.4</span></h1>
+          <h1>RAIL<br><span>DEFENSE 4.0</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" title="Pause simulation" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -80,13 +77,13 @@
         <div class="section-label">ACTIONS</div>
         <div class="tool-grid" role="group" aria-label="Actions">
           <button id="selectTool" class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="• Select units and structures."><span class="keycap">1</span>Select Object</button>
-          <button id="trackTool" class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="• Click existing Track to choose a start, then click adjacent empty hexes to build or adjacent existing Track to connect and close loops.&#10;• Click non-adjacent existing Track to choose a new start.&#10;• Tight triangles are not allowed.&#10;• Costs 1 (C)onstruction Material per new Track segment."><span class="keycap">2</span>Build Track</button>
-          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="• Build within three hexes of non-destroyed Track.&#10;• Will run out of Energy if not supplied by a Train Stop.&#10;• Costs 10 (C)onstruction Material and 5 (E)nergy."><span class="keycap">3</span>Build Turret</button>
-          <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="• Place a Mine on top of an existing finite Resource Node within three hexes of Track.&#10;• Costs 8 (C)onstruction Material."><span class="keycap">4</span>Build Mine</button>
-          <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="• Build on clear ground within three hexes of non-destroyed Track.&#10;• Costs 12 (C)onstruction Material."><span class="keycap">5</span>Build Wall</button>
-          <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="• Build within three hexes of non-destroyed Track.&#10;• Will run out of Energy if not supplied by a Train Stop.&#10;• Targets Hives only.&#10;• Range 12 hexes; lobs a shell every 3 seconds for 10 Energy.&#10;• Deals 8 damage in the target hex and 5 damage in its six neighboring hexes; Creeps can take splash damage.&#10;• Stores 50 Energy.&#10;• Costs 50 (C)onstruction Material and 50 (E)nergy."><span class="keycap">6</span>Build Artillery</button>
+          <button id="trackTool" class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 1 C, 0 E"><span class="keycap">2</span>Build Track</button>
+          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 10 C, 5 E"><span class="keycap">3</span>Build Turret</button>
+          <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 8 C, 0 E"><span class="keycap">4</span>Build Mine</button>
+          <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 12 C, 0 E"><span class="keycap">5</span>Build Wall</button>
+          <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 50 C, 50 E"><span class="keycap">6</span>Build Artillery</button>
           <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="• Salvage healthy Track, Turrets, Artillery, Mines, Walls, Research, or Trains to recover resources.&#10;• Clear destroyed objects without recovering resources, even when there is nothing to salvage.&#10;• Removing a Mine leaves any Resource Node with remaining resources in place.&#10;• Salvaging a Train requires confirmation and removes its schedule."><span class="keycap">7</span>Salvage/Clear Object</button>
-          <button id="researchTool" class="btn tool-button" data-mode="research" data-bs-toggle="tooltip" data-bs-placement="left" title="• Improve units and buildings; the first Research building grants 30 Research points, then every second adds another research point.&#10;• Takes up three hexes (triangular).&#10;• Costs 75 (C)onstruction Material and 75 (E)nergy."><span class="keycap">8</span>Build Research</button>
+          <button id="researchTool" class="btn tool-button" data-mode="research" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 50 C, 50 E"><span class="keycap">8</span>Build Research</button>
           <button id="centerBaseButton" class="btn tool-button" type="button" data-bs-toggle="tooltip" data-bs-placement="left" title="• Center the map on the Base without changing zoom."><span class="keycap">9</span>Center Map on Base</button>
         </div>
       </section>
@@ -125,12 +122,12 @@
 
   <div id="confirmDialog" class="confirm-overlay d-none" hidden role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
     <div class="confirm-card">
-      <div class="eyebrow text-danger">SALVAGE TRAIN</div>
-      <h2 id="confirmTitle">Really Salvage this Train?</h2>
+      <div class="eyebrow text-danger">CONFIRM SALVAGE</div>
+      <h2 id="confirmTitle">Confirm Salvage</h2>
       <p id="confirmMessage"></p>
       <div class="confirm-actions">
-        <button id="confirmNo" class="btn btn-outline-secondary">No</button>
-        <button id="confirmYes" class="btn btn-danger">Yes</button>
+        <button id="confirmNo" class="btn btn-outline-secondary">Cancel</button>
+        <button id="confirmYes" class="btn btn-danger">OK</button>
       </div>
     </div>
   </div>
@@ -138,9 +135,9 @@
   <div id="turretEnergyDialog" class="confirm-overlay d-none" hidden role="dialog" aria-modal="true" aria-labelledby="turretEnergyTitle" aria-describedby="turretEnergyMessage">
     <div class="confirm-card energy-warning-card">
       <div class="eyebrow">ENERGY WARNING</div>
-      <h2 id="turretEnergyTitle">Turret Out of Energy</h2>
-      <p id="turretEnergyMessage">One of your Turrets ran out of Energy. Both (T)urrets and (A)rtillery must be supplied with Energy by a Build/Mine Train loaded with Energy at an adjacent Train Stop.</p>
-      <button id="turretEnergyOkay" class="btn btn-command">Okay</button>
+      <h2 id="turretEnergyTitle">Turret / Artillery Out of Energy</h2>
+      <p id="turretEnergyMessage">One of your Turrets or Artillery ran out of Energy. Both Turrets and Artillery must be supplied with Energy by a Build/Mine Train loaded with Energy at an adjacent Train Stop.</p>
+      <button id="turretEnergyOkay" class="btn btn-command">OK</button>
     </div>
   </div>
 

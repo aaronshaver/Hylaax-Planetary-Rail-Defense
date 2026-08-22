@@ -29,15 +29,19 @@ const ARTILLERY_HIT_POINTS = 36;
 const ARTILLERY_MAX_ENERGY = 50;
 const ARTILLERY_FIRE_INTERVAL = 3;
 const ARTILLERY_SHELL_FLIGHT_SECONDS = .7;
+const ARTILLERY_BLAST_SECONDS = .75;
 const ARTILLERY_SHOT_ENERGY = 10;
 const ARTILLERY_CENTER_DAMAGE = 8;
 const ARTILLERY_SPLASH_DAMAGE = 5;
+const ARTILLERY_OUTER_SPLASH_DAMAGE = 1;
+const TURRET_HIT_POINTS = 20;
 const RESEARCH_HIT_POINTS = 300;
 const RESEARCH_UPGRADE_COST = 30;
 const CREEP_HEX_CAPACITY = 7;
 const CREEP_SLOT_RADIUS = 17;
 const CREEP_RENDER_SCALE = .64;
 const BASE_UNLOAD_TARGET = 110;
+const BASE_FOOTPRINT_OFFSETS = [{q:0,r:0},{q:1,r:0},{q:0,r:1},{q:1,r:-1}];
 const HIVE_LEVELS = [2,3,5,8,13,21];
 const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const COSTS = {
@@ -47,7 +51,7 @@ const COSTS = {
   mine: { material: 8, energy: 0 },
   wall: { material: 12, energy: 0 },
   artillery: { material: 50, energy: 50 },
-  research: { material: 75, energy: 75 }
+  research: { material: 50, energy: 50 }
 };
 const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, artillery: 30, research: 30 };
 const BASE_RESOURCE_TYPES = [
@@ -57,7 +61,7 @@ const BASE_RESOURCE_TYPES = [
 const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*(60*index-30);return {x:Math.cos(angle),y:Math.sin(angle)};});
 
 const ui = Object.fromEntries([
-  "baseEnergyHud", "baseMaterialHud", "unminedMaterialHud", "unminedEnergyHud", "researchPointsHud", "timeSurvived", "hivesInWorld", "creepsInWorld",
+  "baseEnergyHud", "baseMaterialHud", "unminedMaterialHud", "unminedEnergyHud", "researchPointsHud", "timeSurvived",
   "pauseToggle", "soundToggle", "centerBaseButton", "selectionLabel",
   "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack", "performanceStatus", "fpsValue",
@@ -74,6 +78,11 @@ const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const hexDistance = (a, b) => (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
 const neighbors = (q, r) => DIRECTIONS.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
+function footprintPerimeter(cells){
+  const occupied=new Set(cells.map(cell=>key(cell.q,cell.r))),perimeter=new Map();
+  for(const cell of cells)for(const position of neighbors(cell.q,cell.r))if(!occupied.has(key(position.q,position.r)))perimeter.set(key(position.q,position.r),position);
+  return [...perimeter.values()];
+}
 
 function trainCode(index) {
   let value=index,label="";

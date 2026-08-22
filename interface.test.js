@@ -112,11 +112,11 @@ describe("interface formatting", () => {
     assert.match(api.selectionHtml(),/A Train at an adjacent Stop instantly Mines and loads Energy/);
   });
 
-  test("Artillery selection reports its range, cadence, splash damage, and friendly-fire safety",()=>{
+  test("Artillery selection reports its range, cadence, three damage rings, and friendly-fire safety",()=>{
     const artillery={id:"artillery-copy",type:"artillery",q:6,r:-2,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};
     api.state.structures.set(api.key(artillery.q,artillery.r),artillery);api.state.selected={type:"structure",id:artillery.id};
     const html=api.selectionHtml();
-    assert.match(html,/Artillery/);assert.match(html,/Targets Hives only/);assert.match(html,/Range 12 hexes/);assert.match(html,/Lobs a shell every 3 seconds/);assert.match(html,/10 Energy per shot/);assert.match(html,/8 center damage \+ 5 damage/);assert.match(html,/Creeps can take splash damage/);assert.match(html,/No friendly fire/);
+    assert.match(html,/Artillery/);assert.match(html,/Targets Hives only/);assert.match(html,/Range 12 hexes/);assert.match(html,/Lobs a shell every 3 seconds/);assert.match(html,/10 Energy per shot/);assert.match(html,/8 center damage \+ 5 adjacent-ring damage \+ 1 outer-ring damage per hex/);assert.match(html,/Creeps can take splash damage/);assert.match(html,/No friendly fire/);
   });
 
   test("the selection label is hidden only when nothing is selected",()=>{
@@ -147,7 +147,7 @@ describe("interface formatting", () => {
     assert.equal(pause.innerHTMLWriteCount,writes+1,"the button should update once when its state actually changes");
   });
 
-  test("clicking a Bio-hostile selects it and shows its hit points", () => {
+  test("clicking a Creep selects it and shows its hit points", () => {
     const enemy = makeEnemy("enemy-selected",3,2);
     api.state.enemies.push(enemy);
 
@@ -155,7 +155,7 @@ describe("interface formatting", () => {
 
     assert.deepEqual({ ...api.state.selected },{type:"enemy",id:enemy.id});
     const html = api.selectionHtml();
-    assert.match(html,/Bio-hostile/);
+    assert.match(html,/Creep/);
     assert.match(html,/HIT POINTS/);
     assert.match(html,/1 \/ 1/);
   });

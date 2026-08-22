@@ -96,7 +96,7 @@ describe("Hive and defense behavior", () => {
     api.updateStructures(.01);assert.equal(hive.hp,11);assert.equal(turret.energy,1);
   });
 
-  test("the first fixed Turret to run out of Energy pauses for one warning only",()=>{
+  test("the first Turret or Artillery to run out of Energy pauses for one shared warning only",()=>{
     const state=api.state;state.hives.clear();state.enemies=[];state.structures.clear();
     const turret={id:"turret-empty-warning",type:"turret",q:5,r:0,hp:18,maxHp:18,energy:1,maxEnergy:20,cooldown:0};state.structures.set("5,0",turret);
     const hive=api.createHive(6,0,2,false,false);
@@ -105,6 +105,16 @@ describe("Hive and defense behavior", () => {
     assert.equal(api.dismissTurretEnergyWarning(),true);assert.equal(state.paused,false);assert.equal(elements.get("turretEnergyDialog").hidden,true);
     turret.energy=1;turret.cooldown=0;api.updateStructures(0);
     assert.equal(turret.energy,0);assert.equal(elements.get("turretEnergyDialog").hidden,true,"later empty Turrets must not repeat the modal");
+  });
+
+  test("Artillery can trigger the shared one-time Energy warning before a Turret",()=>{
+    const state=api.state;state.hives.clear();state.structures.clear();
+    const artillery={id:"artillery-empty-warning",type:"artillery",q:0,r:0,hp:36,maxHp:36,energy:10,maxEnergy:50,cooldown:0};state.structures.set("0,0",artillery);api.createHive(3,0,20);
+    api.updateStructures(0);
+    assert.equal(artillery.energy,0);assert.equal(state.turretEnergyWarningShown,true);assert.equal(elements.get("turretEnergyDialog").hidden,false);
+    api.dismissTurretEnergyWarning();
+    const turret={id:"turret-later-warning",type:"turret",q:2,r:0,hp:20,maxHp:20,energy:1,maxEnergy:20,cooldown:0};state.structures.set("2,0",turret);api.updateStructures(0);
+    assert.equal(elements.get("turretEnergyDialog").hidden,true);
   });
 
   test("Turret shots use mellow low-gain triangle and sine tones",()=>{
@@ -119,7 +129,7 @@ describe("Hive and defense behavior", () => {
     const friendlyWall={id:"friendly-wall",type:"wall",q:8,r:-1,hp:100,maxHp:100};
     state.structures.set("0,0",artillery);state.structures.set("8,-1",friendlyWall);
     const friendlyTrain=addTestTrain();moveTrain(friendlyTrain,9,-1);
-    const centerHive=api.createHive(8,0,13,false,false),splashHive=api.createHive(9,0,13,false,false);
+    const centerHive=api.createHive(8,0,13,false,false),splashHive=api.createHive(9,0,13,false,false),outerHive=api.createHive(10,0,13,false,false);
     const centerCreep=makeEnemy("enemy-center",8,0),splashCreep=makeEnemy("enemy-splash",8,1);centerCreep.hp=centerCreep.maxHp=10;splashCreep.hp=splashCreep.maxHp=10;state.enemies=[centerCreep,splashCreep];
 
     api.updateStructures(0);
@@ -129,10 +139,10 @@ describe("Hive and defense behavior", () => {
 
     api.updateStructures(api.constants.ARTILLERY_SHELL_FLIGHT_SECONDS);
 
-    assert.equal(centerHive.hp,5);assert.equal(splashHive.hp,8);
+    assert.equal(centerHive.hp,5);assert.equal(splashHive.hp,8);assert.equal(outerHive.hp,12);
     assert.equal(centerCreep.hp,2);assert.equal(splashCreep.hp,5);
     assert.equal(friendlyWall.hp,100);assert.equal(friendlyTrain.hp,50);
-    assert.equal(artillery.energy,30);assert.equal(state.projectiles.at(-1).kind,"artillery-blast");
+    assert.equal(artillery.energy,30);assert.equal(state.projectiles.at(-1).kind,"artillery-blast");assert.equal(state.projectiles.at(-1).maxLife,.75);
 
     api.updateStructures(2.29);assert.equal(centerHive.hp,5);assert.equal(artillery.energy,30);
     api.updateStructures(.01);assert.equal(centerHive.hp,5);assert.equal(artillery.energy,20);assert.equal(state.projectiles.at(-1).kind,"artillery-shell");
@@ -212,10 +222,12 @@ describe("Hive and defense behavior", () => {
     state.structures.set("0,8",{id:"mine-buffer",type:"mine",q:0,r:8,hp:22,maxHp:22});
     state.ghosts.set("-8,0",{id:"-8,0",type:"ghost",objectType:"track",q:-8,r:0,links:[]});
 
-    for(const anchor of api.playerConstructionAnchors()){
+    for(const anchor of [{q:8,r:0},{q:0,r:8},{q:-8,r:0}]){
       assert.equal(api.outsidePlayerConstructionBuffer(anchor.q+3,anchor.r),false);
       assert.equal(api.outsidePlayerConstructionBuffer(anchor.q+4,anchor.r),true);
     }
+    for(const cell of api.structureFootprint(state.base))assert.equal(api.outsidePlayerConstructionBuffer(cell.q+3,cell.r),false);
+    assert.equal(api.outsidePlayerConstructionBuffer(-4,0),true);
   });
 
   test("mountains and trees block both Turrets and Turret Trains",()=>{

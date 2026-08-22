@@ -9,16 +9,25 @@ function terrainNoise(q,r,scale,salt){
   return lerp(lerp(a,b,sx),lerp(c,d,sx),sy);
 }
 
+function insideTerrainPatch(q,r,centerQ,centerR,radius,shapeSeed,salt){
+  const x=(q-centerQ)+(r-centerR)/2,y=(r-centerR)*.8660254;
+  const angle=shapeSeed*Math.PI,cos=Math.cos(angle),sin=Math.sin(angle),aspect=.68+terrainHash(Math.floor(centerQ),Math.floor(centerR),salt+1)*.64;
+  const rotatedX=(x*cos-y*sin)/(radius*aspect),rotatedY=(x*sin+y*cos)/(radius/aspect);
+  const edgeWobble=(terrainNoise(q,r,1.55,salt+2)-.5)*.3;
+  return Math.hypot(rotatedX,rotatedY)<=1+edgeWobble;
+}
+
 function inWaterBlob(q,r){
   const size=13,mq=Math.floor(q/size),mr=Math.floor(r/size);
   for(let dq=-1;dq<=1;dq++)for(let dr=-1;dr<=1;dr++){
     const cellQ=mq+dq,cellR=mr+dr;
-    if(terrainHash(cellQ,cellR,101)>.34)continue;
+    const regionQ=Math.floor(cellQ/4),regionR=Math.floor(cellR/4),regionalFrequency=.27+terrainHash(regionQ,regionR,108)*.14;
+    if(terrainHash(cellQ,cellR,101)>regionalFrequency)continue;
     const centerQ=cellQ*size+terrainHash(cellQ,cellR,102)*(size-1);
     const centerR=cellR*size+terrainHash(cellQ,cellR,103)*(size-1);
-    const x=(q-centerQ)+(r-centerR)/2,y=(r-centerR)*.8660254;
-    const radius=2.4+terrainHash(cellQ,cellR,104)*3.2;
-    if(Math.hypot(x,y)<=radius)return true;
+    const regionalScale=.88+terrainHash(regionQ,regionR,109)*.24;
+    const radius=(2.05+Math.pow(terrainHash(cellQ,cellR,104),.82)*3.95)*regionalScale;
+    if(insideTerrainPatch(q,r,centerQ,centerR,radius,terrainHash(cellQ,cellR,106),107))return true;
   }
   return false;
 }
@@ -27,12 +36,13 @@ function inTreeGrove(q,r){
   const size=10,mq=Math.floor(q/size),mr=Math.floor(r/size);
   for(let dq=-1;dq<=1;dq++)for(let dr=-1;dr<=1;dr++){
     const cellQ=mq+dq,cellR=mr+dr;
-    if(terrainHash(cellQ,cellR,301)>.28)continue;
+    const regionQ=Math.floor(cellQ/4),regionR=Math.floor(cellR/4),regionalFrequency=.22+terrainHash(regionQ,regionR,308)*.12;
+    if(terrainHash(cellQ,cellR,301)>regionalFrequency)continue;
     const centerQ=cellQ*size+terrainHash(cellQ,cellR,302)*(size-1);
     const centerR=cellR*size+terrainHash(cellQ,cellR,303)*(size-1);
-    const x=(q-centerQ)+(r-centerR)/2,y=(r-centerR)*.8660254;
-    const radius=2+terrainHash(cellQ,cellR,304)*2.2;
-    if(Math.hypot(x,y)<=radius)return true;
+    const regionalScale=.88+terrainHash(regionQ,regionR,309)*.24;
+    const radius=(1.7+Math.pow(terrainHash(cellQ,cellR,304),.82)*2.95)*regionalScale;
+    if(insideTerrainPatch(q,r,centerQ,centerR,radius,terrainHash(cellQ,cellR,306),307))return true;
   }
   return false;
 }
@@ -51,7 +61,7 @@ for(const nodeKey of guaranteedNodes.keys()){
 let terrainCacheSeed=null,terrainCache=new Map();
 
 function baseTerrainAt(q,r){
-  const d = hexDistance({ q, r }, { q: 0, r: 0 });
+  const d = distanceToStructure({q,r},state.base);
   const corridorA = q >= 0 && q <= 7 && r >= -2 && r <= 0;
   const corridorB = q >= -4 && q <= 0 && r >= 0 && r <= 7;
   if (d < 6 || corridorA || corridorB||guaranteedResourceCorridors.has(key(q,r)))return {type:"ground"};
@@ -89,7 +99,7 @@ function terrainAt(q, r) {
   const guaranteed = guaranteedNodes.get(terrainKey);
   if (guaranteed){const terrain={type:"resource",resource:guaranteed};terrainCache.set(terrainKey,terrain);return terrain;}
   let terrain=baseTerrainAt(q,r);
-  const d=hexDistance({q,r},{q:0,r:0}),corridorA=q>=0&&q<=7&&r>=-2&&r<=0,corridorB=q>=-4&&q<=0&&r>=0&&r<=7;
+  const d=distanceToStructure({q,r},state.base),corridorA=q>=0&&q<=7&&r>=-2&&r<=0,corridorB=q>=-4&&q<=0&&r>=0&&r<=7;
   if(terrain.type==="ground"&&d>=6&&!corridorA&&!corridorB&&!guaranteedResourceCorridors.has(terrainKey)&&terrainHash(q,r,17)>.986&&resourceHasOpenApproach(q,r))terrain={type:"resource",resource:terrainHash(q,r,31)>.5?"material":"energy"};
   terrainCache.set(terrainKey,terrain);return terrain;
 }

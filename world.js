@@ -2,11 +2,11 @@
 
 function makeInitialState() {
   const mapSeed=Date.now();
-  const [dq,dr]=DIRECTIONS[Math.floor(Math.random()*DIRECTIONS.length)];
-  const initialTrack={q:dq,r:dr};
+  const base = { id: "base", type: "base", q: 0, r: 0, footprint:BASE_FOOTPRINT_OFFSETS.map(offset=>({q:offset.q,r:offset.r})), hp: 100, maxHp: 100 };
+  const perimeter=footprintPerimeter(base.footprint),initialTrack=perimeter[Math.floor(Math.random()*perimeter.length)];
   const tracks = new Map();
   tracks.set(key(initialTrack.q,initialTrack.r), { ...initialTrack, hp: TRACK_HIT_POINTS, maxHp: TRACK_HIT_POINTS, links: new Set() });
-  const base = { id: "base", type: "base", q: 0, r: 0, hp: 100, maxHp: 100 };
+  const baseCenter=structureWorldCenter(base);
   return {
     mode: "select",
     paused: false,
@@ -51,10 +51,11 @@ function makeInitialState() {
     deploymentPaths: [],
     deploymentReserved: new Set(),
     pendingTrainSalvageId: null,
+    pendingResearchSalvageId: null,
     hover: null,
     nextId: 1,
     nextTrainIndex: 0,
-    camera: { x: 75, y: 45, zoom: 1 },
+    camera: { x: baseCenter.x, y: baseCenter.y, zoom: 1 },
     pointer: { down: false, moved: false, x: 0, y: 0, startX: 0, startY: 0, camX: 0, camY: 0 },
     sound: true,
     tutorial: null
@@ -104,8 +105,8 @@ function hiveHexOpen(q,r,constructionAnchors=playerConstructionAnchors()){
 function seedInitialHives(){
   const candidates=[],constructionAnchors=playerConstructionAnchors();
   for(let q=-22;q<=22;q++)for(let r=-22;r<=22;r++){
-    const distance=hexDistance({q,r},state.base);
-    const tooCloseToInfrastructure=hexDistance({q,r},state.base)<INITIAL_HIVE_BUFFER||[...state.tracks.values()].some(track=>hexDistance({q,r},track)<INITIAL_HIVE_BUFFER);
+    const distance=distanceToStructure({q,r},state.base);
+    const tooCloseToInfrastructure=distanceToStructure({q,r},state.base)<INITIAL_HIVE_BUFFER||[...state.tracks.values()].some(track=>hexDistance({q,r},track)<INITIAL_HIVE_BUFFER);
     if(tooCloseToInfrastructure||distance>20||!hiveHexOpen(q,r,constructionAnchors))continue;
     candidates.push({q,r,score:terrainHash(q,r,901)});
   }
@@ -186,7 +187,7 @@ function resize() {
 }
 
 function centerMapOnBase(){
-  const center=axialToWorld(state.base.q,state.base.r);
+  const center=structureWorldCenter(state.base);
   state.camera.x=center.x;state.camera.y=center.y;render();canvas.focus();return center;
 }
 
@@ -206,11 +207,15 @@ function isPassable(q, r) {
 }
 
 function structureAt(q, r) {
-  if (state.base.q === q && state.base.r === r) return state.base;
+  if (structureFootprint(state.base).some(cell=>cell.q===q&&cell.r===r)) return state.base;
   return state.structures.get(key(q, r)) || [...state.structures.values()].find(structure=>structureFootprint(structure).some(cell=>cell.q===q&&cell.r===r)) || null;
 }
 
 function structureFootprint(object){return object?.footprint?.length?object.footprint:[{q:object.q,r:object.r}];}
+function distanceToStructure(position,object){return Math.min(...structureFootprint(object).map(cell=>hexDistance(position,cell)));}
+function nearestStructureCell(position,object){return [...structureFootprint(object)].sort((a,b)=>hexDistance(position,a)-hexDistance(position,b))[0];}
+function structureWorldCenter(object){const cells=structureFootprint(object),points=cells.map(cell=>axialToWorld(cell.q,cell.r));return {x:points.reduce((sum,point)=>sum+point.x,0)/points.length,y:points.reduce((sum,point)=>sum+point.y,0)/points.length};}
+function basePerimeter(){return footprintPerimeter(structureFootprint(state.base));}
 
 function ghostAt(q,r){return state.ghosts.get(key(q,r))||[...state.ghosts.values()].find(ghost=>structureFootprint(ghost).some(cell=>cell.q===q&&cell.r===r))||null;}
 
@@ -273,11 +278,12 @@ function clearDeploymentReservation(refund=false){
   state.deploymentPaid=false;state.deploymentTrainType=null;state.deploymentHead=null;state.deploymentPaths=[];state.deploymentReserved.clear();
 }
 
-function setMode(mode) {
+function setMode(mode,clearSelection=false) {
   if(state.mode==="schedule"&&mode!=="schedule")state.scheduleTrainId=null;
   if(!constructionModeAffordable(mode)){fail(constructionModeUnavailableMessage(mode));updateUI(true);return false;}
   if (mode !== "track" || state.mode !== "track") state.trackStart = null;
   if(state.mode==="deploy"&&(mode!=="deploy"||state.deploymentPaid))clearDeploymentReservation(true);
+  if(mode==="select"&&clearSelection)state.selected=null;
   state.mode = mode;
   document.querySelectorAll("[data-mode]").forEach(button => button.classList.toggle("active", button.dataset.mode === mode));
   canvas.style.cursor = mode === "select" ? "default" : "crosshair";

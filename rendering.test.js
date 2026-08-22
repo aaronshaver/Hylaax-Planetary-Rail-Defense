@@ -7,6 +7,15 @@ const { api, elements, makeEnemy } = require("./harness.js");
 beforeEach(() => { api.reset(); });
 
 describe("rendering caches", () => {
+  test("all gray Track junction hubs render after every black rail bed",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state,{makeTrack}=require("./harness.js");state.tracks.clear();
+    const a=makeTrack(1,0,["0,0"]),b=makeTrack(0,0,["1,0","-1,0"]),c=makeTrack(-1,0,["0,0"]);
+    state.tracks.set("1,0",a);state.tracks.set("0,0",b);state.tracks.set("-1,0",c);context.paintCalls.length=0;api.drawTracks();
+    const lastBed=context.paintCalls.map((call,index)=>({call,index})).filter(({call})=>call.kind==="stroke"&&call.strokeStyle==="#0a0d0f"&&call.lineWidth===15).at(-1)?.index;
+    const firstHub=context.paintCalls.findIndex(call=>call.kind==="fill"&&call.fillStyle==="#0a0d0f"&&call.path.some(item=>item.command==="arc"&&item.r===7.5));
+    assert.ok(lastBed>=0&&firstHub>lastBed,"no later rail bed may cover a surfaced junction hub");
+  });
+
   test("Build Track glow uses wall-clock time and remains animated while paused",()=>{
     const state=api.state;state.mode="track";state.paused=true;state.elapsed=0;
     const first=api.trackGlowPhase(1000);state.elapsed=9999;
@@ -26,18 +35,18 @@ describe("rendering caches", () => {
 
   test("every Train Stop persistently draws supply lines without needing selection",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
-    const {addTestTrain,makeTrack}=require("./harness.js"),train=addTestTrain(),stop={q:1,r:0};
-    train.schedule=[stop];state.tracks.set("1,0",makeTrack(1,0));state.selected=null;
+    const {addTestTrain,makeTrack}=require("./harness.js"),train=addTestTrain(),stop={q:2,r:0};
+    train.schedule=[stop];state.tracks.set("2,0",makeTrack(2,0));state.selected=null;
     const targets=[
       state.base,
-      {id:"stop-turret",type:"turret",q:2,r:0,hp:18,maxHp:18,energy:0,maxEnergy:20},
-      {id:"stop-artillery",type:"artillery",q:1,r:-1,hp:36,maxHp:36,energy:0,maxEnergy:40},
-      {id:"stop-mine",type:"mine",q:2,r:-1,hp:22,maxHp:22,resource:"material"},
-      {id:"stop-wall",type:"wall",q:4,r:0,hp:100,maxHp:100}
+      {id:"stop-turret",type:"turret",q:3,r:0,hp:18,maxHp:18,energy:0,maxEnergy:20},
+      {id:"stop-artillery",type:"artillery",q:2,r:-1,hp:36,maxHp:36,energy:0,maxEnergy:40},
+      {id:"stop-mine",type:"mine",q:3,r:-1,hp:22,maxHp:22,resource:"material"},
+      {id:"stop-wall",type:"wall",q:5,r:0,hp:100,maxHp:100}
     ];
     for(const target of targets.slice(1))state.structures.set(api.key(target.q,target.r),target);
-    state.structures.set("5,0",{id:"far-wall",type:"wall",q:5,r:0,hp:100,maxHp:100});
-    state.structures.set("3,-1",{id:"far-turret",type:"turret",q:3,r:-1,hp:18,maxHp:18,energy:0,maxEnergy:20});
+    state.structures.set("6,0",{id:"far-wall",type:"wall",q:6,r:0,hp:100,maxHp:100});
+    state.structures.set("4,-1",{id:"far-turret",type:"turret",q:4,r:-1,hp:18,maxHp:18,energy:0,maxEnergy:20});
     context.strokeCalls.length=0;
 
     api.drawStopSupplyLines();
@@ -46,10 +55,10 @@ describe("rendering caches", () => {
     assert.equal(lines.length,5,"Base, Mine, Turret, Artillery, and a Wall three hexes away should connect");
     assert.ok(lines.every(call=>call.path.length===2&&call.path[0].command==="moveTo"&&call.path[0].x===start.x&&call.path[0].y===start.y),"every line should begin at the center of the Stop's Track hex");
     const endpoints=new Set(lines.map(call=>`${call.path[1].x},${call.path[1].y}`));
-    for(const target of targets){const point=api.axialToWorld(target.q,target.r);assert.ok(endpoints.has(`${point.x},${point.y}`),target.type);}
+    for(const target of targets){const cell=target.type==="base"?api.nearestStructureCell(stop,target):target,point=api.axialToWorld(cell.q,cell.r);assert.ok(endpoints.has(`${point.x},${point.y}`),target.type);}
     assert.equal(lines.some(call=>call.path.length>2),false,"the former large hex outline must not be drawn");
 
-    state.structures.delete("2,-1");context.strokeCalls.length=0;api.render();
+    state.structures.delete("3,-1");context.strokeCalls.length=0;api.render();
     assert.equal(context.strokeCalls[0].strokeStyle,"rgba(112,189,119,.44)","persistent supply lines must render below every world object");
   });
 
@@ -127,9 +136,17 @@ describe("rendering caches", () => {
 
     api.drawBase();
 
-    const baseLabel=context.textCalls.find(call=>call.text==="B");
-    assert.equal(baseLabel.fillStyle,"#aeb8bb");
-    assert.notEqual(baseLabel.fillStyle,"#f4cf69");
+    const baseLabels=context.textCalls.filter(call=>call.text==="B");
+    assert.equal(baseLabels.length,4);assert.ok(baseLabels.every(label=>label.fillStyle==="#aeb8bb"));
+    assert.ok(baseLabels.every(label=>label.fillStyle!=="#f4cf69"));
+  });
+
+  test("the live Base renders one B on each of its four diamond cells",()=>{
+    const context=elements.get("gameCanvas").context;context.textCalls.length=0;api.drawBase();
+    const labels=context.textCalls.filter(call=>call.text==="B"&&call.fillStyle==="#f4cf69");
+    assert.equal(labels.length,4);
+    const expected=new Set(api.structureFootprint(api.state.base).map(cell=>{const point=api.axialToWorld(cell.q,cell.r);return `${point.x},${point.y+1}`;}));
+    assert.deepEqual(new Set(labels.map(label=>`${label.x},${label.y}`)),expected);
   });
 
   test("fixed Turrets omit the gray gun and constructed Mines use a triangular roof",()=>{
@@ -190,17 +207,19 @@ describe("rendering caches", () => {
     assert.ok(context.fillRectCalls.some(call=>call.fillStyle==="#684079"&&call.width===28&&call.height===18));
   });
 
-  test("Walls render as light gray brickwork with a centered W",()=>{
+  test("Walls render as dark gray brickwork with a centered W",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
     const wall={id:"wall-art",type:"wall",q:5,r:2,hp:100,maxHp:100};
-    state.structures.set(api.key(wall.q,wall.r),wall);context.textCalls.length=0;context.fillRectCalls.length=0;context.strokeCalls.length=0;
+    state.structures.set(api.key(wall.q,wall.r),wall);context.textCalls.length=0;context.fillCalls.length=0;context.fillRectCalls.length=0;context.strokeCalls.length=0;
 
     api.drawStructures();
 
     const point=api.axialToWorld(wall.q,wall.r),label=context.textCalls.find(call=>call.text==="W"&&call.x===point.x&&call.y===point.y+.5);
     assert.ok(label);assert.equal(label.fillStyle,"#f3f7f8");
-    assert.ok(context.fillRectCalls.some(call=>call.x===point.x-17&&call.y===point.y-13&&call.width===34&&call.height===26&&call.fillStyle==="#747d81"));
-    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#4f595d"&&call.path.length>=10),"Wall should include visible brick joints");
+    const wallFace=context.fillCalls.find(call=>call.fillStyle==="#51585a");assert.ok(wallFace,"Wall should have a filled masonry face");
+    assert.ok(wallFace.path.filter(item=>item.command==="lineTo").length>=5,"Wall face should fill a broad hexagonal silhouette");
+    assert.equal(context.fillRectCalls.some(call=>call.fillStyle==="#51585a"),false,"Wall should no longer be a small rectangle");
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#373e41"&&call.path.length>=10),"Wall should include visible brick joints");
   });
 
   test("Build Wall previews its three-hex repair range around the hovered tile",()=>{
@@ -224,10 +243,26 @@ describe("rendering caches", () => {
     assert.equal(boundary.length,18,"selected Wall range should persist without a placement hover");
   });
 
+  test("a fixed Turret blue range appears only when selected in Select Object mode",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state;
+    const turret={id:"turret-range",type:"turret",q:3,r:-1,hp:20,maxHp:20,energy:20,maxEnergy:20,cooldown:0,showRangeUntil:state.elapsed+3.5};
+    state.structures.set(api.key(turret.q,turret.r),turret);state.mode="select";state.hover=null;state.selected=null;context.strokeCalls.length=0;
+
+    api.drawTurretRanges();
+    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)").length,0,"a build timer must not keep the range visible");
+
+    state.selected={type:"structure",id:turret.id};context.strokeCalls.length=0;api.drawTurretRanges();
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="rgba(96,213,219,.34)"),"selection should still show the Turret range");
+
+    state.mode="turret";state.hover={q:5,r:2};context.strokeCalls.length=0;api.drawTurretRanges();
+    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)").length,0,"Build Turret mode must never show the selected Turret's blue range");
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="rgba(230,185,74,.5)"),"Build Turret mode should retain its orange placement range");
+  });
+
   test("Artillery renders a centered A and a selected 12-hex range",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
     const artillery={id:"artillery-art",type:"artillery",q:4,r:-2,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};
-    state.structures.set(api.key(artillery.q,artillery.r),artillery);state.selected={type:"structure",id:artillery.id};context.textCalls.length=0;context.strokeCalls.length=0;
+    state.structures.set(api.key(artillery.q,artillery.r),artillery);state.mode="select";state.selected={type:"structure",id:artillery.id};context.textCalls.length=0;context.strokeCalls.length=0;
 
     api.drawStructures();
     const point=api.axialToWorld(artillery.q,artillery.r),label=context.textCalls.find(call=>call.text==="A"&&call.x===point.x&&call.y===point.y+.5);
@@ -235,9 +270,13 @@ describe("rendering caches", () => {
 
     context.strokeCalls.length=0;api.drawTurretRanges();
     assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)"&&call.lineWidth===1.4).length,72,"a radius-12 hex has 72 boundary tiles");
+
+    state.mode="artillery";state.hover={q:6,r:-2};context.strokeCalls.length=0;api.drawTurretRanges();
+    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)").length,0,"Build Artillery mode must never show the selected Artillery's blue range");
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="rgba(230,185,74,.5)"),"Build Artillery mode should retain its orange placement range");
   });
 
-  test("Artillery shells arc without a laser and impacts show all seven splash hexes",()=>{
+  test("Artillery shells arc without a laser and impacts outline all three damage rings",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
     state.projectiles=[{kind:"artillery-shell",x1:0,y1:0,x2:100,y2:20,centerQ:3,centerR:1,life:.35,maxLife:.7}];context.fillCalls.length=0;context.strokeCalls.length=0;
 
@@ -248,9 +287,11 @@ describe("rendering caches", () => {
     assert.ok(shell.path.find(item=>item.command==="arc").y<0,"the midpoint of the shell should rise above its straight path");
     assert.equal(context.strokeCalls.length,0,"the flying shell must not draw a laser line");
 
-    state.projectiles=[{kind:"artillery-blast",q:3,r:1,life:.4,maxLife:.4}];context.strokeCalls.length=0;context.fillCalls.length=0;api.drawEffects();
-    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="#ff9d58"&&call.lineWidth===2.5).length,7);
-    assert.equal(context.fillCalls.filter(call=>call.fillStyle==="rgba(255,118,48,.18)").length,7);
+    state.projectiles=[{kind:"artillery-blast",q:3,r:1,life:.75,maxLife:.75}];context.strokeCalls.length=0;context.fillCalls.length=0;api.drawEffects();
+    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="#ff9d58"&&call.lineWidth===2.5).length,1);
+    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="#b84f22"&&call.lineWidth===2.5).length,6);
+    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="#692a19"&&call.lineWidth===2.5).length,12);
+    assert.equal(context.fillCalls.length,19);
   });
 
   test("particles and projectile effects render beneath unit bodies and labels",()=>{

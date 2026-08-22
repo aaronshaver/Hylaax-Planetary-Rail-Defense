@@ -38,6 +38,12 @@ describe("game bootstrap", () => {
   test("the lower-left performance display keeps FPS and removes TPS",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/FPS <strong id="fpsValue">0<\/strong>/);assert.doesNotMatch(html,/\bTPS\b|id="tpsValue"/);
+    const debug=html.indexOf('id="debugToggle"'),fps=html.indexOf('id="performanceStatus"');assert.ok(debug>=0&&debug<fps,"Debug must appear before FPS");
+  });
+
+  test("the feedback contact is anchored to the bottom-right",()=>{
+    const css=fs.readFileSync(path.join(__dirname,"styles.css"),"utf8");
+    assert.match(css,/\.feedback-contact \{[^}]*right: 16px;[^}]*font: 700 14\.3px\/1\.3[^}]*text-align: right;/);
   });
 
   test("Center Map on Base is the ninth button in the right-side Actions grid",()=>{
@@ -51,34 +57,20 @@ describe("game bootstrap", () => {
     assert.match(prompt,/id="tutorialRestart"[\s\S]*tutorial-restart-icon[\s\S]*Restart Tutorial/);
   });
 
-  test("Action tooltips use readable bullets without Base-inventory wording",()=>{
+  test("buildable Action tooltips show only their C and E costs",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/title="• Select units and structures\."/);
     assert.doesNotMatch(html,/Select a Train to create or clear its automatic schedule/);
-    assert.match(html,/• Costs 1 \(C\)onstruction Material per new Track segment\./);
-    assert.doesNotMatch(html,/per new Track hex/);
-    assert.doesNotMatch(html,/from Base inventory/);
-    assert.ok((html.match(/title="•/g)||[]).length>=7,"every Action tooltip should begin with a bullet");
-    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool","researchTool"]){
-      const title=html.match(new RegExp(`id="${id}"[^>]*title="([^"]+)"`))?.[1];assert.ok(title,id);assert.match(title,/(?:&#10;)?• Costs [^•]+\.$/,`${id} should end with its Costs bullet`);
-      assert.match(title,/\(C\)onstruction Material/);
-      if(["turretTool","artilleryTool"].includes(id))assert.match(title,/\(E\)nergy/);
-    }
-  });
-
-  test("Artillery help reports its 50-Energy storage",()=>{
-    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-    const artillery=html.match(/<button id="artilleryTool"[^>]+>/)?.[0]||"";
-    assert.match(artillery,/Stores 50 Energy/);assert.doesNotMatch(artillery,/Stores 40 Energy/);
+    const expected={trackTool:"Costs 1 C, 0 E",turretTool:"Costs 10 C, 5 E",mineTool:"Costs 8 C, 0 E",wallTool:"Costs 12 C, 0 E",artilleryTool:"Costs 50 C, 50 E",researchTool:"Costs 50 C, 50 E"};
+    for(const [id,cost] of Object.entries(expected)){const title=html.match(new RegExp(`id="${id}"[^>]*title="([^"]+)"`))?.[1];assert.equal(title,cost,id);}
   });
 
   test("the Actions panel exposes Wall and Artillery and keeps Salvage/Clear on key 7",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-    assert.match(html,/data-mode="wall"[^>]*Costs 12 \(C\)onstruction Material\.[^>]*><span class="keycap">5<\/span>Build Wall/);
-    assert.match(html,/data-mode="artillery"[^>]*Costs 50 \(C\)onstruction Material and 50 \(E\)nergy[^>]*><span class="keycap">6<\/span>Build Artillery/);
+    assert.match(html,/data-mode="wall"[^>]*Costs 12 C, 0 E[^>]*><span class="keycap">5<\/span>Build Wall/);
+    assert.match(html,/data-mode="artillery"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">6<\/span>Build Artillery/);
     assert.match(html,/data-mode="salvage"[^>]*Clear destroyed objects without recovering resources[^>]*><span class="keycap">7<\/span>Salvage\/Clear Object/);
-    assert.match(html,/data-mode="research"[^>]*Takes up three hexes \(triangular\)[^>]*Costs 75 \(C\)onstruction Material and 75 \(E\)nergy[^>]*><span class="keycap">8<\/span>Build Research/);
-    assert.equal((html.match(/Will run out of Energy if not supplied by a Train Stop\./g)||[]).length,2);
+    assert.match(html,/data-mode="research"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">8<\/span>Build Research/);
   });
 
   test("Base Train fabrication tooltips use the Construction Material abbreviation",()=>{
@@ -96,16 +88,16 @@ describe("game bootstrap", () => {
     assert.match(html,/id="debugAddResearchPoints"[^>]*>Add Research Points<\/button>/);
   });
 
-  test("the turret Energy warning has the requested one-time guidance",()=>{
+  test("the unified Turret and Artillery Energy warning uses OK",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/id="turretEnergyDialog"[^>]*hidden[^>]*role="dialog"/);
-    assert.match(html,/One of your Turrets ran out of Energy\. Both \(T\)urrets and \(A\)rtillery must be supplied with Energy by a Build\/Mine Train loaded with Energy at an adjacent Train Stop\./);
-    assert.match(html,/id="turretEnergyOkay"[^>]*>Okay<\/button>/);
+    assert.match(html,/One of your Turrets or Artillery ran out of Energy\. Both Turrets and Artillery must be supplied with Energy/);
+    assert.match(html,/id="turretEnergyOkay"[^>]*>OK<\/button>/);
   });
 
-  test("the displayed and package versions are 3.4",()=>{
+  test("the displayed and package versions are 4.0",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 3\.4/);assert.match(html,/DEFENSE 3\.4/);assert.equal(packageJson.version,"3.4.0");
+    assert.match(html,/Planetary Rail Defense 4\.0/);assert.match(html,/DEFENSE 4\.0/);assert.equal(packageJson.version,"4.0.0");
   });
 });

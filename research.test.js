@@ -24,7 +24,7 @@ describe("Research building and upgrades",()=>{
     const site=findResearchSite();assert.ok(site);state.baseMaterial=200;state.baseEnergy=200;
     const research=api.buildResearch(site.q,site.r);
     assert.ok(research);assert.equal(research.hp,300);assert.equal(research.maxHp,300);assert.equal(research.footprint.length,3);
-    assert.equal(state.baseMaterial,125);assert.equal(state.baseEnergy,125);assert.equal(state.researchUnlocked,true);
+    assert.equal(state.baseMaterial,150);assert.equal(state.baseEnergy,150);assert.equal(state.researchUnlocked,true);
     assert.equal(state.researchPoints,30);assert.equal(elements.get("researchPointsHud").textContent,30);
 
     api.updateResearch(5);api.updateUI(true);
@@ -50,17 +50,17 @@ describe("Research building and upgrades",()=>{
     assert.equal(state.researchPoints,40);assert.equal(api.researchUpgradeCount("turretDamage"),2);assert.equal(api.turretDamage(),2.25);
   });
 
-  test("the Research pane exposes all upgrade buttons with the cost as the final tooltip bullet",()=>{
+  test("the Research pane exposes grouped upgrade buttons without hover tooltips",()=>{
     const state=api.state;addResearchBuilding();state.researchPoints=29;
     const html=api.selectionHtml();
     assert.equal((html.match(/data-action="research-/g)||[]).length,12);
-    assert.equal((html.match(/• Costs 30 \(R\)esearch points\./g)||[]).length,12);
     assert.equal((html.match(/disabled aria-disabled="true"/g)||[]).length,12);
-    assert.match(html,/Applies to both Fixed Turrets and Turret Trains/);
-    assert.match(html,/20% Farther Turret Range/);assert.match(html,/20% Farther Artillery Range/);
-    assert.match(html,/20% Improved Mine Efficiency/);
-    assert.match(html,/Mining uses fewer resources, extending the life of the Resource Node under the Mine/);
-    assert.match(html,/All Train Supply wagons hold more resources/);
+    assert.doesNotMatch(html,/data-bs-toggle="tooltip"|title="/);
+    for(const heading of ["Turrets (Fixed and Train)","Artillery","Trains and Mining","Infrastructure","Other"])assert.match(html,new RegExp(heading.replace(/[()]/g,"\\$&")));
+    assert.match(html,/\+20% Turret Range \(1\)/);assert.match(html,/\+20% Artillery Range \(1\)/);
+    assert.match(html,/\+20% Mining Efficiency \(1\)/);
+    assert.match(html,/1 Research point\(s\) gained for each second of survival/);
+    assert.match(html,/All Research items cost 30 Research points/);
   });
 
   test("all twelve upgrades immediately update existing units and expose upgraded future values",()=>{
@@ -72,11 +72,11 @@ describe("Research building and upgrades",()=>{
     for(const upgrade of api.constants.RESEARCH_UPGRADES)assert.equal(api.purchaseResearchUpgrade(upgrade.key),true,upgrade.key);
 
     assert.ok(Math.abs(api.turretFireInterval()-2/3)<1e-9);assert.ok(Math.abs(api.combatTrainFireInterval()-.32)<1e-9);assert.equal(api.turretDamage(),1.5);assert.equal(api.turretRange(),5);assert.equal(api.combatTrainRange(),7);
-    assert.equal(api.mineEfficiency(),1.2);assert.equal(train.wagons[0].capacity,45);assert.equal(train.speed,3.375);
+    assert.equal(api.mineEfficiency(),1.2);assert.equal(train.wagons[0].capacity,45);assert.equal(train.speed,2.8125);
     assert.equal(api.artilleryFireInterval(),2);assert.equal(api.artilleryDamage(true),12);assert.equal(api.artilleryDamage(false),7.5);assert.equal(api.artilleryRange(),14);
-    assert.equal(wall.maxHp,150);assert.equal(wall.hp,120);assert.equal(track.maxHp,5);assert.equal(track.hp,5);assert.equal(api.researchRate(),1.1);
+    assert.equal(wall.maxHp,150);assert.equal(wall.hp,120);assert.equal(track.maxHp,2);assert.equal(track.hp,2);assert.equal(api.researchRate(),1.25);
     assert.ok(Math.abs(turret.cooldown-2/3)<1e-9);assert.equal(artillery.cooldown,2);
-    assert.equal(api.wallHitPoints(),150);assert.equal(api.trackHitPoints(),5);assert.equal(api.trainCapacity(),45);assert.equal(api.trainSpeed(),3.375);
+    assert.equal(api.wallHitPoints(),150);assert.equal(api.trackHitPoints(),2);assert.equal(api.trainCapacity(),45);assert.equal(api.trainSpeed(),2.8125);
   });
 
   test("improved Mines fill the same capacity while consuming fewer Resource Node units",()=>{
@@ -120,6 +120,6 @@ describe("Research building and upgrades",()=>{
     api.salvageStructure(research);
 
     assert.equal(state.baseMaterial,materialBefore+api.constants.COSTS.research.material);assert.equal(state.baseEnergy,energyBefore+api.constants.COSTS.research.energy);
-    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 75 Construction Material and 75 Energy.");
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 50 Construction Material and 50 Energy.");
   });
 });

@@ -36,11 +36,11 @@ function makeCanvasContext() {
     translate:(x,y)=>values.translateCalls.push({x,y}),
     scale:(x,y)=>values.scaleCalls.push({x,y}),
     closePath:()=>values.currentPath.push({command:"closePath"}),
-    fill:()=>values.fillCalls.push({path:[...values.currentPath],fillStyle:values.fillStyle}),
-    stroke:()=>values.strokeCalls.push({path:[...values.currentPath],strokeStyle:values.strokeStyle,lineWidth:values.lineWidth}),
+    fill:()=>{const call={path:[...values.currentPath],fillStyle:values.fillStyle};values.fillCalls.push(call);values.paintCalls.push({kind:"fill",...call});},
+    stroke:()=>{const call={path:[...values.currentPath],strokeStyle:values.strokeStyle,lineWidth:values.lineWidth};values.strokeCalls.push(call);values.paintCalls.push({kind:"stroke",...call});},
     fillRect:(x,y,width,height)=>values.fillRectCalls.push({x,y,width,height,fillStyle:values.fillStyle})
   };
-  values.textCalls=[];values.fillCalls=[];values.strokeCalls=[];values.fillRectCalls=[];values.translateCalls=[];values.scaleCalls=[];values.currentPath=[];
+  values.textCalls=[];values.fillCalls=[];values.strokeCalls=[];values.fillRectCalls=[];values.translateCalls=[];values.scaleCalls=[];values.paintCalls=[];values.currentPath=[];
   return new Proxy(values, {
     get(target, property) {
       if (property in target) return target[property];

@@ -245,7 +245,7 @@ function nextEnemyNavigationStep(enemy,reservations){
 }
 
 function adjacentEnemyTarget(enemy){
-  if(hexDistance(enemy,state.base)<=1)return state.base;
+  if(distanceToStructure(enemy,state.base)<=1)return state.base;
   const positions=[{q:enemy.q,r:enemy.r},...neighbors(enemy.q,enemy.r)];
   for(const position of positions){const structure=structureAt(position.q,position.r);if(structure&&structure.type!=="base")return structure;}
   for(const train of state.trains){const segment=targetHexFor(enemy,train);if(segment&&hexDistance(enemy,segment)<=1)return segment;}
@@ -322,7 +322,7 @@ function rebuildGhost(ghost,train){
       if(neighbor){rebuilt.links.add(linkedKey);neighbor.links.add(ghost.id);}else{const neighborGhost=state.ghosts.get(linkedKey);if(neighborGhost?.objectType==="track"&&!neighborGhost.links.includes(ghost.id))neighborGhost.links.push(ghost.id);}
     }
   }else if(ghost.objectType==="turret"){
-    rebuilt={id:`turret-${state.nextId++}`,type:"turret",q:ghost.q,r:ghost.r,hp:18,maxHp:18,energy:0,maxEnergy:20,cooldown:0,showRangeUntil:state.elapsed+3.5};
+    rebuilt={id:`turret-${state.nextId++}`,type:"turret",q:ghost.q,r:ghost.r,hp:TURRET_HIT_POINTS,maxHp:TURRET_HIT_POINTS,energy:0,maxEnergy:20,cooldown:0};
     state.structures.set(ghost.id,rebuilt);
   }else if(ghost.objectType==="wall"){
     const maxHp=wallHitPoints();rebuilt={id:`wall-${state.nextId++}`,type:"wall",q:ghost.q,r:ghost.r,hp:maxHp,maxHp,baseMaxHp:WALL_HIT_POINTS};
@@ -515,9 +515,10 @@ function debugDestroyAt(q,r){
 }
 
 function resolveArtilleryImpact(projectile){
-  const center={q:projectile.centerQ,r:projectile.centerR},affected=[center,...neighbors(center.q,center.r)];
+  const center={q:projectile.centerQ,r:projectile.centerR},affected=[];
+  for(let q=center.q-2;q<=center.q+2;q++)for(let r=center.r-2;r<=center.r+2;r++){const position={q,r};if(hexDistance(center,position)<=2)affected.push(position);}
   for(const position of affected){
-    const damage=artilleryDamage(position.q===center.q&&position.r===center.r);
+    const damage=artilleryDamageAtDistance(hexDistance(center,position));
     const targetHive=state.hives.get(key(position.q,position.r));if(targetHive)damageTarget(targetHive,damage);
     for(const targetEnemy of [...state.enemies]){const visible=worldToAxial(targetEnemy.x,targetEnemy.y);if(visible.q===position.q&&visible.r===position.r)damageEnemy(targetEnemy,damage);}
     burst(position.q,position.r,"#ff9d58",4);
@@ -530,7 +531,7 @@ function updateProjectiles(dt){
     projectile.life-=dt;
     if(projectile.kind==="artillery-shell"&&projectile.life<=0){
       resolveArtilleryImpact(projectile);
-      active.push({kind:"artillery-blast",q:projectile.centerQ,r:projectile.centerR,life:.4,maxLife:.4});
+      active.push({kind:"artillery-blast",q:projectile.centerQ,r:projectile.centerR,life:ARTILLERY_BLAST_SECONDS,maxLife:ARTILLERY_BLAST_SECONDS});
     }else if(projectile.life>0)active.push(projectile);
   }
   state.projectiles=active;
@@ -541,7 +542,7 @@ function fireArtillery(artillery){
   const hive=[...state.hives.values()].filter(candidate=>hexDistance(artillery,candidate)<=artilleryRange()).sort((a,b)=>hexDistance(artillery,a)-hexDistance(artillery,b))[0];
   if(!hive)return false;
   const center={q:hive.q,r:hive.r},from=axialToWorld(artillery.q,artillery.r),to=axialToWorld(center.q,center.r);
-  artillery.energy-=ARTILLERY_SHOT_ENERGY;artillery.cooldown=artilleryFireInterval();
+  artillery.energy-=ARTILLERY_SHOT_ENERGY;artillery.cooldown=artilleryFireInterval();if(artillery.energy<=0)showTurretEnergyWarning();
   state.projectiles.push({kind:"artillery-shell",x1:from.x,y1:from.y,x2:to.x,y2:to.y,centerQ:center.q,centerR:center.r,life:ARTILLERY_SHELL_FLIGHT_SECONDS,maxLife:ARTILLERY_SHELL_FLIGHT_SECONDS});
   sounds.shot();return true;
 }
