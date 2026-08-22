@@ -34,11 +34,11 @@ function queueCameraPan(clientX,clientY){
   state.camera.x=p.camX-dx/state.camera.zoom;state.camera.y=p.camY-dy/state.camera.zoom;canvas.style.cursor="grabbing";panRenderPending=true;return true;
 }
 canvas.addEventListener("pointermove",e=>{state.hover=screenToHex(e.clientX,e.clientY);const p=state.pointer;if(!p.down){if(state.paused||state.gameOver)render();return;}queueCameraPan(e.clientX,e.clientY);});
-canvas.addEventListener("pointerup",e=>{const p=state.pointer;if(!p.down)return;p.down=false;canvas.style.cursor=state.mode==="select"?"default":"crosshair";if(!p.moved)handleHexClick(screenToHex(e.clientX,e.clientY));});
+canvas.addEventListener("pointerup",e=>{const p=state.pointer;if(!p.down)return;p.down=false;canvas.style.cursor=state.mode==="select"?"default":"crosshair";if(!p.moved)handleHexClick(screenToHex(e.clientX,e.clientY));else panRenderPending=true;});
 canvas.addEventListener("pointerleave",()=>{state.hover=null;if(!state.pointer.down)canvas.style.cursor=state.mode==="select"?"default":"crosshair";});
 function finishZoomGesture(){
   if(!zoomGestureActive)return false;
-  zoomGestureActive=false;zoomSettleTimer=null;invalidateTerrainLayer();zoomRenderPending=true;return true;
+  zoomGestureActive=false;zoomSettleTimer=null;if(terrainLayerSignature!==currentTerrainLayerSignature())invalidateTerrainLayer();zoomRenderPending=true;return true;
 }
 
 function queueCameraZoom(deltaY,sx,sy){

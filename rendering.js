@@ -10,6 +10,7 @@ const MAP_GLYPH_FONT = "900 16.5px ui-monospace, monospace";
 const MAP_GLYPH_RADIUS = 20;
 const ARTILLERY_GLYPH_SCALE = .72;
 const HIVE_GLYPH_SCALE = .72;
+const TERRAIN_LAYER_OVERSCAN_RATIO = .25;
 
 function drawMapGlyph(label,x,y){ctx.fillStyle=MAP_GLYPH_COLOR;ctx.font=MAP_GLYPH_FONT;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(label,x,y);}
 
@@ -56,8 +57,8 @@ function drawFootprintCoreConnections(cells,color,width){
   }
 }
 
-function visibleBounds(){
-  const z=state.camera.zoom,halfWidth=width/(2*z),halfHeight=height/(2*z),padding=3;
+function visibleBounds(viewWidth=width,viewHeight=height){
+  const z=state.camera.zoom,halfWidth=viewWidth/(2*z),halfHeight=viewHeight/(2*z),padding=3;
   const corners=[[-halfWidth,-halfHeight],[halfWidth,-halfHeight],[-halfWidth,halfHeight],[halfWidth,halfHeight]].map(([dx,dy])=>{
     const x=state.camera.x+dx,y=state.camera.y+dy;
     return {q:(SQRT3/3*x-y/3)/HEX,r:(2/3*y)/HEX};
@@ -65,8 +66,8 @@ function visibleBounds(){
   return {q0:Math.floor(Math.min(...corners.map(point=>point.q)))-padding,q1:Math.ceil(Math.max(...corners.map(point=>point.q)))+padding,r0:Math.floor(Math.min(...corners.map(point=>point.r)))-padding,r1:Math.ceil(Math.max(...corners.map(point=>point.r)))+padding};
 }
 
-function drawTerrainBase(context){
-  const b=visibleBounds();
+function drawTerrainBase(context,viewWidth=width,viewHeight=height){
+  const b=visibleBounds(viewWidth,viewHeight);
   const resources=[];let cells=0;
   for(let r=b.r0;r<=b.r1;r++)for(let q=b.q0;q<=b.q1;q++){
     cells++;
@@ -101,23 +102,25 @@ function currentTerrainLayerSignature(){return `${state.mapSeed}|${terrainRevisi
 function terrainLayerPreviewCoversViewport(){
   if(!terrainLayerView||terrainLayerView.width!==width||terrainLayerView.height!==height)return false;
   const scale=state.camera.zoom/terrainLayerView.zoom;
-  const left=width/2+(terrainLayerView.x-state.camera.x)*state.camera.zoom-width/2*scale,top=height/2+(terrainLayerView.y-state.camera.y)*state.camera.zoom-height/2*scale;
-  return left<=0&&top<=0&&left+width*scale>=width&&top+height*scale>=height;
+  const left=width/2+(terrainLayerView.x-state.camera.x)*state.camera.zoom-terrainLayerView.layerWidth/2*scale,top=height/2+(terrainLayerView.y-state.camera.y)*state.camera.zoom-terrainLayerView.layerHeight/2*scale;
+  return left<=0&&top<=0&&left+terrainLayerView.layerWidth*scale>=width&&top+terrainLayerView.layerHeight*scale>=height;
 }
 
 function ensureTerrainLayer(){
   const signature=currentTerrainLayerSignature();if(signature===terrainLayerSignature)return;
-  if(zoomGestureActive&&terrainLayerSignature&&terrainLayerPreviewCoversViewport())return;
-  const pixelWidth=Math.max(1,Math.floor(width*dpr)),pixelHeight=Math.max(1,Math.floor(height*dpr));
+  const cameraGestureActive=zoomGestureActive||(state.pointer.down&&state.pointer.moved);
+  if(cameraGestureActive&&terrainLayerSignature&&terrainLayerPreviewCoversViewport())return;
+  const layerWidth=width*(1+TERRAIN_LAYER_OVERSCAN_RATIO*2),layerHeight=height*(1+TERRAIN_LAYER_OVERSCAN_RATIO*2),pixelWidth=Math.max(1,Math.floor(layerWidth*dpr)),pixelHeight=Math.max(1,Math.floor(layerHeight*dpr));
   if(terrainLayer.width!==pixelWidth)terrainLayer.width=pixelWidth;if(terrainLayer.height!==pixelHeight)terrainLayer.height=pixelHeight;
-  terrainCtx.setTransform(dpr,0,0,dpr,0,0);terrainCtx.clearRect(0,0,width,height);terrainCtx.save();terrainCtx.translate(width/2,height/2);terrainCtx.scale(state.camera.zoom,state.camera.zoom);terrainCtx.translate(-state.camera.x,-state.camera.y);
-  const result=drawTerrainBase(terrainCtx);terrainCtx.restore();terrainLayerResources=result.resources;terrainLayerCells=result.cells;terrainLayerBuilds++;terrainLayerSignature=signature;terrainLayerView={x:state.camera.x,y:state.camera.y,zoom:state.camera.zoom,width,height};
+  terrainCtx.setTransform(dpr,0,0,dpr,0,0);terrainCtx.clearRect(0,0,layerWidth,layerHeight);terrainCtx.save();terrainCtx.translate(layerWidth/2,layerHeight/2);terrainCtx.scale(state.camera.zoom,state.camera.zoom);terrainCtx.translate(-state.camera.x,-state.camera.y);
+  const result=drawTerrainBase(terrainCtx,layerWidth,layerHeight);terrainCtx.restore();terrainLayerResources=result.resources;terrainLayerCells=result.cells;terrainLayerBuilds++;terrainLayerSignature=signature;terrainLayerView={x:state.camera.x,y:state.camera.y,zoom:state.camera.zoom,width,height,layerWidth,layerHeight};
 }
 
 function drawTerrainLayer(){
   if(!terrainLayerView){ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,0,0,width,height);return;}
   const scale=state.camera.zoom/terrainLayerView.zoom;
-  ctx.save();ctx.translate(width/2+(terrainLayerView.x-state.camera.x)*state.camera.zoom,height/2+(terrainLayerView.y-state.camera.y)*state.camera.zoom);ctx.scale(scale,scale);ctx.translate(-width/2,-height/2);ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,0,0,width,height);ctx.restore();
+  const left=width/2+(terrainLayerView.x-state.camera.x)*state.camera.zoom-terrainLayerView.layerWidth/2*scale,top=height/2+(terrainLayerView.y-state.camera.y)*state.camera.zoom-terrainLayerView.layerHeight/2*scale;
+  ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,left,top,terrainLayerView.layerWidth*scale,terrainLayerView.layerHeight*scale);
 }
 
 function drawResourceNodes(){for(const resource of terrainLayerResources)drawResourceNode(resource.q,resource.r,resource.p,resource.type);}
