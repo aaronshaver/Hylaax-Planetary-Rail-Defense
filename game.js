@@ -7,7 +7,7 @@ if(window.__HYLAAX_TEST__){
     sounds,
     reset({mapSeed=123456789,seedHives=false}={}){
       state=makeInitialState();state.mapSeed=mapSeed;state.hives.clear();state.enemies=[];state.projectiles=[];state.particles=[];
-      terrainCacheSeed=null;terrainCache=new Map();terrainRevision=0;simulationAccumulator=0;selectionCache="";remindersOpen=false;sounds.enabled=false;
+      terrainCacheSeed=null;terrainCache=new Map();terrainRevision=0;simulationAccumulator=0;selectionCache="";selectionCacheKey="";selectionInteractionActive=false;selectionRefreshPending=false;selectionRefreshPendingForce=false;remindersOpen=false;sounds.enabled=false;
       resetEnemyNavigation();if(seedHives)seedInitialHives();return state;
     },
     key,fromKey,hexDistance,neighbors,creepOccupiesHex,footprintPerimeter,axialToWorld,worldToAxial,hexLineBetween,hasClearShot,baseTerrainAt,resourceHasOpenApproach,terrainAt,isPassable,resourceNodeAt,setNodeAmount,centerMapOnBase,
@@ -22,7 +22,7 @@ if(window.__HYLAAX_TEST__){
     updateTrains,updateCombatTrains,fireArtillery,resolveArtilleryImpact,updateProjectiles,updateStructures,update,advanceSimulation,
     showWorldActivity,showTrainActivity,worldMessagePriority,worldMessageLayout,terrainLayerStats,ensureTerrainLayer,stopSupplyTargets,stopSupplyConnections,drawStopSupplyLines,drawTracks,drawTrainStops,drawTurretRanges,drawBase,drawHives,drawGhosts,drawStructures,drawTrains,drawBuildTrackGlow,trackGlowPhase,trackGlowAnimationActive,drawEnemies,drawEffects,drawWorldMessages,screenShakeOffset,screenShakeActive,render,
     canBaseAfford,constructionModeCost,constructionModeAffordable,constructionModeUnavailableMessage,trainFabricationCost,trainFabricationDisabledReason,payBase,handleAction,addBaseResources,
-    selectedTrainPartLabel,selectionHtml,setStatusButtonMarkup,updateConstructionToolAvailability,setDebugMenuOpen,updateDebugUI,showTurretEnergyWarning,dismissTurretEnergyWarning,connectedUnminedResources,updateUI,formatSurvivalTime,
+    selectedTrainPartLabel,selectionHtml,setStatusButtonMarkup,updateConstructionToolAvailability,setDebugMenuOpen,updateDebugUI,showTurretEnergyWarning,dismissTurretEnergyWarning,connectedUnminedResources,beginSelectionInteraction,finishSelectionInteraction,scheduleSelectionInteractionFinish,currentSelectionCacheKey,researchSelectionDescription,updateResearchSelectionContent,updateBaseSelectionContent,updateUI,formatSurvivalTime,
     tutorialMessage,tutorialLoopTargets,tutorialScheduleTargets,tutorialTargetsHaveMines,tutorialTurretIsByStop,tutorialEvent,startTutorial,finishTutorial,restartTutorial,startGame,resetGameState
   };
 }
@@ -36,6 +36,10 @@ canvas.addEventListener("wheel",e=>{e.preventDefault();const rect=canvas.getBoun
 document.addEventListener("click",e=>{const modeButton=e.target.closest("[data-mode]");if(modeButton){if(!modeButton.disabled)setMode(modeButton.dataset.mode,modeButton.dataset.mode==="select");return;}const actionButton=e.target.closest("[data-action]");if(actionButton&&!actionButton.disabled)handleAction(actionButton.dataset.action,actionButton);});
 document.addEventListener("keydown",e=>{if(remindersOpen){if(e.key==="Escape"||e.key==="Enter")startGame(false);return;}if(!ui.turretEnergyDialog.hidden){if(e.key==="Escape"||e.key==="Enter")dismissTurretEnergyWarning();return;}if(!ui.confirmDialog.hidden){if(e.key==="Escape")cancelTrainSalvage();return;}if(e.target.matches("input,textarea"))return;if(e.key>="1"&&e.key<="8"){setMode(["select","track","turret","mine","wall","artillery","salvage","research"][Number(e.key)-1]);}if(e.key==="Escape")setMode("select");});
 document.querySelectorAll("[data-mode]").forEach(button=>button.addEventListener("click",()=>sounds.init()));
+selectionContent.addEventListener("pointerdown",beginSelectionInteraction);
+window.addEventListener("pointerup",scheduleSelectionInteractionFinish);
+window.addEventListener("pointercancel",scheduleSelectionInteractionFinish);
+window.addEventListener("blur",finishSelectionInteraction);
 ui.pauseToggle.addEventListener("click",()=>{if(state.gameOver||tutorialLocksPause())return;state.paused=!state.paused;simulationAccumulator=0;lastWallTime=Date.now();updateUI(true);render();});
 ui.soundToggle.addEventListener("click",()=>{state.sound=!state.sound;sounds.enabled=state.sound;if(state.sound)sounds.place();updateUI(true);});
 ui.centerBaseButton.addEventListener("click",centerMapOnBase);
@@ -51,7 +55,7 @@ ui.confirmNo.addEventListener("click",cancelTrainSalvage);
 ui.confirmYes.addEventListener("click",confirmTrainSalvage);
 ui.viewMapButton.addEventListener("click",showFinalMap);
 ui.viewFinalStats.addEventListener("click",showFinalStats);
-function resetGameState(){state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");ui.turretEnergyDialog.hidden=true;ui.turretEnergyDialog.classList.add("d-none");setDebugMenuOpen(false);document.querySelectorAll("[data-mode]").forEach(button=>button.disabled=false);syncTutorialUI();setMode("select");}
+function resetGameState(){state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();selectionCache="";selectionCacheKey="";selectionInteractionActive=false;selectionRefreshPending=false;selectionRefreshPendingForce=false;ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");ui.turretEnergyDialog.hidden=true;ui.turretEnergyDialog.classList.add("d-none");setDebugMenuOpen(false);document.querySelectorAll("[data-mode]").forEach(button=>button.disabled=false);syncTutorialUI();setMode("select");}
 ui.restartButton.addEventListener("click",()=>{resetGameState();showReminders();});
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){const now=Date.now();advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;resetPerformanceMetrics();render();}});
 window.addEventListener("resize",resize);

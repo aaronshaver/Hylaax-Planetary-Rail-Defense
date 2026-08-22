@@ -4,7 +4,7 @@ function hpBlock(object){const ratio=clamp(object.hp/object.maxHp*100,0,100);ret
 function energyBlock(object,label="ENERGY"){const ratio=clamp(object.energy/object.maxEnergy*100,0,100);return `<div class="status-bar energy"><span style="width:${ratio}%"></span></div><div class="status-caption"><span>${label}</span><span>${Math.floor(object.energy)} / ${object.maxEnergy}</span></div>`;}
 function resourceBlock(node){const ratio=clamp(node.amount/node.maxAmount*100,0,100);return `<div class="status-bar resource"><span style="width:${ratio}%"></span></div><div class="status-caption"><span>RESOURCE UNITS</span><span>${Math.floor(node.amount)} / ${node.maxAmount}</span></div>`;}
 function cargoHtml(train){if(!train.wagons.length)return `<div class="action-note">No Supplies attached.</div>`;return `<div class="cargo-list">${train.wagons.map((w,i)=>`<div class="cargo-row ${w.type||"empty"}"><i></i><span>Supply ${i+1} · ${w.type?resourceLabel(w.type).toUpperCase():"EMPTY"}</span><strong>${Math.floor(w.amount)} / ${w.capacity}</strong></div>`).join("")}</div>`;}
-function baseInventoryHtml(){return `<div class="cargo-list">${BASE_RESOURCE_TYPES.map(resource=>`<div class="cargo-row ${resource.key}"><i></i><span>${resource.label.toUpperCase()}</span><strong>${Math.floor(state[resource.stateKey]||0)}</strong></div>`).join("")}</div>`;}
+function baseInventoryHtml(){return `<div class="cargo-list">${BASE_RESOURCE_TYPES.map(resource=>`<div class="cargo-row ${resource.key}" data-base-resource="${resource.key}"><i></i><span>${resource.label.toUpperCase()}</span><strong>${Math.floor(state[resource.stateKey]||0)}</strong></div>`).join("")}</div>`;}
 function capitalize(value){return value.charAt(0).toUpperCase()+value.slice(1);}
 function resourceLabel(value){return BASE_RESOURCE_TYPES.find(resource=>resource.key===value)?.label||capitalize(value);}
 function displayStat(value){return Number.isInteger(value)?String(value):Number(value.toFixed(2)).toString();}
@@ -116,14 +116,61 @@ function connectedUnminedResources(){
   return totals;
 }
 
+function beginSelectionInteraction(){selectionInteractionActive=true;}
+
+function finishSelectionInteraction(){
+  selectionInteractionActive=false;
+  if(!selectionRefreshPending)return;
+  const force=selectionRefreshPendingForce;
+  selectionRefreshPending=false;selectionRefreshPendingForce=false;updateUI(force);
+}
+
+function scheduleSelectionInteractionFinish(){setTimeout(finishSelectionInteraction,0);}
+
+function currentSelectionCacheKey(){
+  const selected=getSelected();
+  if(!selected)return "none";
+  const baseKey=`${state.selected?.type||selected.type}:${state.selected?.id||selected.id}:${state.selected?.segmentId||""}:${state.gameOver}`;
+  if(selected.type!=="base")return baseKey;
+  return `${baseKey}:${selected.hp<=0}:${state.mode}:${Boolean(state.deploymentHead)}:${Boolean(trainFabricationDisabledReason("builder"))}:${Boolean(trainFabricationDisabledReason("combat"))}`;
+}
+
+function researchSelectionDescription(){return `${displayStat(researchRate())} Research point(s) gained for each second of survival · All Research items cost 30 Research points · Upgrades apply instantly and can be researched indefinitely`;}
+
+function updateResearchSelectionContent(research){
+  const query=selector=>selectionContent.querySelector?.(selector)||null;
+  const subtitle=query(".selection-subtitle");if(subtitle)subtitle.textContent=researchSelectionDescription();
+  const hpFill=query(".status-bar > span");if(hpFill)hpFill.style.width=`${clamp(research.hp/research.maxHp*100,0,100)}%`;
+  const hpValue=query(".status-caption span:last-child");if(hpValue)hpValue.textContent=`${Math.ceil(research.hp)} / ${Math.ceil(research.maxHp)}`;
+  const points=query(".research-points-summary strong");if(points)points.textContent=Math.floor(state.researchPoints);
+  for(const upgrade of RESEARCH_UPGRADES){
+    const upgradeButton=query(`[data-action="research-${upgrade.key}"]`);if(!upgradeButton)continue;
+    upgradeButton.textContent=`${upgrade.label} (${researchUpgradeCount(upgrade.key)+1})`;
+    const disabled=state.researchPoints+1e-9<RESEARCH_UPGRADE_COST;upgradeButton.disabled=disabled;upgradeButton.setAttribute("aria-disabled",String(disabled));
+  }
+}
+
+function updateBaseSelectionContent(base){
+  const query=selector=>selectionContent.querySelector?.(selector)||null;
+  const hpFill=query(".status-bar > span");if(hpFill)hpFill.style.width=`${clamp(base.hp/base.maxHp*100,0,100)}%`;
+  const hpValue=query(".status-caption span:last-child");if(hpValue)hpValue.textContent=`${Math.ceil(base.hp)} / ${Math.ceil(base.maxHp)}`;
+  for(const resource of BASE_RESOURCE_TYPES){const value=query(`[data-base-resource="${resource.key}"] strong`);if(value)value.textContent=Math.floor(state[resource.stateKey]||0);}
+}
+
 function updateUI(force=false){
   updateConstructionToolAvailability();
   updateDebugUI();
   const paused=state.paused||state.gameOver,pauseStatus=paused?"paused":"playing";setStatusButtonMarkup(ui.pauseToggle,pauseStatus,`${statusIcon(paused?"pause":"play")}<span>${paused?"Paused":"Playing"}</span>`);ui.pauseToggle.classList.toggle("status-playing",!paused);ui.pauseToggle.classList.toggle("status-paused",paused);ui.pauseToggle.disabled=state.gameOver||tutorialLocksPause();ui.pauseToggle.ariaLabel=paused?"Play simulation":"Pause simulation";
   const soundStatus=state.sound?"sound-on":"sound-off";setStatusButtonMarkup(ui.soundToggle,soundStatus,`${statusIcon(soundStatus)}<span>Sound: ${state.sound?"ON":"OFF"}</span>`);ui.soundToggle.classList.toggle("status-sound-on",state.sound);ui.soundToggle.classList.toggle("status-sound-off",!state.sound);ui.baseEnergyHud.textContent=Math.floor(state.baseEnergy);ui.baseMaterialHud.textContent=Math.floor(state.baseMaterial);const unmined=connectedUnminedResources();ui.unminedMaterialHud.textContent=Math.floor(unmined.material);ui.unminedEnergyHud.textContent=Math.floor(unmined.energy);ui.researchPointsHud.textContent=state.researchUnlocked?Math.floor(state.researchPoints):"-";ui.timeSurvived.textContent=formatSurvivalTime(state.elapsed);
-  const hasSelection=Boolean(getSelected());ui.selectionLabel.hidden=!hasSelection;
-  const selectionMarkup=selectionHtml();
-  if(force||selectionMarkup!==selectionCache){disposeTooltips(selectionContent);selectionContent.innerHTML=selectionMarkup;selectionCache=selectionMarkup;initializeTooltips(selectionContent);}
+  const selected=getSelected(),hasSelection=Boolean(selected);ui.selectionLabel.hidden=!hasSelection;
+  const selectionMarkup=selectionHtml(),cacheKey=currentSelectionCacheKey();
+  if(force||selectionMarkup!==selectionCache){
+    if(selectionInteractionActive){selectionRefreshPending=true;selectionRefreshPendingForce||=force;return;}
+    if(selected?.type==="research"&&cacheKey===selectionCacheKey&&selectionCache){updateResearchSelectionContent(selected);selectionCache=selectionMarkup;return;}
+    if(selected?.type==="base"&&cacheKey===selectionCacheKey&&selectionCache){updateBaseSelectionContent(selected);selectionCache=selectionMarkup;return;}
+    disposeTooltips(selectionContent);selectionContent.innerHTML=selectionMarkup;selectionCache=selectionMarkup;initializeTooltips(selectionContent);
+  }
+  selectionCacheKey=cacheKey;
 }
 
 function initializeTooltips(root=document){if(!window.bootstrap)return;root.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(element=>bootstrap.Tooltip.getOrCreateInstance(element,{container:"body",trigger:"hover focus"}));}

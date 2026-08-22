@@ -153,6 +153,49 @@ describe("interface formatting", () => {
     assert.equal(pause.innerHTMLWriteCount,writes+1,"the button should update once when its state actually changes");
   });
 
+  test("live Research updates cannot replace an upgrade button during its pointer interaction",()=>{
+    const state=api.state,research={id:"research-click-stability",type:"research",q:8,r:8,hp:300,maxHp:300,footprint:[{q:8,r:8},{q:9,r:8},{q:8,r:9}]};
+    state.structures.set(api.key(research.q,research.r),research);state.selected={type:"structure",id:research.id};state.researchPoints=30.1;api.updateUI(true);
+    const pane=elements.get("selectionContent"),writes=pane.innerHTMLWriteCount;
+
+    api.beginSelectionInteraction();state.researchPoints=31.1;api.updateUI();api.updateUI(true);
+
+    assert.equal(pane.innerHTMLWriteCount,writes,"Research-point ticks and forced updates must preserve the pressed upgrade button");
+    api.finishSelectionInteraction();
+    assert.equal(pane.innerHTMLWriteCount,writes,"the deferred Research refresh must update the existing pane without resetting hover");
+  });
+
+  test("Research point ticks preserve hovered upgrade-button DOM",()=>{
+    const state=api.state,research={id:"research-hover-stability",type:"research",q:8,r:8,hp:300,maxHp:300,footprint:[{q:8,r:8},{q:9,r:8},{q:8,r:9}]};
+    state.structures.set(api.key(research.q,research.r),research);state.selected={type:"structure",id:research.id};state.researchPoints=30.1;api.updateUI(true);
+    const pane=elements.get("selectionContent"),writes=pane.innerHTMLWriteCount;
+
+    state.researchPoints=31.1;api.updateUI();
+
+    assert.equal(pane.innerHTMLWriteCount,writes,"a Research tick must update the existing pane instead of resetting its hover state");
+  });
+
+  test("incoming Base Energy preserves hovered Train-fabrication buttons and tooltips",()=>{
+    const state=api.state;state.selected={type:"base",id:"base"};state.baseMaterial=30;state.baseEnergy=0;api.updateUI(true);
+    const pane=elements.get("selectionContent"),writes=pane.innerHTMLWriteCount;
+
+    state.baseEnergy=1;api.updateUI();
+
+    assert.equal(pane.innerHTMLWriteCount,writes,"an Energy update must not recreate Base fabrication buttons or their tooltips");
+    assert.match(api.selectionHtml(),/data-base-resource="energy"[^>]*>[\s\S]*?<strong>1<\/strong>/);
+  });
+
+  test("live Train updates cannot replace a Train action button during its pointer interaction",()=>{
+    const state=api.state,train=addTestTrain("builder");state.selected={type:"train",id:train.id};api.updateUI(true);
+    const pane=elements.get("selectionContent"),writes=pane.innerHTMLWriteCount;
+
+    api.beginSelectionInteraction();train.fuel--;api.updateUI();
+
+    assert.equal(pane.innerHTMLWriteCount,writes,"live fuel changes must preserve the pressed Train action button");
+    api.finishSelectionInteraction();
+    assert.equal(pane.innerHTMLWriteCount,writes+1,"the deferred Train pane refresh should run after the click can complete");
+  });
+
   test("clicking a Creep selects it and shows its hit points", () => {
     const enemy = makeEnemy("enemy-selected",3,2);
     api.state.enemies.push(enemy);
