@@ -60,6 +60,7 @@ function resupplyTrainStops(){return state.trains.filter(train=>train.scheduleCo
 function trainStopWithinRange(target,range){return resupplyTrainStops().some(stop=>hexDistance(stop,target)<=range);}
 function constructionStopRequirement(range){return `Must be built within ${range} ${range===1?"hex":"hexes"} of a Train Stop so that it can be resupplied and/or repaired`;}
 function requireNearbyTrainStop(target,range){if(trainStopWithinRange(target,range))return true;fail(constructionStopRequirement(range));return false;}
+function requireNoCreep(q,r){if(!creepOccupiesHex(q,r))return true;fail("Cannot build in a hex occupied by a Creep.");return false;}
 
 function nonMineConstructionSite(q,r){
   const terrain=terrainAt(q,r),node=terrain.type==="resource"?resourceNodeAt(q,r):null;
@@ -72,6 +73,7 @@ function replaceDestroyedSite(ghost,site){
 }
 
 function placeTrackOverGhost(ghost){
+  if(!requireNoCreep(ghost.q,ghost.r))return null;
   if(!payBase(COSTS.track,"Track"))return null;
   const maxHp=trackHitPoints(),ghostKey=key(ghost.q,ghost.r),rebuilt={q:ghost.q,r:ghost.r,hp:maxHp,maxHp,baseMaxHp:TRACK_HIT_POINTS,links:new Set()};
   state.tracks.set(ghostKey,rebuilt);
@@ -113,6 +115,7 @@ function layTrack(q, r) {
     return;
   }
   if(isNew){
+    if(!requireNoCreep(q,r))return;
     if(!isPassable(q,r)||destinationSite.terrain.type==="resource")return fail("Track needs clear ground.");
     if(structureAt(q,r)||hiveAt(q,r)||trainAt(q,r))return fail("That hex is occupied.");
   }
@@ -176,6 +179,7 @@ function addCargo(train, type, amount) {
 }
 
 function buildTurret(q, r) {
+  if(!requireNoCreep(q,r))return;
   if(!requireNearbyTrainStop({q,r},1))return;
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
   if (!isPassable(q, r) || site.terrain.type === "resource" || structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("Turrets need clear ground away from track.");
@@ -189,6 +193,7 @@ function buildTurret(q, r) {
 }
 
 function buildWall(q, r) {
+  if(!requireNoCreep(q,r))return;
   if(!requireNearbyTrainStop({q,r},5))return;
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
   if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Walls need clear ground away from Track.");
@@ -201,6 +206,7 @@ function buildWall(q, r) {
 }
 
 function buildArtillery(q,r){
+  if(!requireNoCreep(q,r))return;
   if(!requireNearbyTrainStop({q,r},1))return;
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
   if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Artillery needs clear ground away from Track.");
@@ -213,6 +219,7 @@ function buildArtillery(q,r){
 
 function buildMine(q, r) {
   const terrain = terrainAt(q, r);
+  if(!requireNoCreep(q,r))return;
   if(!requireNearbyTrainStop({q,r},1))return;
   const ghost=ghostAt(q,r);
   if (terrain.type !== "resource") return fail("Mines must be placed on a resource node.");
@@ -292,7 +299,7 @@ function confirmTrainSalvage(){
 
 function deploymentPathsFrom(head,length=3){
   const paths=[];
-  const occupied=position=>trainClaimsHex(position.q,position.r)||structureAt(position.q,position.r)||hiveAt(position.q,position.r);
+  const occupied=position=>trainClaimsHex(position.q,position.r)||structureAt(position.q,position.r)||hiveAt(position.q,position.r)||creepOccupiesHex(position.q,position.r);
   const extend=path=>{
     if(path.length===length){paths.push(path);return;}
     const current=path[path.length-1];
@@ -310,6 +317,7 @@ function deployTrain(q,r){
   const trainType=state.deploymentTrainType||"builder",length=trainType==="combat"?2:3,distanceText=length===2?"one Track hex":"two Track hexes";
   if(!state.deploymentHead){
     if(!isRailHex(q,r))return fail("Select an empty Track hex for the Train Head.");
+    if(!requireNoCreep(q,r))return;
     if(trainClaimsHex(q,r))return fail("That Track is occupied or already being entered.");
     const head={q,r},paths=deploymentPathsFrom(head,length);
     if(!paths.length)return fail(`Deployment needs ${length} connected, unoccupied Track hexes.`);
@@ -319,6 +327,7 @@ function deployTrain(q,r){
   }
   const path=state.deploymentPaths.find(candidate=>candidate[candidate.length-1].q===q&&candidate[candidate.length-1].r===r);
   if(!path)return fail(`Click a highlighted Tail point exactly ${distanceText} from the Head.`);
+  if(path.some(position=>creepOccupiesHex(position.q,position.r)))return fail("Cannot build in a hex occupied by a Creep.");
   if(path.some(position=>trainClaimsHex(position.q,position.r)))return fail("Those deployment Track hexes are no longer clear.");
   const [head,firstWagon]=path,hp=axialToWorld(head.q,head.r),firstPoint=axialToWorld(firstWagon.q,firstWagon.r);
   const heading=Math.atan2(hp.y-firstPoint.y,hp.x-firstPoint.x),trainIndex=state.nextTrainIndex++,code=trainCode(trainIndex),roles=trainType==="combat"?["energy"]:["material","energy"];

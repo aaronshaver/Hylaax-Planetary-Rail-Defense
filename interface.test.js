@@ -189,4 +189,17 @@ describe("interface formatting", () => {
     assert.doesNotMatch(html,/data-action=/,"post-loss inspection must not expose mutating actions");
     assert.equal(api.state.structures.size,0);
   });
+
+  test("Turret Train selection uses the mobile defense description",()=>{
+    const train=addTestTrain("combat");api.state.selected={type:"train",id:train.id};
+    assert.match(api.selectionHtml(),/A mobile turret train · Shot range 6 hexes · 1 damage every 1 second\(s\) · Restocks its fuel Energy and shot Energy only at Base/);
+  });
+
+  test("Turret Train fabrication costs 30 Construction Material and 10 Energy and cancellation refunds both",()=>{
+    const state=api.state;state.baseMaterial=30;state.baseEnergy=10;
+    api.handleAction("fabricate-place-combat-train");
+    assert.equal(state.baseMaterial,0);assert.equal(state.baseEnergy,0);assert.equal(state.deploymentPaid,true);assert.equal(state.deploymentTrainType,"combat");
+    api.setMode("select");
+    assert.equal(state.baseMaterial,30);assert.equal(state.baseEnergy,10);assert.equal(state.deploymentPaid,false);
+  });
 });

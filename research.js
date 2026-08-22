@@ -51,13 +51,14 @@ function researchFootprintCandidates(q,r){
 
 function researchCellAvailable(cell){
   const site=nonMineConstructionSite(cell.q,cell.r);
-  return isPassable(cell.q,cell.r)&&site.terrain.type==="ground"&&!structureAt(cell.q,cell.r)&&!hiveAt(cell.q,cell.r)&&!state.tracks.has(key(cell.q,cell.r))&&!trainClaimsHex(cell.q,cell.r);
+  return isPassable(cell.q,cell.r)&&site.terrain.type==="ground"&&!structureAt(cell.q,cell.r)&&!hiveAt(cell.q,cell.r)&&!state.tracks.has(key(cell.q,cell.r))&&!trainClaimsHex(cell.q,cell.r)&&!creepOccupiesHex(cell.q,cell.r);
 }
 
 function researchPlacementFootprint(q,r){return researchFootprintCandidates(q,r).find(footprint=>footprint.every(researchCellAvailable))||null;}
 function researchPreviewFootprint(q,r){return researchPlacementFootprint(q,r)||researchFootprintCandidates(q,r)[0];}
 
 function buildResearch(q,r){
+  if(!requireNoCreep(q,r))return;
   const footprint=researchPlacementFootprint(q,r);
   if(!footprint)return fail("Research needs three connected clear ground hexes in a triangle.");
   if(!payBase(COSTS.research,"Research"))return null;

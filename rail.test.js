@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { describe, test, beforeEach } = require("node:test");
-const { api, elements, moveTrain, makeTrack, addTestTrain } = require("./harness.js");
+const { api, elements, moveTrain, makeTrack, makeEnemy, addTestTrain } = require("./harness.js");
 
 beforeEach(() => { api.reset(); addTestTrain(); });
 
@@ -46,7 +46,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal([...state.structures.values()][0].type,"turret");
   });
 
-  test("a Wall costs 12 Construction Material and no Energy and requires a Train Stop within five hexes",()=>{
+  test("a Wall costs 30 Construction Material and no Energy and requires a Train Stop within five hexes",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
     let target=null;
     for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
@@ -61,7 +61,20 @@ describe("repairs, ghosts, and schedules", () => {
     state.tracks.clear();installCompletedStop({q:target.q+5,r:target.r},train);api.buildWall(target.q,target.r);
     const wall=[...state.structures.values()][0];
     assert.equal(wall.type,"wall");assert.equal(wall.hp,100);assert.equal(wall.maxHp,100);
-    assert.equal(state.baseMaterial,materialBefore-12);assert.equal(state.baseEnergy,energyBefore);
+    assert.equal(state.baseMaterial,materialBefore-30);assert.equal(state.baseEnergy,energyBefore);
+  });
+
+  test("a Creep occupying a hex blocks Wall construction and shows a warning",()=>{
+    const state=api.state;state.tracks.clear();state.structures.clear();
+    let target=null;
+    for(let q=-10;q<=10&&!target;q++)for(let r=-10;r<=10&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>4)target={q,r};
+    assert.ok(target);installCompletedStop({q:target.q+1,r:target.r});state.enemies.push(makeEnemy("wall-blocking-creep",target.q,target.r));
+    const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
+
+    api.buildWall(target.q,target.r);
+
+    assert.equal(state.structures.size,0);assert.equal(state.baseMaterial,materialBefore);assert.equal(state.baseEnergy,energyBefore);
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot build in a hex occupied by a Creep.");
   });
 
   test("Artillery starts with 50 Energy, fires its first payload immediately, then uses its normal delay",()=>{
@@ -138,7 +151,7 @@ describe("repairs, ghosts, and schedules", () => {
   test("the player can replace wreckage directly with any construction allowed on its terrain",()=>{
     const cases=[
       {type:"turret",ghostType:"wall",cost:{material:10,energy:5},build:api.buildTurret},
-      {type:"wall",ghostType:"artillery",cost:{material:12,energy:0},build:api.buildWall},
+      {type:"wall",ghostType:"artillery",cost:{material:30,energy:0},build:api.buildWall},
       {type:"artillery",ghostType:"turret",cost:{material:50,energy:50},build:api.buildArtillery}
     ];
     for(const item of cases){
@@ -157,7 +170,7 @@ describe("repairs, ghosts, and schedules", () => {
     const node=api.resourceNodeAt(7,-2),mineKey=api.key(node.q,node.r);installCompletedStop({q:6,r:-2});
     state.ghosts.set(mineKey,{id:mineKey,type:"ghost",objectType:"wall",q:node.q,r:node.r});
     const materialBefore=state.baseMaterial;api.buildMine(node.q,node.r);
-    assert.equal(state.ghosts.has(mineKey),false);assert.equal(state.structures.get(mineKey).type,"mine");assert.equal(state.baseMaterial,materialBefore-8);
+    assert.equal(state.ghosts.has(mineKey),false);assert.equal(state.structures.get(mineKey).type,"mine");assert.equal(state.baseMaterial,materialBefore-10);
   });
 
   test("a non-Mine cannot replace wreckage on a Resource Node that still has resources",()=>{
@@ -208,8 +221,8 @@ describe("repairs, ghosts, and schedules", () => {
   test("healthy Mine, Wall, and Artillery salvage returns their configured resources",()=>{
     const state=api.state;
     const cases=[
-      {structure:{id:"mine-salvage",type:"mine",resource:"material",q:20,r:20,hp:22,maxHp:22},material:8,energy:0,message:"Salvaged 8 Construction Material."},
-      {structure:{id:"wall-salvage",type:"wall",q:21,r:20,hp:100,maxHp:100},material:12,energy:0,message:"Salvaged 12 Construction Material."},
+      {structure:{id:"mine-salvage",type:"mine",resource:"material",q:20,r:20,hp:22,maxHp:22},material:10,energy:0,message:"Salvaged 10 Construction Material."},
+      {structure:{id:"wall-salvage",type:"wall",q:21,r:20,hp:100,maxHp:100},material:30,energy:0,message:"Salvaged 30 Construction Material."},
       {structure:{id:"artillery-salvage",type:"artillery",q:22,r:20,hp:36,maxHp:36,energy:17,maxEnergy:50},material:50,energy:17,message:"Salvaged 50 Construction Material and 17 Energy."}
     ];
     for(const item of cases){state.baseMaterial=0;state.baseEnergy=0;state.structures.set(api.key(item.structure.q,item.structure.r),item.structure);api.salvageStructure(item.structure);assert.equal(state.baseMaterial,item.material,item.structure.type);assert.equal(state.baseEnergy,item.energy,item.structure.type);assert.equal(elements.get("toastStack").children.at(-1).textContent,item.message);}
@@ -232,7 +245,7 @@ describe("repairs, ghosts, and schedules", () => {
     const state=api.state;state.tracks.clear();state.structures.clear();state.baseMaterial=0;state.baseEnergy=0;
     const wall={id:"remote-wall",type:"wall",q:20,r:-15,hp:100,maxHp:100};state.structures.set(api.key(wall.q,wall.r),wall);
     api.salvageStructure(wall);
-    assert.equal(state.structures.size,0);assert.equal(state.baseMaterial,12);
+    assert.equal(state.structures.size,0);assert.equal(state.baseMaterial,30);
 
     const ghost={id:"-18,14",type:"ghost",objectType:"wall",q:-18,r:14};state.ghosts.set(ghost.id,ghost);
     assert.equal(api.clearGhost(ghost),true);assert.equal(state.ghosts.size,0);
@@ -267,6 +280,12 @@ describe("repairs, ghosts, and schedules", () => {
     assert.ok(state.trains[0].wagons.every(wagon=>wagon.hp===50&&wagon.maxHp===50));
     assert.ok(Number.isInteger(state.trains[0].colorShade)&&state.trains[0].colorShade>=0&&state.trains[0].colorShade<=2);
     assert.ok(state.trains[0].wagons.every(wagon=>Number.isInteger(wagon.colorShade)&&wagon.colorShade>=0&&wagon.colorShade<=2));
+  });
+
+  test("salvaging a fresh Turret Train returns its 30 Construction Material and 10 stored Energy",()=>{
+    const state=api.state,train=addTestTrain("combat");state.baseMaterial=0;state.baseEnergy=0;
+    api.requestTrainSalvage(train);assert.equal(api.confirmTrainSalvage(),true);
+    assert.equal(state.baseMaterial,30);assert.equal(state.baseEnergy,10);
   });
 
   test("a Build/Mine Train renders immediately when deployed while the tutorial-like game state is paused",()=>{

@@ -54,7 +54,7 @@ describe("resource logistics", () => {
 
     assert.equal(train.fuel,20);
     assert.equal(train.wagons[1].amount,30);
-    assert.ok(state.worldMessages.some(item=>item.message==="Train A: Loaded Energy from Base"));
+    assert.ok(state.worldMessages.some(item=>item.message==="Train A: Loaded Energy for Fuel from Base"));
   });
 
   test("the Base accepts each resource only up to 110", () => {

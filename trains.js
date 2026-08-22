@@ -72,10 +72,13 @@ function addBaseResources(amount=1000){
   return added;
 }
 
-function trainFabricationDisabledReason(){
+function trainFabricationCost(trainType="builder"){return trainType==="combat"?COSTS.combatTrain:COSTS.train;}
+
+function trainFabricationDisabledReason(trainType="builder"){
   if(state.nextTrainIndex>=26)return "Maximum of 26 Trains reached.";
   if(state.mode==="deploy")return "Finish or cancel the current Train placement first.";
-  if(!canBaseAfford(COSTS.train))return `Base needs ${Math.max(0,COSTS.train.material-Math.floor(state.baseMaterial))} more Construction Material.`;
+  const cost=trainFabricationCost(trainType),missingMaterial=Math.max(0,cost.material-Math.floor(state.baseMaterial)),missingEnergy=Math.max(0,cost.energy-Math.floor(state.baseEnergy));
+  if(missingMaterial||missingEnergy)return `Base needs ${[missingMaterial?`${missingMaterial} more Construction Material`:"",missingEnergy?`${missingEnergy} more Energy`:""].filter(Boolean).join(" and ")}.`;
   return "";
 }
 
@@ -120,7 +123,7 @@ function unloadCargoToBaseTarget(train,type){
 function serviceBaseLogistics(train) {
   if(train.trainType==="combat"){
     const energyLoaded=refuelAtBase(train)+fillBaseCargo(train);
-    if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy from Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
+    if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy for Fuel from Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
     return;
   }
   const emptyOnArrival=new Set(train.wagons.filter(w=>w.amount<=.0001).map(w=>w.id));
@@ -129,7 +132,7 @@ function serviceBaseLogistics(train) {
   const energy=unloadCargoToBaseTarget(train,"energy");
   if(material+energy>0)showTrainActivity(train,state.base,"Unloaded Resources to Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
   for(const wagon of train.wagons.filter(w=>emptyOnArrival.has(w.id))){const moved=fillWagonFromBase(train,wagon);if((wagon.role||wagon.type)==="energy")energyLoaded+=moved;}
-  if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy from Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
+  if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy for Fuel from Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
 }
 
 function nearestTrain(structure, range = 3) {
@@ -289,7 +292,7 @@ function handleAction(action, element) {
   if(action==="fabricate-place-builder-train"||action==="fabricate-place-combat-train"){
     if(state.nextTrainIndex>=26)return fail("No more than 26 trains can be built.");
     const trainType=action==="fabricate-place-combat-train"?"combat":"builder";
-    if(payBase(COSTS.train,trainType==="combat"?"Turret Train":"Build/Mine Train")){state.deploymentPaid=true;state.deploymentTrainType=trainType;sounds.place();setMode("deploy");toast("Click an empty Track hex for the Train Head, then click a highlighted Tail point.","info");if(trainType==="builder")tutorialEvent("builder-fabrication-started");}
+    if(payBase(trainFabricationCost(trainType),trainType==="combat"?"Turret Train":"Build/Mine Train")){state.deploymentPaid=true;state.deploymentTrainType=trainType;sounds.place();setMode("deploy");toast("Click an empty Track hex for the Train Head, then click a highlighted Tail point.","info");if(trainType==="builder")tutorialEvent("builder-fabrication-started");}
   }
   if(action==="add-schedule"&&selected?.wagons){
     if(!trainStopped(selected))return fail("Clear the current schedule and wait for the train to stop first.");

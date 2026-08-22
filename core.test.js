@@ -26,6 +26,7 @@ describe("geometry and initial state", () => {
     assert.equal(track.links.size,0);
     assert.equal(state.trains.length,0);
     assert.equal(state.baseMaterial, 150);
+    assert.equal(state.baseEnergy,75);
     assert.equal(state.nextTrainIndex,0);
     assert.equal(api.constants.TRACK_HIT_POINTS, 1);
     assert.equal(api.constants.TRAIN_HIT_POINTS, 50);

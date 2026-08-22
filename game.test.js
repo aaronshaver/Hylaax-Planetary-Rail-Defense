@@ -41,6 +41,11 @@ describe("game bootstrap", () => {
     const debug=html.indexOf('id="debugToggle"'),fps=html.indexOf('id="performanceStatus"');assert.ok(debug>=0&&debug<fps,"Debug must appear before FPS");
   });
 
+  test("Pause and Sound buttons have accessible labels without hover tooltips",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+    for(const id of ["pauseToggle","soundToggle"]){const button=html.match(new RegExp(`<button id="${id}"[^>]*>`))?.[0]||"";assert.match(button,/aria-label="[^"]+"/);assert.doesNotMatch(button,/\stitle=/);assert.doesNotMatch(button,/data-bs-toggle="tooltip"/);}
+  });
+
   test("the feedback contact is anchored to the bottom-right",()=>{
     const css=fs.readFileSync(path.join(__dirname,"styles.css"),"utf8");
     assert.match(css,/\.feedback-contact \{[^}]*right: 16px;[^}]*font: 700 14\.3px\/1\.3[^}]*text-align: right;/);
@@ -63,9 +68,10 @@ describe("game bootstrap", () => {
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/title="• Select units and structures\."/);
     assert.doesNotMatch(html,/Select a Train to create or clear its automatic schedule/);
-    const oneStop="Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired",fiveStops="Must be built within 5 hexes of a Train Stop so that it can be resupplied and/or repaired";
-    const expected={trackTool:"Costs 1 C, 0 E",turretTool:`Costs 10 C, 5 E&#10;${oneStop}`,mineTool:`Costs 8 C, 0 E&#10;${oneStop}`,wallTool:`Costs 12 C, 0 E&#10;${fiveStops}`,artilleryTool:`Costs 50 C, 50 E&#10;${oneStop}`,researchTool:"Costs 50 C, 50 E"};
+    const oneStop="• Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired",fiveStops="• Must be built within 5 hexes of a Train Stop so that it can be resupplied and/or repaired";
+    const expected={trackTool:"• Costs 1 C, 0 E",turretTool:"• Costs 10 C, 5 E&#10;"+oneStop,mineTool:"• Costs 10 C, 0 E&#10;"+oneStop,wallTool:"• Costs 30 C, 0 E&#10;"+fiveStops,artilleryTool:"• Costs 50 C, 50 E&#10;"+oneStop,researchTool:"• Costs 50 C, 50 E"};
     for(const [id,cost] of Object.entries(expected)){const title=html.match(new RegExp(`id="${id}"[^>]*title="([^"]+)"`))?.[1];assert.equal(title,cost,id);}
+    for(const title of [...html.matchAll(/class="btn tool-button[^"]*"[^>]*title="([^"]+)"/g)].map(match=>match[1]))for(const clause of title.split("&#10;"))assert.match(clause,/^• /);
   });
 
   test("legacy three-hex Track construction rules are gone",()=>{
@@ -75,15 +81,22 @@ describe("game bootstrap", () => {
 
   test("the Actions panel exposes Wall and Artillery and keeps Salvage/Clear on key 7",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-    assert.match(html,/data-mode="wall"[^>]*Costs 12 C, 0 E[^>]*><span class="keycap">5<\/span>Build Wall/);
+    assert.match(html,/data-mode="wall"[^>]*Costs 30 C, 0 E[^>]*><span class="keycap">5<\/span>Build Wall/);
     assert.match(html,/data-mode="artillery"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">6<\/span>Build Artillery/);
-    assert.match(html,/data-mode="salvage"[^>]*Clear destroyed objects without recovering resources[^>]*><span class="keycap">7<\/span>Salvage\/Clear Object/);
+    assert.match(html,/data-mode="salvage"[^>]*Salvages for resources: train Track, most buildings, and Trains&#10;• Clears destroyed objects&#10;• Salvaging or Clearing a Mine leaves the underlying resource node untouched[^>]*><span class="keycap">7<\/span>Salvage\/Clear Object/);
     assert.match(html,/data-mode="research"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">8<\/span>Build Research/);
   });
 
-  test("Base Train fabrication tooltips use the Construction Material abbreviation",()=>{
-    const source=fs.readFileSync(path.join(__dirname,"interface.js"),"utf8");
-    assert.equal((source.match(/Costs 30 \(C\)onstruction Material\./g)||[]).length,2);
+  test("Base Train fabrication tooltips put standardized costs first and bullet every item",()=>{
+    api.state.selected={type:"base",id:"base"};
+    const html=api.selectionHtml(),tips=[...html.matchAll(/fabricate-place-(?:builder|combat)-train[^>]*title="([^"]+)"/g)].map(match=>match[1]);
+    assert.equal(tips.length,2);
+    assert.match(tips[0],/^• Costs 30 C, 0 E/);
+    assert.match(tips[1],/^• Costs 30 C, 10 E/);
+    assert.match(tips[0],/• Mines resources, repairs buildings, rebuilds destroyed Track, supplies Turrets and Artillery with shot Energy$/);
+    assert.match(tips[1],/• Must be refueled and have shot Energy resupplied from the Base \(cannot be supplied by Mines\)$/);
+    assert.ok(tips.every(tip=>!tip.includes("Placement uses two clicks")));
+    for(const tip of tips)for(const clause of tip.split("&#10;"))assert.match(clause,/^• /);
   });
 
   test("the small Debug toggle exposes all Debug menu options",()=>{
@@ -103,9 +116,9 @@ describe("game bootstrap", () => {
     assert.match(html,/id="turretEnergyOkay"[^>]*>OK<\/button>/);
   });
 
-  test("the displayed and package versions are 3.6",()=>{
+  test("the displayed and package versions are 3.7",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 3\.6/);assert.match(html,/DEFENSE 3\.6/);assert.equal(packageJson.version,"3.6.0");
+    assert.match(html,/Planetary Rail Defense 3\.7/);assert.match(html,/DEFENSE 3\.7/);assert.equal(packageJson.version,"3.7.0");
   });
 });

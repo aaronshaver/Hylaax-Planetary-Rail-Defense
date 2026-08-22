@@ -40,7 +40,7 @@ function makeInitialState() {
     turretEnergyWarningShown: false,
     turretEnergyWarningWasPaused: false,
     baseMaterial: 150,
-    baseEnergy: 48,
+    baseEnergy: 75,
     researchPoints: 0,
     researchUnlocked: false,
     researchUpgrades: {},
@@ -279,7 +279,7 @@ function getSelected() {
 }
 
 function clearDeploymentReservation(refund=false){
-  if(refund&&state.deploymentPaid){state.baseMaterial+=COSTS.train.material;state.baseEnergy+=COSTS.train.energy;}
+  if(refund&&state.deploymentPaid){const cost=trainFabricationCost(state.deploymentTrainType);state.baseMaterial+=cost.material;state.baseEnergy+=cost.energy;}
   state.deploymentPaid=false;state.deploymentTrainType=null;state.deploymentHead=null;state.deploymentPaths=[];state.deploymentReserved.clear();
 }
 

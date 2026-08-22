@@ -51,9 +51,10 @@ const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const COSTS = {
   track: { material: 1, energy: 0 },
   train: { material: 30, energy: 0 },
+  combatTrain: { material: 30, energy: 10 },
   turret: { material: 10, energy: 5 },
-  mine: { material: 8, energy: 0 },
-  wall: { material: 12, energy: 0 },
+  mine: { material: 10, energy: 0 },
+  wall: { material: 30, energy: 0 },
   artillery: { material: 50, energy: 50 },
   research: { material: 50, energy: 50 }
 };
@@ -88,6 +89,7 @@ const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const hexDistance = (a, b) => (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
 const neighbors = (q, r) => DIRECTIONS.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
+function creepOccupiesHex(q,r){return state.enemies.some(creep=>{const position=worldToAxial(creep.x,creep.y);return position.q===q&&position.r===r;});}
 function footprintPerimeter(cells){
   const occupied=new Set(cells.map(cell=>key(cell.q,cell.r))),perimeter=new Map();
   for(const cell of cells)for(const position of neighbors(cell.q,cell.r))if(!occupied.has(key(position.q,position.r)))perimeter.set(key(position.q,position.r),position);

@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 3.6</title>
+  <title>Planetary Rail Defense 3.7</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 3.6 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 3.7 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -68,11 +68,11 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 3.6</span></h1>
+          <h1>RAIL<br><span>DEFENSE 3.7</span></h1>
         </div>
         <div class="header-controls">
-          <button id="pauseToggle" class="btn btn-sm icon-button status-playing" title="Pause simulation" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
-          <button id="soundToggle" class="btn btn-sm icon-button status-sound-on" title="Toggle sound" aria-label="Toggle sound"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2Z"/><path d="M11 5.2c1.5 1.5 1.5 4.1 0 5.6M12.7 3.5c2.5 2.5 2.5 6.5 0 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Sound: ON</span></button>
+          <button id="pauseToggle" class="btn btn-sm icon-button status-playing" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
+          <button id="soundToggle" class="btn btn-sm icon-button status-sound-on" aria-label="Toggle sound"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2Z"/><path d="M11 5.2c1.5 1.5 1.5 4.1 0 5.6M12.7 3.5c2.5 2.5 2.5 6.5 0 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Sound: ON</span></button>
         </div>
       </header>
 
@@ -80,13 +80,13 @@
         <div class="section-label">ACTIONS</div>
         <div class="tool-grid" role="group" aria-label="Actions">
           <button id="selectTool" class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="• Select units and structures."><span class="keycap">1</span>Select Object</button>
-          <button id="trackTool" class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 1 C, 0 E"><span class="keycap">2</span>Build Track</button>
-          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 10 C, 5 E&#10;Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">3</span>Build Turret</button>
-          <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 8 C, 0 E&#10;Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">4</span>Build Mine</button>
-          <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 12 C, 0 E&#10;Must be built within 5 hexes of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">5</span>Build Wall</button>
-          <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 50 C, 50 E&#10;Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">6</span>Build Artillery</button>
-          <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="• Salvage healthy Track, Turrets, Artillery, Mines, Walls, Research, or Trains to recover resources.&#10;• Clear destroyed objects without recovering resources, even when there is nothing to salvage.&#10;• Removing a Mine leaves any Resource Node with remaining resources in place.&#10;• Salvaging a Train requires confirmation and removes its schedule."><span class="keycap">7</span>Salvage/Clear Object</button>
-          <button id="researchTool" class="btn tool-button" data-mode="research" data-bs-toggle="tooltip" data-bs-placement="left" title="Costs 50 C, 50 E"><span class="keycap">8</span>Build Research</button>
+          <button id="trackTool" class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 1 C, 0 E"><span class="keycap">2</span>Build Track</button>
+          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 10 C, 5 E&#10;• Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">3</span>Build Turret</button>
+          <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 10 C, 0 E&#10;• Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">4</span>Build Mine</button>
+          <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 30 C, 0 E&#10;• Must be built within 5 hexes of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">5</span>Build Wall</button>
+          <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E&#10;• Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">6</span>Build Artillery</button>
+          <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="• Salvages for resources: train Track, most buildings, and Trains&#10;• Clears destroyed objects&#10;• Salvaging or Clearing a Mine leaves the underlying resource node untouched"><span class="keycap">7</span>Salvage/Clear Object</button>
+          <button id="researchTool" class="btn tool-button" data-mode="research" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E"><span class="keycap">8</span>Build Research</button>
         </div>
       </section>
 
