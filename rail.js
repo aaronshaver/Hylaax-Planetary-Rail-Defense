@@ -202,7 +202,7 @@ function buildWall(q, r) {
   if(ghost)replaceDestroyedSite(ghost,site);
   state.structures.set(key(q,r),wall);
   invalidateEnemyNavigation();
-  sounds.place();burst(q,r,"#b7c1c5",10);select("structure",wall.id);
+  sounds.place();burst(q,r,"#b7c1c5",10);select("structure",wall.id);render();
 }
 
 function buildArtillery(q,r){
@@ -213,7 +213,7 @@ function buildArtillery(q,r){
   if(!payBase(COSTS.artillery,"Artillery"))return;
   const maxEnergy=artilleryEnergyStorage(),artillery={id:`artillery-${state.nextId++}`,type:"artillery",q,r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:maxEnergy,maxEnergy,baseMaxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
   if(ghost)replaceDestroyedSite(ghost,site);
-  state.structures.set(key(q,r),artillery);invalidateEnemyNavigation();sounds.place();burst(q,r,"#ef9b54",12);select("structure",artillery.id);
+  state.structures.set(key(q,r),artillery);invalidateEnemyNavigation();sounds.place();burst(q,r,"#ef9b54",12);select("structure",artillery.id);render();
 }
 
 

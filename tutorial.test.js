@@ -54,7 +54,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.tutorial.step,2);
     api.tutorialEvent("track-selected");
     assert.equal(api.state.tutorial.step,3);
-    assert.equal(api.tutorialMessage(),"Step 3: Click nearby hex tiles to add one more Track segment.\n\nIf at any point you run out of Construction Material, simply use the Salvage/Clear Object tool to destroy and reclaim some of your constructions and try again with a more efficient layout.");
+    assert.equal(api.tutorialMessage(),"Step 3: Click nearby hex tiles to add one more Track segment.");
     let addedQ=2;while(api.state.tracks.has(`${addedQ},0`))addedQ++;
     api.state.tracks.set(`${addedQ},0`,makeTrack(addedQ,0));
     api.tutorialEvent("track-built");
@@ -75,7 +75,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.tutorial.step,8);
     api.tutorialEvent("schedule-started",{trainId:train.id,train});
     assert.equal(api.state.tutorial.step,9);
-    assert.equal(api.tutorialMessage(),"Step 9: Add at least three Stops, making sure there is a Stop by the Base, C resource node, and E resource node; click Done Adding when you've finished adding Stops");
+    assert.equal(api.tutorialMessage(),"Step 9: Add three Stops, making sure there is a Stop by the Base, C resource node, and E resource node. Click Done Adding when finished.");
 
     train.schedule=[loop[0],loop[5],loop[14]];
     train.scheduleComplete=true;
@@ -101,7 +101,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.paused,true,"the final step must remain paused until Okay is clicked");
     assert.equal(elements.get("pauseToggle").disabled,true);
     assert.equal(elements.get("tutorialOkay").hidden,false);
-    assert.equal(elements.get("tutorialText").textContent,"Step 14: You now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to pause the game catch your breath at any time.");
+    assert.equal(elements.get("tutorialText").textContent,"Step 14: You now have a basic automated train system for gathering Construction Material for building new structures, Energy for fueling Trains and Turrets, and a Turret to defend part of your Base.\n\nClick the \"Playing\" button in the upper right to pause the game catch your breath if you need time to think.\n\nThere are more buildings you can build, like Walls and Artillery and a Research station to give you more tools to survive and improve efficiency.");
 
     api.finishTutorial();
     assert.equal(api.state.tutorial,null);

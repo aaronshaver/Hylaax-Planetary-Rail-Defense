@@ -4,18 +4,18 @@ const TUTORIAL_MESSAGES = [
   "",
   "Click Build Track in the Actions panel",
   "Click the existing Track (a light gray circle inside a purple outline)",
-  "Click nearby hex tiles to add one more Track segment.\n\nIf at any point you run out of Construction Material, simply use the Salvage/Clear Object tool to destroy and reclaim some of your constructions and try again with a more efficient layout.",
+  "Click nearby hex tiles to add one more Track segment.",
   "Keep adding Track until you have a complete loop that passes by the Base, an Energy node, and a Construction Material node; it must be a fully closed loop",
   "Click the Base",
   "Click Fabricate and Place Build/Mine Train",
   "Do two clicks to place the Train: one for the head of the Train, another for its tail",
   "Click Add Schedule in the Train's pane on the right",
-  "Add at least three Stops, making sure there is a Stop by the Base, C resource node, and E resource node; click Done Adding when you've finished adding Stops",
+  "Add three Stops, making sure there is a Stop by the Base, C resource node, and E resource node. Click Done Adding when finished.",
   "Click Build Mine",
   "Click on the C and E nodes to add Mines to them",
   "Click Build Turret",
   "Place a Turret one tile away from one of the Train Stops",
-  "You now have a minimal automated train system for gathering Construction Material for new structures, Energy for the Train and Turrets, and a Turret to defend your Base.\n\nRemember that you can click the \"Playing\" button in the upper right to pause the game catch your breath at any time."
+  "You now have a basic automated train system for gathering Construction Material for building new structures, Energy for fueling Trains and Turrets, and a Turret to defend part of your Base.\n\nClick the \"Playing\" button in the upper right to pause the game catch your breath if you need time to think.\n\nThere are more buildings you can build, like Walls and Artillery and a Research station to give you more tools to survive and improve efficiency."
 ];
 const TUTORIAL_INTRO="This is a tower defense game where automating train networks is the key to successful survival.";
 

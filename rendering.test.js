@@ -247,7 +247,7 @@ describe("rendering caches", () => {
     assert.equal(boundary.length,30,"a radius-five hex has 30 boundary tiles");
   });
 
-  test("a selected Wall keeps showing its five-hex repair range",()=>{
+  test("a Wall never shows a blue range after placement or when selected",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
     const wall={id:"wall-selected-range",type:"wall",q:3,r:-1,hp:100,maxHp:100};
     state.structures.set(api.key(wall.q,wall.r),wall);state.mode="select";state.hover=null;state.selected={type:"structure",id:wall.id};context.strokeCalls.length=0;
@@ -255,7 +255,7 @@ describe("rendering caches", () => {
     api.drawTurretRanges();
 
     const boundary=context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)"&&call.lineWidth===1.4);
-    assert.equal(boundary.length,30,"selected Wall range should persist without a placement hover");
+    assert.equal(boundary.length,0,"a selected Wall must not show a blue range");
   });
 
   test("a fixed Turret blue range appears only when selected in Select Object mode",()=>{

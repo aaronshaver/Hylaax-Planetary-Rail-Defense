@@ -77,6 +77,20 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot build in a hex occupied by a Creep.");
   });
 
+  test("Wall and Artillery placement repaint immediately while paused",()=>{
+    for(const item of [{type:"wall",label:"W",build:api.buildWall},{type:"artillery",label:"A",build:api.buildArtillery}]){
+      api.reset();const state=api.state,context=elements.get("gameCanvas").context;addTestTrain();state.tracks.clear();state.structures.clear();state.baseMaterial=500;state.baseEnergy=500;state.paused=true;
+      let target=null;
+      for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
+      assert.ok(target);installCompletedStop({q:target.q+1,r:target.r});context.textCalls.length=0;
+
+      item.build(target.q,target.r);
+
+      assert.equal(state.structures.get(api.key(target.q,target.r)).type,item.type);
+      assert.ok(context.textCalls.some(call=>call.text===item.label),`${item.type} should be painted synchronously while paused`);
+    }
+  });
+
   test("Artillery starts with 50 Energy, fires its first payload immediately, then uses its normal delay",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
     state.baseEnergy=150;

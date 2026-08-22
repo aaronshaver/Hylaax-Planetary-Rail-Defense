@@ -215,8 +215,6 @@ function drawTurretRanges(){
   if(state.mode==="turret"&&state.hover)drawTurretRange(state.hover,true,turretRange());
   if(state.mode==="wall"&&state.hover)drawTurretRange(state.hover,true,5);
   if(state.mode==="artillery"&&state.hover)drawTurretRange(state.hover,true,artilleryRange());
-  const selectedWall=state.selected?.type==="structure"?[...state.structures.values()].find(structure=>structure.id===state.selected.id&&structure.type==="wall"):null;
-  if(selectedWall)drawTurretRange(selectedWall,false,5);
   const selectedArtillery=state.mode==="select"&&state.selected?.type==="structure"?[...state.structures.values()].find(structure=>structure.id===state.selected.id&&structure.type==="artillery"):null;
   if(selectedArtillery)drawTurretRange(selectedArtillery,false,artilleryRange());
   const selectedCombat=state.selected?.type==="train"?state.trains.find(train=>train.id===state.selected.id&&train.trainType==="combat"):null;
