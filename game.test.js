@@ -35,10 +35,10 @@ describe("game bootstrap", () => {
     assert.match(html,/<ul id="remindersNotice" class="reminders-list">[\s\S]*<li>Please play on a desktop or laptop computer; mobile is not well-supported\.<\/li>[\s\S]*<li>To get the latest features and fixes, do CTRL-SHIFT-R or CMD-SHIFT-R to force a cache refresh<\/li>[\s\S]*<\/ul>/);
   });
 
-  test("the lower-left performance display keeps FPS and removes TPS",()=>{
+  test("the lower-left Debug button has no FPS widget",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-    assert.match(html,/FPS <strong id="fpsValue">0<\/strong>/);assert.doesNotMatch(html,/\bTPS\b|id="tpsValue"/);
-    const debug=html.indexOf('id="debugToggle"'),fps=html.indexOf('id="performanceStatus"');assert.ok(debug>=0&&debug<fps,"Debug must appear before FPS");
+    assert.match(html,/id="debugToggle"/);assert.doesNotMatch(html,/\bFPS\b|\bTPS\b|id="(?:fps|tps)Value"|id="performanceStatus"/);
+    const css=fs.readFileSync(path.join(__dirname,"styles.css"),"utf8");assert.match(css,/\.bottom-debug-row \{[^}]*left: 5px;[^}]*bottom: 5px;/);
   });
 
   test("Pause and Sound buttons have accessible labels without hover tooltips",()=>{
@@ -116,9 +116,9 @@ describe("game bootstrap", () => {
     assert.match(html,/id="turretEnergyOkay"[^>]*>OK<\/button>/);
   });
 
-  test("the displayed and package versions are 3.7",()=>{
+  test("the displayed and package versions are 3.8",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 3\.7/);assert.match(html,/DEFENSE 3\.7/);assert.equal(packageJson.version,"3.7.0");
+    assert.match(html,/Planetary Rail Defense 3\.8/);assert.match(html,/DEFENSE 3\.8/);assert.equal(packageJson.version,"3.8.0");
   });
 });

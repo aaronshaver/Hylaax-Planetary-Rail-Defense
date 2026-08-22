@@ -55,7 +55,7 @@ function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
       const distance=hexDistance({q:0,r:0},{q:dq,r:dr});
       if(distance<1||distance>4)continue;
       const position={q:hive.q+dq,r:hive.r+dr};
-      if(isPassable(position.q,position.r)&&outsidePlayerConstructionBuffer(position.q,position.r,ENEMY_SPAWN_BUFFER,constructionAnchors)&&!hiveAt(position.q,position.r)&&!(state.hiveSpawnQueue||[]).some(operation=>operation.q===position.q&&operation.r===position.r)&&!structureAt(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r))options.push(position);
+      if(isPassable(position.q,position.r)&&terrainCanReachBase(position.q,position.r)&&outsidePlayerConstructionBuffer(position.q,position.r,ENEMY_SPAWN_BUFFER,constructionAnchors)&&!hiveAt(position.q,position.r)&&!(state.hiveSpawnQueue||[]).some(operation=>operation.q===position.q&&operation.r===position.r)&&!structureAt(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r))options.push(position);
     }
   }
   options.sort((a,b)=>hash(b.q,b.r,(state.mapSeed+spawnNumber)|0)-hash(a.q,a.r,(state.mapSeed+spawnNumber)|0));

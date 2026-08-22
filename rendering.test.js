@@ -95,6 +95,26 @@ describe("rendering caches", () => {
     assert.equal(second.cells, first.cells);
   });
 
+  test("zoom input is coalesced and reuses a covering terrain layer until the gesture settles",()=>{
+    api.ensureTerrainLayer();const first=api.terrainLayerStats(),initialZoom=api.state.camera.zoom;
+
+    api.queueCameraZoom(-40,512,384);api.queueCameraZoom(-40,512,384);
+
+    assert.ok(api.state.camera.zoom>initialZoom);assert.equal(api.terrainLayerStats().builds,first.builds,"wheel input must not render synchronously");
+    api.render();assert.equal(api.terrainLayerStats().builds,first.builds,"zoom-in frames should transform the covering cached terrain");
+    assert.equal(api.finishZoomGesture(),true);api.render();assert.equal(api.terrainLayerStats().builds,first.builds+1,"settling should rebuild terrain once at final zoom");
+  });
+
+  test("pan input updates the camera without rendering synchronously",()=>{
+    api.ensureTerrainLayer();const first=api.terrainLayerStats(),state=api.state;
+    state.pointer.startX=100;state.pointer.startY=100;state.pointer.camX=state.camera.x;state.pointer.camY=state.camera.y;
+
+    assert.equal(api.queueCameraPan(120,110),true);assert.equal(api.queueCameraPan(140,125),true);
+
+    assert.equal(state.camera.x,state.pointer.camX-40/state.camera.zoom);assert.equal(state.camera.y,state.pointer.camY-25/state.camera.zoom);
+    assert.equal(api.terrainLayerStats().builds,first.builds,"pointer input must wait for the animation frame instead of rendering for every event");
+  });
+
   test("live Track never uses the legacy dark-red damaged rendering",()=>{
     const context=elements.get("gameCanvas").context,track=[...api.state.tracks.values()][0];
     track.hp=.5;context.strokeCalls.length=0;context.fillCalls.length=0;

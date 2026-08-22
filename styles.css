@@ -90,10 +90,8 @@ button { touch-action: manipulation; }
 .debug-action + .debug-menu-note { margin: 6px 2px 13px; }
 .debug-menu-note { color: #718187; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-.bottom-debug-row { position: absolute; z-index: 12; left: 16px; bottom: 16px; display: flex; align-items: center; gap: 6px; }
-.bottom-debug-row .performance-status { position: static; flex: none; white-space: nowrap; padding: 7px 10px; border: 1px solid rgba(96,213,219,.24); background: rgba(7,10,13,.82); color: #819196; font: 700 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; pointer-events: none; }
+.bottom-debug-row { position: absolute; z-index: 12; left: 5px; bottom: 5px; display: flex; align-items: center; }
 .bottom-debug-row .debug-toggle { flex: none; }
-.performance-status strong { color: var(--cyan); }
 .world-population-status { left: 16px; bottom: 52px; min-width: 220px; padding: 9px 11px; color: #aebabe; font: 700 15px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .world-population-status strong { color: #f08088; }
 

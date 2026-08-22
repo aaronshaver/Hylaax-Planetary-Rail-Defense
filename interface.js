@@ -187,5 +187,5 @@ function showReminders(){
 
 function closeReminders(){
   remindersOpen=false;ui.remindersDialog.hidden=true;ui.remindersDialog.classList.add("d-none");
-  lastWallTime=Date.now();simulationAccumulator=0;resetPerformanceMetrics();sounds.init();render();
+  lastWallTime=Date.now();simulationAccumulator=0;sounds.init();render();
 }

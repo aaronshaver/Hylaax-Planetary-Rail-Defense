@@ -135,7 +135,7 @@ function startTutorial(){
 }
 
 function finishTutorial(){
-  state.tutorial=null;state.paused=false;simulationAccumulator=0;lastWallTime=Date.now();resetPerformanceMetrics();
+  state.tutorial=null;state.paused=false;simulationAccumulator=0;lastWallTime=Date.now();
   syncTutorialUI();updateUI(true);render();canvas.focus();
 }
 

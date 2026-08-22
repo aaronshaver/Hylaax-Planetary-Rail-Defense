@@ -96,8 +96,41 @@ function outsidePlayerConstructionBuffer(q,r,minimumDistance=ENEMY_SPAWN_BUFFER,
   return anchors.every(anchor=>hexDistance(anchor,{q,r})>=minimumDistance);
 }
 
-function hiveHexOpen(q,r,constructionAnchors=playerConstructionAnchors()){
+function terrainPathExists(start,goal,passable,maxNodes=60000){
+  const startKey=key(start.q,start.r),goalKey=key(goal.q,goal.r),open=[],best=new Map([[startKey,0]]),closed=new Set();let order=0;
+  const compare=(a,b)=>a.f-b.f||a.h-b.h||a.order-b.order;
+  const push=node=>{open.push(node);let index=open.length-1;while(index>0){const parent=(index-1)>>1;if(compare(open[parent],node)<=0)break;open[index]=open[parent];index=parent;}open[index]=node;};
+  const pop=()=>{const root=open[0],tail=open.pop();if(open.length&&tail){let index=0;while(true){const left=index*2+1,right=left+1;if(left>=open.length)break;const child=right<open.length&&compare(open[right],open[left])<0?right:left;if(compare(open[child],tail)>=0)break;open[index]=open[child];index=child;}open[index]=tail;}return root;};
+  const initialDistance=hexDistance(start,goal);push({q:start.q,r:start.r,g:0,h:initialDistance,f:initialDistance,order:order++});
+  for(let explored=0;open.length&&explored<maxNodes;){
+    const current=pop(),currentKey=key(current.q,current.r);if(closed.has(currentKey))continue;closed.add(currentKey);explored++;
+    if(currentKey===goalKey)return true;
+    for(const next of neighbors(current.q,current.r)){
+      const nextKey=key(next.q,next.r);if(closed.has(nextKey)||!passable(next.q,next.r))continue;
+      const g=current.g+1;if(g>=(best.get(nextKey)??Infinity))continue;best.set(nextKey,g);
+      const h=hexDistance(next,goal);push({q:next.q,r:next.r,g,h,f:g+h,order:order++});
+    }
+  }
+  return false;
+}
+
+function terrainCanReachBase(q,r,passable=isPassable){
+  const useCache=passable===isPassable;
+  if(useCache&&terrainReachabilitySeed!==state.mapSeed){terrainReachabilitySeed=state.mapSeed;terrainReachabilityCache=new Map();}
+  const terrainKey=key(q,r);
+  if(useCache&&terrainReachabilityCache.has(terrainKey))return terrainReachabilityCache.get(terrainKey);
+  let reachable=false;
+  if(passable(q,r)){
+    const start={q,r},goal=basePerimeter().sort((a,b)=>hexDistance(start,a)-hexDistance(start,b))[0];
+    reachable=key(start.q,start.r)===key(goal.q,goal.r)||terrainPathExists(start,goal,passable);
+  }
+  if(useCache)terrainReachabilityCache.set(terrainKey,reachable);
+  return reachable;
+}
+
+function hiveHexOpen(q,r,constructionAnchors=playerConstructionAnchors(),requireReachability=true){
   if(terrainAt(q,r).type!=="ground")return false;
+  if(requireReachability&&!terrainCanReachBase(q,r))return false;
   if(!outsidePlayerConstructionBuffer(q,r,ENEMY_SPAWN_BUFFER,constructionAnchors))return false;
   if(structureAt(q,r)||state.tracks.has(key(q,r))||ghostAt(q,r)||trainClaimsHex(q,r))return false;
   if([...state.hives.values()].some(hive=>hexDistance(hive,{q,r})<=1))return false;
@@ -110,24 +143,26 @@ function seedInitialHives(){
   for(let q=-22;q<=22;q++)for(let r=-22;r<=22;r++){
     const distance=distanceToStructure({q,r},state.base);
     const tooCloseToInfrastructure=distanceToStructure({q,r},state.base)<INITIAL_HIVE_BUFFER||[...state.tracks.values()].some(track=>hexDistance({q,r},track)<INITIAL_HIVE_BUFFER);
-    if(tooCloseToInfrastructure||distance>20||!hiveHexOpen(q,r,constructionAnchors))continue;
+    if(tooCloseToInfrastructure||distance>20||!hiveHexOpen(q,r,constructionAnchors,false))continue;
     candidates.push({q,r,score:terrainHash(q,r,901)});
   }
   candidates.sort((a,b)=>b.score-a.score);
   for(const candidate of candidates){
+    if(!terrainCanReachBase(candidate.q,candidate.r))continue;
     if([...state.hives.values()].some(hive=>hexDistance(hive,candidate)<9))continue;
     createHive(candidate.q,candidate.r,2,true,true);
     if(state.hives.size>=INITIAL_HIVE_COUNT)break;
   }
 }
 
+let terrainReachabilitySeed=null,terrainReachabilityCache=new Map();
 let state = makeInitialState();
 seedInitialHives();
 let width = 1, height = 1, dpr = 1;
 let lastWallTime = Date.now();
 let simulationAccumulator = 0;
-let performanceWindowStart = performance.now(), performanceFrames = 0;
-let terrainLayerSignature="",terrainLayerResources=[],terrainLayerBuilds=0,terrainLayerCells=0,terrainRevision=0;
+let terrainLayerSignature="",terrainLayerResources=[],terrainLayerBuilds=0,terrainLayerCells=0,terrainRevision=0,terrainLayerView=null;
+let zoomGestureActive=false,zoomRenderPending=false,panRenderPending=false,zoomSettleTimer=null;
 let selectionCache = "";
 let selectionCacheKey="";
 let selectionInteractionActive=false;

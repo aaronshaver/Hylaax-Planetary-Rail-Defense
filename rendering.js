@@ -55,12 +55,26 @@ function drawTerrainBase(context){
 
 function currentTerrainLayerSignature(){return `${state.mapSeed}|${terrainRevision}|${width}|${height}|${dpr}|${state.camera.x}|${state.camera.y}|${state.camera.zoom}`;}
 
+function terrainLayerPreviewCoversViewport(){
+  if(!terrainLayerView||terrainLayerView.width!==width||terrainLayerView.height!==height)return false;
+  const scale=state.camera.zoom/terrainLayerView.zoom;
+  const left=width/2+(terrainLayerView.x-state.camera.x)*state.camera.zoom-width/2*scale,top=height/2+(terrainLayerView.y-state.camera.y)*state.camera.zoom-height/2*scale;
+  return left<=0&&top<=0&&left+width*scale>=width&&top+height*scale>=height;
+}
+
 function ensureTerrainLayer(){
   const signature=currentTerrainLayerSignature();if(signature===terrainLayerSignature)return;
+  if(zoomGestureActive&&terrainLayerSignature&&terrainLayerPreviewCoversViewport())return;
   const pixelWidth=Math.max(1,Math.floor(width*dpr)),pixelHeight=Math.max(1,Math.floor(height*dpr));
   if(terrainLayer.width!==pixelWidth)terrainLayer.width=pixelWidth;if(terrainLayer.height!==pixelHeight)terrainLayer.height=pixelHeight;
   terrainCtx.setTransform(dpr,0,0,dpr,0,0);terrainCtx.clearRect(0,0,width,height);terrainCtx.save();terrainCtx.translate(width/2,height/2);terrainCtx.scale(state.camera.zoom,state.camera.zoom);terrainCtx.translate(-state.camera.x,-state.camera.y);
-  const result=drawTerrainBase(terrainCtx);terrainCtx.restore();terrainLayerResources=result.resources;terrainLayerCells=result.cells;terrainLayerBuilds++;terrainLayerSignature=signature;
+  const result=drawTerrainBase(terrainCtx);terrainCtx.restore();terrainLayerResources=result.resources;terrainLayerCells=result.cells;terrainLayerBuilds++;terrainLayerSignature=signature;terrainLayerView={x:state.camera.x,y:state.camera.y,zoom:state.camera.zoom,width,height};
+}
+
+function drawTerrainLayer(){
+  if(!terrainLayerView){ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,0,0,width,height);return;}
+  const scale=state.camera.zoom/terrainLayerView.zoom;
+  ctx.save();ctx.translate(width/2+(terrainLayerView.x-state.camera.x)*state.camera.zoom,height/2+(terrainLayerView.y-state.camera.y)*state.camera.zoom);ctx.scale(scale,scale);ctx.translate(-width/2,-height/2);ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,0,0,width,height);ctx.restore();
 }
 
 function drawResourceNodes(){for(const resource of terrainLayerResources)drawResourceNode(resource.q,resource.r,resource.p,resource.type);}
@@ -434,6 +448,6 @@ function screenShakeOffset(){
 function screenShakeActive(){return state.screenShakeUntilWallTime?state.screenShakeUntilWallTime>Date.now():state.screenShakeUntil>state.elapsed;}
 
 function render(){
-  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ensureTerrainLayer();const shake=screenShakeOffset();ctx.save();ctx.translate(shake.x,shake.y);ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,0,0,width,height);ctx.save();ctx.translate(width/2,height/2);ctx.scale(state.camera.zoom,state.camera.zoom);ctx.translate(-state.camera.x,-state.camera.y);
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ensureTerrainLayer();const shake=screenShakeOffset();ctx.save();ctx.translate(shake.x,shake.y);drawTerrainLayer();ctx.save();ctx.translate(width/2,height/2);ctx.scale(state.camera.zoom,state.camera.zoom);ctx.translate(-state.camera.x,-state.camera.y);
   drawStopSupplyLines();drawResourceNodes();drawTurretRanges();drawTracks();drawGhosts();drawTrainStops();drawEffects();drawHives();drawBase();drawStructures();drawSelection();drawTrains();drawBuildTrackGlow();drawEnemies();drawHover();drawWorldMessages();ctx.restore();ctx.restore();
 }

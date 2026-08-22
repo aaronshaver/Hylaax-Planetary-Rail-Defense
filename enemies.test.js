@@ -296,6 +296,23 @@ describe("Hive and defense behavior", () => {
 });
 
 describe("enemy navigation", () => {
+  test("Hive locations reject isolated ground that Creeps cannot traverse back to the Base",()=>{
+    const state=api.state;state.mapSeed=1;
+    const isolated={q:16,r:-22};
+    assert.equal(api.terrainAt(isolated.q,isolated.r).type,"ground");
+    assert.ok(api.neighbors(isolated.q,isolated.r).every(position=>!api.isPassable(position.q,position.r)),"fixture must remain a fully isolated ground hex");
+    assert.equal(api.terrainCanReachBase(isolated.q,isolated.r),false);
+    assert.equal(api.hiveHexOpen(isolated.q,isolated.r),false);
+  });
+
+  test("every initial Hive is placed on terrain connected to the Base",()=>{
+    for(const mapSeed of [1,2,3,4,5]){
+      api.reset({mapSeed,seedHives:true});
+      assert.equal(api.state.hives.size,api.constants.INITIAL_HIVE_COUNT);
+      for(const hive of api.state.hives.values())assert.equal(api.terrainCanReachBase(hive.q,hive.r),true,`map ${mapSeed} Hive ${hive.q},${hive.r}`);
+    }
+  });
+
   test("destroying any Train part names it as Destroyed, plays three low tones, and shakes the map",()=>{
     const state=api.state,train=addTestTrain("combat"),toastStack=require("./harness.js").elements.get("toastStack"),toneCalls=[];
     const originalTone=api.sounds.tone;api.sounds.tone=(...args)=>toneCalls.push(args);

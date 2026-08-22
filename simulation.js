@@ -24,15 +24,3 @@ function advanceSimulation(seconds){
   if(simulationAccumulator<0)simulationAccumulator=0;
   return ticks;
 }
-
-function resetPerformanceMetrics(now=performance.now()){
-  performanceWindowStart=now;performanceFrames=0;
-}
-
-function recordPerformance(now,ticks,rendered){
-  if(rendered)performanceFrames++;
-  const elapsed=now-performanceWindowStart;
-  if(elapsed<1000)return;
-  ui.fpsValue.textContent=Math.round(performanceFrames*1000/elapsed);
-  resetPerformanceMetrics(now);
-}
