@@ -165,11 +165,12 @@ describe("rendering caches", () => {
   });
 
   test("the live Base renders one B on each of its four diamond cells",()=>{
-    const context=elements.get("gameCanvas").context;context.textCalls.length=0;api.drawBase();
+    const context=elements.get("gameCanvas").context;context.textCalls.length=0;context.fillRectCalls.length=0;api.drawBase();
     const labels=context.textCalls.filter(call=>call.text==="B"&&call.fillStyle==="#f3f7f8"&&call.font==="900 16.5px ui-monospace, monospace");
     assert.equal(labels.length,4);
     const expected=new Set(api.structureFootprint(api.state.base).map(cell=>{const point=api.axialToWorld(cell.q,cell.r);return `${point.x},${point.y+.5}`;}));
     assert.deepEqual(new Set(labels.map(label=>`${label.x},${label.y}`)),expected);
+    assert.equal(context.fillRectCalls.some(call=>call.width===34&&call.height===28),false,"Base cells should not use rectangular center panels");
   });
 
   test("building and resource-node letters share one medium very-light-gray style and larger circles",()=>{

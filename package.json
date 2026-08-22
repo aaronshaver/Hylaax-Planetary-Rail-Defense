@@ -1,6 +1,6 @@
 {
   "name": "planetary-rail-defense",
-  "version": "3.9.0",
+  "version": "3.9.1",
   "private": true,
   "scripts": {
     "test": "node --test"

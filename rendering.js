@@ -20,6 +20,42 @@ function hexPathOn(context,q,r,scale=.94){
 
 function hexPath(q,r,scale=.94){hexPathOn(ctx,q,r,scale);}
 
+function adjacentFootprintPairs(cells){
+  const occupied=new Set(cells.map(cell=>key(cell.q,cell.r))),pairs=[];
+  for(const cell of cells)for(const [dq,dr] of DIRECTIONS){
+    const neighbor={q:cell.q+dq,r:cell.r+dr},neighborKey=key(neighbor.q,neighbor.r);
+    if(occupied.has(neighborKey)&&key(cell.q,cell.r)<neighborKey)pairs.push([cell,neighbor]);
+  }
+  return pairs;
+}
+
+function drawConnectedHexFootprint(cells,{scale,fillStyle,strokeStyle,lineWidth,bridgeWidth=HEX*scale*1.2}){
+  const occupied=new Set(cells.map(cell=>key(cell.q,cell.r)));
+  ctx.fillStyle=fillStyle;ctx.strokeStyle=fillStyle;ctx.lineCap="round";ctx.lineWidth=bridgeWidth;
+  for(const [cell,neighbor] of adjacentFootprintPairs(cells)){
+    const start=axialToWorld(cell.q,cell.r),end=axialToWorld(neighbor.q,neighbor.r);
+    ctx.beginPath();ctx.moveTo(start.x,start.y);ctx.lineTo(end.x,end.y);ctx.stroke();
+  }
+  for(const cell of cells){hexPath(cell.q,cell.r,scale);ctx.fill();}
+  ctx.strokeStyle=strokeStyle;ctx.lineWidth=lineWidth;ctx.lineCap="butt";
+  for(const cell of cells){
+    const center=axialToWorld(cell.q,cell.r),radius=HEX*scale;
+    DIRECTIONS.forEach(([dq,dr],directionIndex)=>{
+      if(occupied.has(key(cell.q+dq,cell.r+dr)))return;
+      const first=HEX_CORNERS[(6-directionIndex)%6],second=HEX_CORNERS[(7-directionIndex)%6];
+      ctx.beginPath();ctx.moveTo(center.x+radius*first.x,center.y+radius*first.y);ctx.lineTo(center.x+radius*second.x,center.y+radius*second.y);ctx.stroke();
+    });
+  }
+}
+
+function drawFootprintCoreConnections(cells,color,width){
+  ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap="round";
+  for(const [cell,neighbor] of adjacentFootprintPairs(cells)){
+    const start=axialToWorld(cell.q,cell.r),end=axialToWorld(neighbor.q,neighbor.r);
+    ctx.beginPath();ctx.moveTo(start.x,start.y);ctx.lineTo(end.x,end.y);ctx.stroke();
+  }
+}
+
 function visibleBounds(){
   const z=state.camera.zoom,halfWidth=width/(2*z),halfHeight=height/(2*z),padding=3;
   const corners=[[-halfWidth,-halfHeight],[halfWidth,-halfHeight],[-halfWidth,halfHeight],[halfWidth,halfHeight]].map(([dx,dy])=>{
@@ -210,7 +246,8 @@ function drawGhosts(){
     }else if(ghost.objectType==="artillery"){
       hexPath(ghost.q,ghost.r,ARTILLERY_GLYPH_SCALE);ctx.lineWidth=2;ctx.stroke();drawMapGlyph("A",p.x,p.y+.5);
     }else if(ghost.objectType==="research"){
-      for(const cell of cells){const point=axialToWorld(cell.q,cell.r);hexPath(cell.q,cell.r,.72);ctx.lineWidth=2;ctx.fill();ctx.stroke();drawMapGlyph("R",point.x,point.y+.5);}
+      drawConnectedHexFootprint(cells,{scale:.74,fillStyle:ctx.fillStyle,strokeStyle:ctx.strokeStyle,lineWidth:2});
+      for(const cell of cells){const point=axialToWorld(cell.q,cell.r);drawMapGlyph("R",point.x,point.y+.5);}
     }else{
       ctx.lineWidth=2;ctx.strokeRect(p.x-15,p.y-15,30,30);ctx.beginPath();ctx.moveTo(p.x-8,p.y-15);ctx.lineTo(p.x,p.y-23);ctx.lineTo(p.x+8,p.y-15);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillStyle="#dce6e8";ctx.font="900 11px ui-monospace, monospace";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(ghost.resource==="energy"?"M:E":"M:C",p.x,p.y+.5);
     }
@@ -249,16 +286,20 @@ function drawTurretRanges(){
 
 function drawBase(){
   const cells=structureFootprint(state.base),destroyed=state.gameOver||state.base.hp<=0;ctx.save();
-  for(const cell of cells){
-    const p=axialToWorld(cell.q,cell.r);
-    if(destroyed){
-      ctx.globalAlpha=.48;ctx.setLineDash([5,4]);hexPath(cell.q,cell.r,.78);ctx.fillStyle="#232a2d";ctx.fill();ctx.strokeStyle="#9aa6aa";ctx.lineWidth=2.2;ctx.stroke();ctx.setLineDash([]);
-      ctx.fillStyle="#171c1f";ctx.fillRect(p.x-17,p.y-14,34,28);ctx.strokeStyle="#7e898d";ctx.lineWidth=1.5;ctx.strokeRect(p.x-17,p.y-14,34,28);
+  if(destroyed){
+    ctx.globalAlpha=.48;ctx.setLineDash([5,4]);drawConnectedHexFootprint(cells,{scale:.8,fillStyle:"#232a2d",strokeStyle:"#9aa6aa",lineWidth:2.2});ctx.setLineDash([]);
+    drawFootprintCoreConnections(cells,"rgba(126,137,141,.16)",9);
+    for(const cell of cells){
+      const p=axialToWorld(cell.q,cell.r);
       drawMapGlyph("B",p.x,p.y+.5);
       ctx.strokeStyle="#c2cacc";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(p.x-13,p.y-9);ctx.lineTo(p.x-5,p.y-2);ctx.lineTo(p.x-10,p.y+5);ctx.moveTo(p.x+13,p.y-8);ctx.lineTo(p.x+6,p.y-1);ctx.lineTo(p.x+11,p.y+7);ctx.stroke();
-    }else{
-      ctx.shadowBlur=18;ctx.shadowColor="rgba(230,185,74,.25)";hexPath(cell.q,cell.r,.78);ctx.fillStyle="#303438";ctx.fill();ctx.strokeStyle="#e6b94a";ctx.lineWidth=2.4;ctx.stroke();ctx.shadowBlur=0;
-      ctx.fillStyle="#151a1d";ctx.fillRect(p.x-17,p.y-14,34,28);ctx.strokeStyle="#a68a47";ctx.strokeRect(p.x-17,p.y-14,34,28);drawMapGlyph("B",p.x,p.y+.5);
+    }
+  }else{
+    ctx.shadowBlur=12;ctx.shadowColor="rgba(230,185,74,.2)";drawConnectedHexFootprint(cells,{scale:.8,fillStyle:"#2b3033",strokeStyle:"#e6b94a",lineWidth:2.4});ctx.shadowBlur=0;
+    drawFootprintCoreConnections(cells,"rgba(230,185,74,.14)",9);
+    for(const cell of cells){
+      const p=axialToWorld(cell.q,cell.r);
+      drawMapGlyph("B",p.x,p.y+.5);
     }
   }
   ctx.restore();
@@ -294,7 +335,9 @@ function drawStructures(){
       ctx.strokeStyle="#373e41";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x-21,p.y-9);ctx.lineTo(p.x+21,p.y-9);ctx.moveTo(p.x-21,p.y+9);ctx.lineTo(p.x+21,p.y+9);ctx.moveTo(p.x-8,p.y-20);ctx.lineTo(p.x-8,p.y-9);ctx.moveTo(p.x+10,p.y-20);ctx.lineTo(p.x+10,p.y-9);ctx.moveTo(p.x-14,p.y-9);ctx.lineTo(p.x-14,p.y+9);ctx.moveTo(p.x+5,p.y-9);ctx.lineTo(p.x+5,p.y+9);ctx.moveTo(p.x-7,p.y+9);ctx.lineTo(p.x-7,p.y+20);ctx.moveTo(p.x+12,p.y+9);ctx.lineTo(p.x+12,p.y+20);ctx.stroke();
       drawMapGlyph("W",p.x,p.y+.5);
     }else if(s.type==="research"){
-      for(const cell of structureFootprint(s)){const point=axialToWorld(cell.q,cell.r);ctx.shadowBlur=12;ctx.shadowColor="rgba(184,121,255,.35)";hexPath(cell.q,cell.r,.74);ctx.fillStyle="#29233a";ctx.strokeStyle="#b879ff";ctx.lineWidth=2.3;ctx.fill();ctx.stroke();ctx.shadowBlur=0;drawMapGlyph("R",point.x,point.y+.5);}
+      const cells=structureFootprint(s);ctx.shadowBlur=12;ctx.shadowColor="rgba(184,121,255,.35)";drawConnectedHexFootprint(cells,{scale:.78,fillStyle:"#29233a",strokeStyle:"#b879ff",lineWidth:2.3});ctx.shadowBlur=0;
+      drawFootprintCoreConnections(cells,"rgba(184,121,255,.16)",10);
+      for(const cell of cells){const point=axialToWorld(cell.q,cell.r);drawMapGlyph("R",point.x,point.y+.5);}
     }else{
       const exhausted=resourceNodeAt(s.q,s.r).amount<=0;
       ctx.fillStyle=exhausted?"#34393c":"#273239";ctx.strokeStyle=exhausted?"#70787c":s.resource==="energy"?"#60d5db":"#e6b94a";ctx.lineWidth=2;ctx.beginPath();ctx.rect(p.x-15,p.y-15,30,30);ctx.fill();ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(p.x-8,p.y-15);ctx.lineTo(p.x,p.y-23);ctx.lineTo(p.x+8,p.y-15);ctx.closePath();ctx.fill();
