@@ -69,7 +69,7 @@ describe("game bootstrap", () => {
     assert.match(html,/title="• Select units and structures\."/);
     assert.doesNotMatch(html,/Select a Train to create or clear its automatic schedule/);
     const oneStop="• Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired",fiveStops="• Must be built within 5 hexes of a Train Stop so that it can be resupplied and/or repaired";
-    const expected={trackTool:"• Costs 1 C, 0 E",turretTool:"• Costs 10 C, 5 E&#10;"+oneStop,mineTool:"• Costs 10 C, 0 E&#10;"+oneStop,wallTool:"• Costs 30 C, 0 E&#10;"+fiveStops,artilleryTool:"• Costs 50 C, 50 E&#10;"+oneStop,researchTool:"• Costs 50 C, 50 E"};
+    const expected={trackTool:"• Costs 1 C, 0 E",turretTool:"• Costs 10 C, 10 E&#10;"+oneStop,mineTool:"• Costs 10 C, 0 E&#10;"+oneStop,wallTool:"• Costs 30 C, 0 E&#10;"+fiveStops,artilleryTool:"• Costs 50 C, 50 E&#10;"+oneStop,researchTool:"• Costs 50 C, 50 E"};
     for(const [id,cost] of Object.entries(expected)){const title=html.match(new RegExp(`id="${id}"[^>]*title="([^"]+)"`))?.[1];assert.equal(title,cost,id);}
     for(const title of [...html.matchAll(/class="btn tool-button[^"]*"[^>]*title="([^"]+)"/g)].map(match=>match[1]))for(const clause of title.split("&#10;"))assert.match(clause,/^• /);
   });
@@ -94,7 +94,7 @@ describe("game bootstrap", () => {
     assert.match(tips[0],/^• Costs 30 C, 0 E/);
     assert.match(tips[1],/^• Costs 30 C, 10 E/);
     assert.match(tips[0],/• Mines resources, repairs buildings, rebuilds destroyed Track, supplies Turrets and Artillery with shot Energy$/);
-    assert.match(tips[1],/• Must be refueled and have shot Energy resupplied from the Base \(cannot be supplied by Mines\)$/);
+    assert.match(tips[1],/• Must normally be refueled and have shot Energy resupplied from the Base \(cannot be supplied by Mines\); another Train can provide emergency fuel when it has no fuel Energy remaining$/);
     assert.ok(tips.every(tip=>!tip.includes("Placement uses two clicks")));
     for(const tip of tips)for(const clause of tip.split("&#10;"))assert.match(clause,/^• /);
   });
@@ -112,13 +112,14 @@ describe("game bootstrap", () => {
   test("the unified Turret and Artillery Energy warning uses OK",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/id="turretEnergyDialog"[^>]*hidden[^>]*role="dialog"/);
-    assert.match(html,/One of your Turrets or Artillery ran out of Energy\. Both Turrets and Artillery must be supplied with Energy/);
+    assert.match(html,/A Turret or Artillery building ran out of Energy\. Both Turrets and Artillery must be supplied with Energy/);
+    assert.match(html,/stopped at an adjacent non-destroyed Train Stop/);
     assert.match(html,/id="turretEnergyOkay"[^>]*>OK<\/button>/);
   });
 
-  test("the displayed and package versions are 3.8",()=>{
+  test("the displayed and package versions are 3.9",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 3\.8/);assert.match(html,/DEFENSE 3\.8/);assert.equal(packageJson.version,"3.8.0");
+    assert.match(html,/Planetary Rail Defense 3\.9/);assert.match(html,/DEFENSE 3\.9/);assert.equal(packageJson.version,"3.9.0");
   });
 });

@@ -388,7 +388,10 @@ function rebuildGhost(ghost,train){
 function updateAutomaticRebuild(){
   const ghosts=[...state.ghosts.values()].sort((a,b)=>(a.objectType==="track"?0:1)-(b.objectType==="track"?0:1));
   for(const ghost of ghosts){
-    const train=nearestStoppedLoco(ghost,1,candidate=>totalCargo(candidate,"material")>=REBUILD_COSTS[ghost.objectType]);
+    const predicate=candidate=>totalCargo(candidate,"material")>=REBUILD_COSTS[ghost.objectType];
+    const train=ghost.objectType==="track"
+      ?state.trains.filter(candidate=>predicate(candidate)&&trainStopped(candidate)&&hexDistance(candidate,ghost)<=1).sort((a,b)=>hexDistance(a,ghost)-hexDistance(b,ghost))[0]||null
+      :nearestStoppedLoco(ghost,1,predicate);
     if(train)rebuildGhost(ghost,train);
   }
 }
@@ -422,7 +425,7 @@ function trainPartDestroyed(train,partLabel){
   sounds.trainDestroyed();
   state.screenShakeUntil=Math.max(state.screenShakeUntil,state.elapsed+TRAIN_LOSS_SHAKE_SECONDS);
   state.screenShakeUntilWallTime=Math.max(state.screenShakeUntilWallTime||0,Date.now()+TRAIN_LOSS_SHAKE_SECONDS*1000);
-  toast(`${train.name}: ${partLabel} Destroyed.`,"danger");
+  toast(`${train.name}: ${partLabel} destroyed.`,"danger");
 }
 
 function supplyLabel(supply){return `${resourceLabel(supply.role||supply.type)} Supply`;}

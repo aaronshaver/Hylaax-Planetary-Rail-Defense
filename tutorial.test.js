@@ -54,7 +54,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.tutorial.step,2);
     api.tutorialEvent("track-selected");
     assert.equal(api.state.tutorial.step,3);
-    assert.equal(api.tutorialMessage(),"Step 3: Click nearby hex tiles to add one more Track segment.");
+    assert.equal(api.tutorialMessage(),"Step 3: Click nearby hexes to add one more Track segment.");
     let addedQ=2;while(api.state.tracks.has(`${addedQ},0`))addedQ++;
     api.state.tracks.set(`${addedQ},0`,makeTrack(addedQ,0));
     api.tutorialEvent("track-built");
@@ -93,6 +93,7 @@ describe("guided tutorial",()=>{
     api.tutorialEvent("mine-built");
     api.tutorialEvent("mode",{mode:"turret"});
     assert.equal(api.state.tutorial.step,13);
+    assert.equal(api.tutorialMessage(),"Step 13: Place a Turret one hex away from one of the Train Stops");
 
     const turret={id:"tutorial-turret",type:"turret",q:3,r:0};
     api.state.structures.set(api.key(turret.q,turret.r),turret);
@@ -101,7 +102,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.paused,true,"the final step must remain paused until Okay is clicked");
     assert.equal(elements.get("pauseToggle").disabled,true);
     assert.equal(elements.get("tutorialOkay").hidden,false);
-    assert.equal(elements.get("tutorialText").textContent,"Step 14: You now have a basic automated train system for gathering Construction Material for building new structures, Energy for fueling Trains and Turrets, and a Turret to defend part of your Base.\n\nClick the \"Playing\" button in the upper right to pause the game catch your breath if you need time to think.\n\nThere are more buildings you can build, like Walls and Artillery and a Research station to give you more tools to survive and improve efficiency.");
+    assert.equal(elements.get("tutorialText").textContent,"Step 14: You now have a basic automated train system for gathering Construction Material for building new structures, Energy for fueling Trains and Turrets, and a Turret to defend part of your Base.\n\nClick the \"Playing\" button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like Walls and Artillery and a Research building to give you more tools to survive and improve efficiency.");
 
     api.finishTutorial();
     assert.equal(api.state.tutorial,null);

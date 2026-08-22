@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { describe, test, beforeEach } = require("node:test");
-const { api, moveTrain, addTestTrain } = require("./harness.js");
+const { api, moveTrain, addTestTrain, makeTrack } = require("./harness.js");
 
 beforeEach(() => { api.reset(); addTestTrain(); });
 
@@ -11,11 +11,17 @@ function positionTrain(train,positions){
   train.stepFrom=null;train.stepTo=null;train.progress=0;train.route=[];
 }
 
+function installLiveStop(train,q=train.q,r=train.r){
+  api.state.tracks.set(api.key(q,r),makeTrack(q,r));
+  train.schedule=[{q,r}];train.scheduleComplete=true;train.route=[];train.stepFrom=null;
+  return train;
+}
+
 describe("resource logistics", () => {
   test("all ten hexes around the four-cell Base service Trains",()=>{
     const state=api.state,train=state.trains[0],perimeter=api.basePerimeter();assert.equal(perimeter.length,10);
     for(const stop of perimeter){
-      moveTrain(train,stop.q,stop.r);train.wasNearBase=false;train.fuel=train.maxFuel;train.wagons[0].amount=1;train.wagons[1].amount=0;state.baseMaterial=0;state.baseEnergy=0;
+      moveTrain(train,stop.q,stop.r);installLiveStop(train);train.wasNearBase=false;train.fuel=train.maxFuel;train.wagons[0].amount=1;train.wagons[1].amount=0;state.baseMaterial=0;state.baseEnergy=0;
       api.updateAutomaticLogistics();assert.equal(state.baseMaterial,1,`${stop.q},${stop.r} should service the Base`);
     }
   });
@@ -32,7 +38,7 @@ describe("resource logistics", () => {
     api.trainSegments(train).forEach((segment,index)=>{const point=api.axialToWorld(to[index].q,to[index].r);assert.equal(segment.q,to[index].q);assert.equal(segment.r,to[index].r);assert.equal(segment.x,point.x);assert.equal(segment.y,point.y);});
   });
 
-  test("a passing Train gives half its loaded Energy to a depleted Train before supplying defenses",()=>{
+  test("emergency Train refueling works off-Stop while ordinary defense supply waits for a live Stop",()=>{
     const state=api.state,receiver=state.trains[0],donor=addTestTrain();
     positionTrain(receiver,[{q:10,r:0},{q:9,r:0},{q:8,r:0}]);positionTrain(donor,[{q:8,r:0},{q:7,r:0},{q:6,r:0}]);
     receiver.fuel=0;receiver.energyDepleted=true;receiver.wagons[1].amount=0;
@@ -42,13 +48,13 @@ describe("resource logistics", () => {
     api.updateAutomaticLogistics();
 
     assert.equal(receiver.fuel,4);assert.equal(receiver.energyDepleted,false);
-    assert.equal(donor.wagons[1].amount,0);assert.equal(turret.energy,5,"the emergency transfer must receive half before the Turret gets the remainder");
+    assert.equal(donor.wagons[1].amount,5);assert.equal(turret.energy,0,"ordinary defense supply must wait until the donor is at a live Stop");
     assert.ok(state.worldMessages.some(item=>item.message==="Train B: Fueled Train A with Energy"));
   });
 
   test("the Base reports Energy loaded into a Train",()=>{
     const state=api.state,train=state.trains[0];
-    moveTrain(train,2,0);train.fuel=10;train.wagons[0].amount=1;train.wagons[1].amount=0;state.baseEnergy=50;
+    moveTrain(train,2,0);installLiveStop(train);train.fuel=10;train.wagons[0].amount=1;train.wagons[1].amount=0;state.baseEnergy=50;
 
     api.serviceBaseLogistics(train);
 
@@ -61,6 +67,7 @@ describe("resource logistics", () => {
     const state = api.state;
     const train = state.trains[0];
     moveTrain(train, 2, 0);
+    installLiveStop(train);
     train.fuel = train.maxFuel;
     train.wagons[0].amount = 30;
     train.wagons[1].amount = 30;
@@ -81,6 +88,7 @@ describe("resource logistics", () => {
     const state = api.state;
     const train = state.trains[0];
     moveTrain(train, 2, 0);
+    installLiveStop(train);
     train.fuel = train.maxFuel;
     train.wagons[0].amount = 0;
     train.wagons[1].amount = 20;
@@ -100,6 +108,7 @@ describe("resource logistics", () => {
     const state = api.state;
     const train = state.trains[0];
     moveTrain(train, 12, 10);
+    installLiveStop(train);
     train.wagons[1].q = 11; train.wagons[1].r = 10; train.wagons[1].amount = 20;
     const turret = { id: "turret-loco-range", type: "turret", q: 10, r: 10, hp: 18, maxHp: 18, energy: 0, maxEnergy: 20, cooldown: 0 };
     state.structures.set(api.key(turret.q, turret.r), turret);
@@ -107,13 +116,13 @@ describe("resource logistics", () => {
     api.updateAutomaticLogistics();
     assert.equal(turret.energy, 0);
 
-    moveTrain(train, 11, 10);
+    moveTrain(train, 11, 10);installLiveStop(train);
     api.updateAutomaticLogistics();
     assert.equal(turret.energy, 20);
   });
 
   test("a stopped Build/Mine Train supplies Artillery with Energy",()=>{
-    const state=api.state,train=state.trains[0];moveTrain(train,6,0);train.wagons[1].amount=30;
+    const state=api.state,train=state.trains[0];moveTrain(train,6,0);installLiveStop(train);train.wagons[1].amount=30;
     const artillery={id:"artillery-supply",type:"artillery",q:7,r:0,hp:36,maxHp:36,energy:10,maxEnergy:40,cooldown:0};state.structures.set("7,0",artillery);
 
     api.updateAutomaticLogistics();
@@ -126,6 +135,7 @@ describe("resource logistics", () => {
     const state = api.state;
     const train = state.trains[0];
     moveTrain(train, 6, -2);
+    installLiveStop(train);
     train.fuel = train.maxFuel;
     train.wagons[0].amount = 0;
     const mine = { id: "mine-material", type: "mine", resource: "material", q: 7, r: -2, hp: 22, maxHp: 22 };
@@ -145,6 +155,7 @@ describe("resource logistics", () => {
     const state = api.state;
     const train = state.trains[0];
     moveTrain(train, 12, 3);
+    installLiveStop(train);
     train.fuel = 10;
     train.wagons[1].amount = 0;
     const mine = { id: "mine-energy", type: "mine", resource: "energy", q: 13, r: 3, hp: 22, maxHp: 22 };
@@ -159,5 +170,22 @@ describe("resource logistics", () => {
     assert.equal(state.stats.energyMined,40);
     assert.equal(state.stats.materialMined,0);
     assert.ok(state.worldMessages.some(item=>item.message==="Train A: Mined Energy"));
+  });
+
+  test("ordinary resource transfers require a completed non-destroyed Train Stop",()=>{
+    const state=api.state,train=state.trains[0];moveTrain(train,6,-2);train.fuel=train.maxFuel;train.wagons[0].amount=0;
+    train.schedule=[{q:6,r:-2}];train.scheduleComplete=false;
+    const mine={id:"stop-gated-mine",type:"mine",resource:"material",q:7,r:-2,hp:22,maxHp:22};state.structures.set(api.key(mine.q,mine.r),mine);
+    const before=api.resourceNodeAt(mine.q,mine.r).amount;
+
+    api.updateAutomaticLogistics();
+    assert.equal(train.wagons[0].amount,0,"an incomplete schedule is not a Train Stop");
+
+    train.scheduleComplete=true;api.updateAutomaticLogistics();
+    assert.equal(train.wagons[0].amount,0,"a destroyed or missing Stop Track cannot transfer resources");
+    assert.equal(api.resourceNodeAt(mine.q,mine.r).amount,before);
+
+    state.tracks.set("6,-2",makeTrack(6,-2));api.updateAutomaticLogistics();
+    assert.equal(train.wagons[0].amount,30,"the same Train can mine once its completed Stop Track is live");
   });
 });

@@ -58,7 +58,7 @@ function curveIsExtreme(start, end) {
 
 function resupplyTrainStops(){return state.trains.filter(train=>train.scheduleComplete).flatMap(train=>(train.schedule||[]).filter(stop=>isScheduleTrackHex(stop.q,stop.r)));}
 function trainStopWithinRange(target,range){return resupplyTrainStops().some(stop=>hexDistance(stop,target)<=range);}
-function constructionStopRequirement(range){return `Must be built within ${range} ${range===1?"hex":"hexes"} of a Train Stop so that it can be resupplied and/or repaired`;}
+function constructionStopRequirement(range){return `Must be built within ${range} ${range===1?"hex":"hexes"} of a Train Stop so that it can be resupplied and/or repaired.`;}
 function requireNearbyTrainStop(target,range){if(trainStopWithinRange(target,range))return true;fail(constructionStopRequirement(range));return false;}
 function requireNoCreep(q,r){if(!creepOccupiesHex(q,r))return true;fail("Cannot build in a hex occupied by a Creep.");return false;}
 
@@ -89,12 +89,12 @@ function layTrack(q, r) {
   if(!state.trackStart){
     const startGhost=ghostAt(q,r);
     if(!state.tracks.has(destinationKey)){
-      if(startGhost?.objectType!=="track")return fail("Select an existing track hex first.");
+      if(startGhost?.objectType!=="track")return fail("Select an existing Track hex first.");
       if(!placeTrackOverGhost(startGhost))return;
       sounds.place();burst(q,r,"#d9bd78",5);
       if(state.baseMaterial<=0){toast("Base has no Construction Material remaining.","info");setMode("select");return;}
     }
-    state.trackStart=destination;toast("Track Start Selected. Click adjacent hexes to keep building.","info");tutorialEvent("track-selected",{q,r});updateUI(true);return;
+    state.trackStart=destination;toast("Track start selected. Click adjacent hexes to keep building.","info");tutorialEvent("track-selected",{q,r});updateUI(true);return;
   }
   const start=state.trackStart;
   const destinationGhost=ghostAt(q,r);
@@ -103,14 +103,14 @@ function layTrack(q, r) {
   const destinationSite=nonMineConstructionSite(q,r);
   if(!isNew&&hexDistance(start,destination)!==1){
     state.trackStart=destination;
-    toast("New Track Start Selected. Click an adjacent hex to keep building.","info");
+    toast("New Track start selected. Click an adjacent hex to keep building.","info");
     updateUI(true);
     return;
   }
   if(hexDistance(start,destination)!==1)return fail("Choose an adjacent hex, or click a non-adjacent existing Track to choose a new start.");
   if(tracksAreLinked(start,destination)){
     state.trackStart=destination;
-    toast("Track Start Moved Along The Existing Route.","info");
+    toast("Track start moved along the existing route.","info");
     updateUI(true);
     return;
   }
@@ -119,7 +119,7 @@ function layTrack(q, r) {
     if(!isPassable(q,r)||destinationSite.terrain.type==="resource")return fail("Track needs clear ground.");
     if(structureAt(q,r)||hiveAt(q,r)||trainAt(q,r))return fail("That hex is occupied.");
   }
-  if(curveIsExtreme(start,destination))return fail("Train curves cannot be that extreme");
+  if(curveIsExtreme(start,destination))return fail("Train curves cannot be that extreme.");
   if(isNew){
     if(isTrackGhost){if(!placeTrackOverGhost(destinationGhost))return;}
     else {if(!payBase(COSTS.track,"Track"))return;if(destinationGhost)replaceDestroyedSite(destinationGhost,destinationSite);const maxHp=trackHitPoints();state.tracks.set(destinationKey,{q,r,hp:maxHp,maxHp,baseMaxHp:TRACK_HIT_POINTS,links:new Set()});state.stats.tracksLaid++;invalidateEnemyNavigation();}
@@ -136,7 +136,7 @@ function layTrack(q, r) {
 function removeTrack(q, r) {
   const k = key(q, r);
   if (!state.tracks.has(k)) return;
-  if (trainAt(q, r)) return fail("Move the train before removing this track.");
+  if (trainAt(q, r)) return fail("Move the Train before removing this Track.");
   deleteTrack(q,r);
   state.baseMaterial++;
   if (state.selected?.type === "track" && state.selected.id === k) state.selected = null;
@@ -182,9 +182,9 @@ function buildTurret(q, r) {
   if(!requireNoCreep(q,r))return;
   if(!requireNearbyTrainStop({q,r},1))return;
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
-  if (!isPassable(q, r) || site.terrain.type === "resource" || structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("Turrets need clear ground away from track.");
+  if (!isPassable(q, r) || site.terrain.type === "resource" || structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("Turrets need clear ground away from Track.");
   if(!payBase(COSTS.turret,"Turret"))return;
-  const maxEnergy=turretEnergyStorage(),turret = { id: `turret-${state.nextId++}`, type: "turret", q, r, hp: TURRET_HIT_POINTS, maxHp: TURRET_HIT_POINTS, energy:maxEnergy, maxEnergy, baseMaxEnergy:20, cooldown: 0 };
+  const maxEnergy=turretEnergyStorage(),turret = { id: `turret-${state.nextId++}`, type: "turret", q, r, hp: TURRET_HIT_POINTS, maxHp: TURRET_HIT_POINTS, energy:10, maxEnergy, baseMaxEnergy:20, cooldown: 0 };
   if(ghost)replaceDestroyedSite(ghost,site);
   state.structures.set(key(q,r), turret);
   invalidateEnemyNavigation();
@@ -222,8 +222,8 @@ function buildMine(q, r) {
   if(!requireNoCreep(q,r))return;
   if(!requireNearbyTrainStop({q,r},1))return;
   const ghost=ghostAt(q,r);
-  if (terrain.type !== "resource") return fail("Mines must be placed on a resource node.");
-  if (structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("That resource node is occupied.");
+  if (terrain.type !== "resource") return fail("Mines must be placed on a Resource Node.");
+  if (structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("That Resource Node is occupied.");
   if(!payBase(COSTS.mine,"Mine"))return;
   const mine = { id: `mine-${state.nextId++}`, type: "mine", resource: terrain.resource, q, r, hp: 22, maxHp: 22 };
   if(ghost)state.ghosts.delete(ghost.id);
@@ -244,7 +244,7 @@ function clearDepletedResourceNode(q,r){
 
 function salvageStructure(structure) {
   if(structure.hp<1)return fail("Destroyed objects can only be cleared and do not return resources.");
-  const mat = structure.type === "research" ? COSTS.research.material : structure.type === "artillery" ? COSTS.artillery.material : structure.type === "turret" ? 4 : structure.type === "wall" ? COSTS.wall.material : structure.type === "mine" ? COSTS.mine.material : 6;
+  const mat = structure.type === "research" ? COSTS.research.material : structure.type === "artillery" ? COSTS.artillery.material : structure.type === "turret" ? COSTS.turret.material : structure.type === "wall" ? COSTS.wall.material : structure.type === "mine" ? COSTS.mine.material : 6;
   const energy = structure.type === "research" ? COSTS.research.energy : structure.type === "wall" ? COSTS.wall.energy : ["turret","artillery"].includes(structure.type)?Math.floor(structure.energy):0;
   if(structure.type==="mine")clearDepletedResourceNode(structure.q,structure.r);
   state.baseMaterial+=mat;state.baseEnergy+=energy;
@@ -268,7 +268,7 @@ function clearGhost(ghost){
 function requestTrainSalvage(train){
   state.pendingTrainSalvageId=train.id;
   state.pendingResearchSalvageId=null;
-  ui.confirmMessage.innerHTML=`<strong>${train.name}</strong> and all of its schedule stops will be removed. 30 Construction Material and all carried resources will return to Base.`;
+  ui.confirmMessage.innerHTML=`<strong>${train.name}</strong> and all of its schedule stops will be removed. 30 Construction Material, remaining fuel Energy, and all carried resources will return to Base.`;
   ui.confirmDialog.hidden=false;ui.confirmDialog.classList.remove("d-none");ui.confirmYes.focus();
 }
 
@@ -288,12 +288,13 @@ function confirmTrainSalvage(){
   const train=state.trains.find(candidate=>candidate.id===state.pendingTrainSalvageId);
   if(!train){cancelTrainSalvage();return false;}
   const carriedMaterial=totalCargo(train,"material"),carriedEnergy=totalCargo(train,"energy");
-  state.baseMaterial+=COSTS.train.material+carriedMaterial;state.baseEnergy+=carriedEnergy;
+  const returnedEnergy=train.fuel+carriedEnergy;
+  state.baseMaterial+=COSTS.train.material+carriedMaterial;state.baseEnergy+=returnedEnergy;
   state.trains=state.trains.filter(candidate=>candidate.id!==train.id);
   if(state.scheduleTrainId===train.id)state.scheduleTrainId=null;
   if(state.selected?.type==="train"&&state.selected.id===train.id)state.selected={type:"base",id:"base"};
   sounds.remove();burst(train.q,train.r,"#9ba9ad",10);cancelTrainSalvage();updateUI(true);
-  toast(`Salvaged ${train.name}. Returned ${COSTS.train.material+carriedMaterial} Construction Material${carriedEnergy?` and ${carriedEnergy} Energy`:""} to Base.`);
+  toast(`Salvaged ${train.name}. Returned ${COSTS.train.material+carriedMaterial} Construction Material${returnedEnergy?` and ${returnedEnergy} Energy`:""} to Base.`);
   return true;
 }
 
@@ -323,7 +324,7 @@ function deployTrain(q,r){
     if(!paths.length)return fail(`Deployment needs ${length} connected, unoccupied Track hexes.`);
     state.deploymentHead=head;state.deploymentPaths=paths;
     state.deploymentReserved=new Set(paths.flat().map(position=>key(position.q,position.r)));
-    toast(`Train Head Selected. Click a highlighted Tail point ${distanceText} away.`,"info");updateUI(true);return;
+    toast(`Train Head selected. Click a highlighted Tail point ${distanceText} away.`,"info");updateUI(true);return;
   }
   const path=state.deploymentPaths.find(candidate=>candidate[candidate.length-1].q===q&&candidate[candidate.length-1].r===r);
   if(!path)return fail(`Click a highlighted Tail point exactly ${distanceText} from the Head.`);
@@ -333,7 +334,7 @@ function deployTrain(q,r){
   const heading=Math.atan2(hp.y-firstPoint.y,hp.x-firstPoint.x),trainIndex=state.nextTrainIndex++,code=trainCode(trainIndex),roles=trainType==="combat"?["energy"]:["material","energy"];
   const capacity=trainCapacity(),wagons=roles.map((role,index)=>{const position=path[index+1],point=axialToWorld(position.q,position.r);return {id:`wagon-${state.nextId++}`,kind:"wagon",q:position.q,r:position.r,x:point.x,y:point.y,heading,role,type:role,colorShade:randomTrainColorShade(),amount:trainType==="combat"&&role==="energy"?10:0,capacity,baseCapacity:30,hp:TRAIN_HIT_POINTS,maxHp:TRAIN_HIT_POINTS};});
   const speed=trainSpeed(),train={id:`train-${state.nextId++}`,name:trainName(trainIndex,trainType),code,trainType,colorShade:randomTrainColorShade(),q:head.q,r:head.r,x:hp.x,y:hp.y,route:[],routePurpose:null,progress:0,speed,baseSpeed:2.25,stepFrom:null,stepTo:null,schedule:[],scheduleComplete:false,scheduleTargetIndex:0,servicingStop:false,stopHoldUntil:0,scheduleRetryAt:0,repairHoldUntil:0,repairResumeStatus:null,energyDepleted:false,nextEnergyWarningAt:0,forwardDirection:{q:head.q-firstWagon.q,r:head.r-firstWagon.r},fuel:10,maxFuel:20,fuelUseAccumulator:0,hp:TRAIN_HIT_POINTS,maxHp:TRAIN_HIT_POINTS,status:"Idle",wagons,heading,wheelClock:0,wasNearBase:false,combatCooldown:0,gunAngle:heading};
-  state.trains.push(train);state.stats.trainsBuilt++;clearDeploymentReservation();sounds.place();select("train",train.id);setMode("select");toast(`${train.name} Deployed.`,"info");tutorialEvent("builder-train-deployed",{trainId:train.id,train});render();
+  state.trains.push(train);state.stats.trainsBuilt++;clearDeploymentReservation();sounds.place();select("train",train.id);setMode("select");toast(`${train.name} deployed.`,"info");tutorialEvent("builder-train-deployed",{trainId:train.id,train});render();
 }
 
 function findPath(start, goal) {
@@ -421,7 +422,7 @@ function addScheduleStop(train,q,r){
   const stops=train.schedule;
   const existingIndex=stops.findIndex(stop=>stop.q===q&&stop.r===r);
   if(existingIndex>=0)return fail("That Stop is already in this Train's schedule.");
-  if(stops.length>=9)return fail("A train schedule cannot have more than 9 stops.");
+  if(stops.length>=9)return fail("A Train schedule cannot have more than 9 Stops.");
   stops.push({q,r});sounds.scheduleStop();updateUI(true);render();
 }
 
@@ -434,7 +435,7 @@ function finishSchedule(train){
   state.scheduleTrainId=null;state.mode="select";state.selected=null;
   document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));
   canvas.style.cursor="default";
-  toast(`${train.name} Schedule Complete.`,"info");sounds.place();tutorialEvent("schedule-completed",{trainId:train.id,train});updateUI(true);render();return true;
+  toast(`${train.name} schedule complete.`,"info");sounds.place();tutorialEvent("schedule-completed",{trainId:train.id,train});updateUI(true);render();return true;
 }
 
 function undoLastScheduleStop(train){

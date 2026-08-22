@@ -4,7 +4,7 @@ const TUTORIAL_MESSAGES = [
   "",
   "Click Build Track in the Actions panel",
   "Click the existing Track (a light gray circle inside a purple outline)",
-  "Click nearby hex tiles to add one more Track segment.",
+  "Click nearby hexes to add one more Track segment.",
   "Keep adding Track until you have a complete loop that passes by the Base, an Energy node, and a Construction Material node; it must be a fully closed loop",
   "Click the Base",
   "Click Fabricate and Place Build/Mine Train",
@@ -14,8 +14,8 @@ const TUTORIAL_MESSAGES = [
   "Click Build Mine",
   "Click on the C and E nodes to add Mines to them",
   "Click Build Turret",
-  "Place a Turret one tile away from one of the Train Stops",
-  "You now have a basic automated train system for gathering Construction Material for building new structures, Energy for fueling Trains and Turrets, and a Turret to defend part of your Base.\n\nClick the \"Playing\" button in the upper right to pause the game catch your breath if you need time to think.\n\nThere are more buildings you can build, like Walls and Artillery and a Research station to give you more tools to survive and improve efficiency."
+  "Place a Turret one hex away from one of the Train Stops",
+  "You now have a basic automated train system for gathering Construction Material for building new structures, Energy for fueling Trains and Turrets, and a Turret to defend part of your Base.\n\nClick the \"Playing\" button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like Walls and Artillery and a Research building to give you more tools to survive and improve efficiency."
 ];
 const TUTORIAL_INTRO="This is a tower defense game where automating train networks is the key to successful survival.";
 

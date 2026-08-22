@@ -48,7 +48,7 @@ describe("Debug menu",()=>{
 
   test("adds 1,000 Research points without prematurely revealing the HUD",()=>{
     const state=api.state;state.researchPoints=25;state.researchUnlocked=false;
-    assert.equal(api.addResearchPoints(),1000);assert.equal(state.researchPoints,1025);assert.equal(elements.get("researchPointsHud").textContent,"-");
+    assert.equal(api.addResearchPoints(),1000);assert.equal(state.researchPoints,1025);assert.equal(elements.get("researchPointsHud").textContent,0);
     state.researchUnlocked=true;api.updateUI(true);assert.equal(elements.get("researchPointsHud").textContent,1025);
   });
 

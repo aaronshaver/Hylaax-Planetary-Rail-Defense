@@ -32,7 +32,7 @@ function handleHexClick(hex) {
     if (structure?.type === "research" && structure.hp > 0) return requestResearchSalvage(structure);
     if (structure && structure.type !== "base") return salvageStructure(structure);
     if(ghost)return clearGhost(ghost);
-    return fail("Cannot Salvage/Clear this type of Object");
+    return fail("Cannot Salvage/Clear this type of object.");
   }
   if (train) { select("train", train.id,{segmentId:trainPart.segment.id}); setMode("select"); return; }
   if (state.mode === "turret") return buildTurret(q,r);
@@ -88,7 +88,12 @@ function payBase(cost,item) {
 }
 
 function trainStopped(train) { return !train.route.length && !train.stepFrom; }
-function locoNearBase(train) { return trainStopped(train) && distanceToStructure(train,state.base)===1; }
+function liveTrainStopAt(q,r){
+  const stop=state.tracks.has(key(q,r))?scheduleStopAt(q,r):null;
+  return stop?.train.scheduleComplete?stop:null;
+}
+function trainAtLiveStop(train){return trainStopped(train)&&Boolean(liveTrainStopAt(train.q,train.r));}
+function locoNearBase(train) { return trainAtLiveStop(train) && distanceToStructure(train,state.base)===1; }
 
 function fillWagonFromBase(train,wagon) {
   const type=wagon.role||wagon.type;
@@ -121,10 +126,11 @@ function unloadCargoToBaseTarget(train,type){
 }
 
 function serviceBaseLogistics(train) {
+  if(!trainAtLiveStop(train)||distanceToStructure(train,state.base)!==1)return false;
   if(train.trainType==="combat"){
     const energyLoaded=refuelAtBase(train)+fillBaseCargo(train);
     if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy for Fuel from Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
-    return;
+    return true;
   }
   const emptyOnArrival=new Set(train.wagons.filter(w=>w.amount<=.0001).map(w=>w.id));
   let energyLoaded=refuelAtBase(train);
@@ -133,6 +139,7 @@ function serviceBaseLogistics(train) {
   if(material+energy>0)showTrainActivity(train,state.base,"Unloaded Resources to Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
   for(const wagon of train.wagons.filter(w=>emptyOnArrival.has(w.id))){const moved=fillWagonFromBase(train,wagon);if((wagon.role||wagon.type)==="energy")energyLoaded+=moved;}
   if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy for Fuel from Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
+  return true;
 }
 
 function nearestTrain(structure, range = 3) {
@@ -140,7 +147,7 @@ function nearestTrain(structure, range = 3) {
 }
 
 function nearestStoppedLoco(target, range = 1, predicate=()=>true) {
-  return state.trains.filter(train=>predicate(train)&&trainStopped(train)&&hexDistance(train,target)<=range).sort((a,b)=>hexDistance(a,target)-hexDistance(b,target))[0]||null;
+  return state.trains.filter(train=>predicate(train)&&trainAtLiveStop(train)&&hexDistance(train,target)<=range).sort((a,b)=>hexDistance(a,target)-hexDistance(b,target))[0]||null;
 }
 
 function trainActivityName(train){return `Train ${trainScheduleCode(train)}:`;}
@@ -226,12 +233,10 @@ function repairPriority(target){
 }
 
 function updateAutomaticRepair(train) {
-  if(train.stepFrom||state.elapsed<(train.repairHoldUntil||0)||totalCargo(train,"material")<=0)return false;
-  if(!train.route.length&&!train.scheduleComplete)return false;
+  if(!trainAtLiveStop(train)||state.elapsed<(train.repairHoldUntil||0)||totalCargo(train,"material")<=0)return false;
   const nextTrackKey=train.route[0]?key(train.route[0].q,train.route[0].r):null;
-  const stop=scheduleStopAt(train.q,train.r),atOwnStop=trainStopped(train)&&stop?.train.id===train.id;
   const targets=[state.base,...state.structures.values(),...state.tracks.values()]
-    .filter(target=>target.hp<target.maxHp&&(target.type==="wall"?atOwnStop&&hexDistance(train,target)<=5:(target.type==="base"?distanceToStructure(train,target):hexDistance(train,target))<=1))
+    .filter(target=>target.hp<target.maxHp&&(target.type==="wall"?hexDistance(train,target)<=5:(target.type==="base"?distanceToStructure(train,target):hexDistance(train,target))<=1))
     .sort((a,b)=>Number(key(b.q,b.r)===nextTrackKey&&repairPriority(b)===0)-Number(key(a.q,a.r)===nextTrackKey&&repairPriority(a)===0)||repairPriority(a)-repairPriority(b)||(a.type==="base"?distanceToStructure(train,a):hexDistance(train,a))-(b.type==="base"?distanceToStructure(train,b):hexDistance(train,b))||(a.hp/a.maxHp)-(b.hp/b.maxHp));
   const target=targets[0];
   if(!target)return false;
@@ -290,12 +295,12 @@ function handleAction(action, element) {
   element?.blur();
   const selected=getSelected();
   if(action==="fabricate-place-builder-train"||action==="fabricate-place-combat-train"){
-    if(state.nextTrainIndex>=26)return fail("No more than 26 trains can be built.");
+    if(state.nextTrainIndex>=26)return fail("No more than 26 Trains can be built.");
     const trainType=action==="fabricate-place-combat-train"?"combat":"builder";
     if(payBase(trainFabricationCost(trainType),trainType==="combat"?"Turret Train":"Build/Mine Train")){state.deploymentPaid=true;state.deploymentTrainType=trainType;sounds.place();setMode("deploy");toast("Click an empty Track hex for the Train Head, then click a highlighted Tail point.","info");if(trainType==="builder")tutorialEvent("builder-fabrication-started");}
   }
   if(action==="add-schedule"&&selected?.wagons){
-    if(!trainStopped(selected))return fail("Clear the current schedule and wait for the train to stop first.");
+    if(!trainStopped(selected))return fail("Clear the current schedule and wait for the Train to stop first.");
     if(selected.scheduleComplete)return fail("Use Clear Schedule before creating a new schedule.");
     selected.schedule||=[];selected.scheduleComplete=false;selected.scheduleTargetIndex=0;selected.servicingStop=false;selected.stopHoldUntil=0;
     state.scheduleTrainId=selected.id;state.mode="schedule";canvas.style.cursor="crosshair";
@@ -366,7 +371,7 @@ function prepareTrainStep(train) {
     : train.forwardDirection;
   if (forward && direction.q === -forward.q && direction.r === -forward.r) {
     train.route=[]; train.status="Stuck — no reverse travel";
-    fail(`${train.name} cannot reverse. Build a track loop to turn around.`); return false;
+    fail(`${train.name} cannot reverse. Build a Track loop to turn around.`); return false;
   }
   const to = [nextHead, ...from.slice(0,-1)];
   if(to.some(position=>state.deploymentReserved.has(key(position.q,position.r)))){

@@ -24,7 +24,7 @@ function researchMultiplier(keyName){const upgrade=researchUpgrade(keyName);retu
 function researchedWholeValue(base,keyName){const upgrade=researchUpgrade(keyName);let value=base;for(let level=0;level<researchUpgradeCount(keyName);level++)value=Math.ceil(value*upgrade.multiplier);return value;}
 
 function turretFireInterval(){return 1/researchMultiplier("turretFireRate");}
-function combatTrainFireInterval(){return .48/researchMultiplier("turretFireRate");}
+function combatTrainFireInterval(){return 1/researchMultiplier("turretFireRate");}
 function turretDamage(){return researchedWholeValue(1,"turretDamage");}
 function turretRange(){return Math.round(TURRET_RANGE*researchMultiplier("turretRange"));}
 function combatTrainRange(){return Math.round(COMBAT_TRAIN_RANGE*researchMultiplier("turretRange"));}
@@ -38,7 +38,7 @@ function artilleryDamage(center=true){return researchedWholeValue(center?ARTILLE
 function artilleryDamageAtDistance(distance){return researchedWholeValue(distance===0?ARTILLERY_CENTER_DAMAGE:distance===1?ARTILLERY_SPLASH_DAMAGE:ARTILLERY_OUTER_SPLASH_DAMAGE,"artilleryDamage");}
 function artilleryRange(){return Math.round(ARTILLERY_RANGE*researchMultiplier("artilleryRange"));}
 function artilleryEnergyStorage(){return Math.ceil(ARTILLERY_MAX_ENERGY*researchMultiplier("artilleryEnergyStorage"));}
-function wallHitPoints(){return WALL_HIT_POINTS*researchMultiplier("wallStrength");}
+function wallHitPoints(){return Math.ceil(WALL_HIT_POINTS*researchMultiplier("wallStrength"));}
 function trackHitPoints(){return TRACK_HIT_POINTS*researchMultiplier("trackStrength");}
 function researchRate(){return researchMultiplier("researchSpeed");}
 
@@ -84,7 +84,7 @@ function applyResearchUpgrade(keyName){
   if(keyName==="trainCapacity")for(const train of state.trains)for(const wagon of train.wagons){wagon.baseCapacity??=wagon.capacity/oldMultiplier;wagon.capacity=Math.ceil(wagon.baseCapacity*newMultiplier);}
   if(keyName==="trainSpeed")for(const train of state.trains){train.baseSpeed??=train.speed/oldMultiplier;train.speed=train.baseSpeed*newMultiplier;}
   if(keyName==="loadUnloadEfficiency")for(const train of state.trains)if(train.servicingStop){const remaining=Math.max(0,(train.stopHoldUntil||state.elapsed)-state.elapsed);train.stopHoldUntil=state.elapsed+remaining*upgrade.multiplier;}
-  if(keyName==="wallStrength")for(const wall of [...state.structures.values()].filter(structure=>structure.type==="wall")){const ratio=wall.maxHp?wall.hp/wall.maxHp:1;wall.baseMaxHp??=wall.maxHp/oldMultiplier;wall.maxHp=wall.baseMaxHp*newMultiplier;wall.hp=wall.maxHp*ratio;}
+  if(keyName==="wallStrength")for(const wall of [...state.structures.values()].filter(structure=>structure.type==="wall")){const ratio=wall.maxHp?wall.hp/wall.maxHp:1;wall.baseMaxHp??=wall.maxHp/oldMultiplier;wall.maxHp=Math.ceil(wall.baseMaxHp*newMultiplier);wall.hp=Math.ceil(wall.maxHp*ratio);}
   if(keyName==="trackStrength")for(const track of state.tracks.values()){const ratio=track.maxHp?track.hp/track.maxHp:1;track.baseMaxHp??=track.maxHp/oldMultiplier;track.maxHp=track.baseMaxHp*newMultiplier;track.hp=track.maxHp*ratio;}
   updateUI(true);render();
 }
@@ -95,7 +95,7 @@ function purchaseResearchUpgrade(keyName){
   if(state.researchPoints+1e-9<RESEARCH_UPGRADE_COST)return fail(`Needs ${RESEARCH_UPGRADE_COST} Research points.`);
   state.researchPoints-=RESEARCH_UPGRADE_COST;
   state.researchUpgrades[keyName]=researchUpgradeCount(keyName)+1;
-  applyResearchUpgrade(keyName);sounds.place();toast(`${upgrade.label} (${researchUpgradeCount(keyName)}) Researched.`,"info");return true;
+  applyResearchUpgrade(keyName);sounds.place();toast(`${upgrade.label} (${researchUpgradeCount(keyName)}) researched.`,"info");return true;
 }
 
 function updateResearch(dt){if(state.researchUnlocked)state.researchPoints+=dt*researchRate();}

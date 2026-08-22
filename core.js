@@ -52,7 +52,7 @@ const COSTS = {
   track: { material: 1, energy: 0 },
   train: { material: 30, energy: 0 },
   combatTrain: { material: 30, energy: 10 },
-  turret: { material: 10, energy: 5 },
+  turret: { material: 10, energy: 10 },
   mine: { material: 10, energy: 0 },
   wall: { material: 30, energy: 0 },
   artillery: { material: 50, energy: 50 },

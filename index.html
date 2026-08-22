@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 3.8</title>
+  <title>Planetary Rail Defense 3.9</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 3.8 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 3.9 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -40,7 +40,7 @@
       <div id="gameOver" class="game-over d-none" hidden>
         <div class="game-over-card">
           <div class="eyebrow text-danger">BASE LOST</div>
-          <h1>THE CREEP BROKE THROUGH</h1>
+          <h1>THE CREEPS BROKE THROUGH</h1>
           <div class="defeat-stats">
             <div><span>Survival Time</span><strong id="survivalTime">00h 00m 00s</strong></div>
             <div><span>Hives Neutralized</span><strong id="defeatHivesNeutralized">0</strong></div>
@@ -48,7 +48,7 @@
             <div><span>Track Built</span><strong id="defeatTracksLaid">0</strong></div>
             <div><span>Mines Built</span><strong id="defeatMinesBuilt">0</strong></div>
             <div><span>Turrets Built</span><strong id="defeatTurretsBuilt">0</strong></div>
-            <div><span>Train Sets Constructed</span><strong id="defeatTrainsBuilt">0</strong></div>
+            <div><span>Trains Built</span><strong id="defeatTrainsBuilt">0</strong></div>
             <div><span>Energy Mined</span><strong id="defeatEnergyMined">0</strong></div>
             <div><span>Construction Material Mined</span><strong id="defeatMaterialMined">0</strong></div>
           </div>
@@ -65,7 +65,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 3.8</span></h1>
+          <h1>RAIL<br><span>DEFENSE 3.9</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -78,7 +78,7 @@
         <div class="tool-grid" role="group" aria-label="Actions">
           <button id="selectTool" class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="• Select units and structures."><span class="keycap">1</span>Select Object</button>
           <button id="trackTool" class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 1 C, 0 E"><span class="keycap">2</span>Build Track</button>
-          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 10 C, 5 E&#10;• Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">3</span>Build Turret</button>
+          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 10 C, 10 E&#10;• Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">3</span>Build Turret</button>
           <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 10 C, 0 E&#10;• Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">4</span>Build Mine</button>
           <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 30 C, 0 E&#10;• Must be built within 5 hexes of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">5</span>Build Wall</button>
           <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E&#10;• Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired"><span class="keycap">6</span>Build Artillery</button>
@@ -135,7 +135,7 @@
     <div class="confirm-card energy-warning-card">
       <div class="eyebrow">ENERGY WARNING</div>
       <h2 id="turretEnergyTitle">Turret / Artillery Out of Energy</h2>
-      <p id="turretEnergyMessage">One of your Turrets or Artillery ran out of Energy. Both Turrets and Artillery must be supplied with Energy by a Build/Mine Train loaded with Energy at an adjacent Train Stop.</p>
+      <p id="turretEnergyMessage">A Turret or Artillery building ran out of Energy. Both Turrets and Artillery must be supplied with Energy by a Build/Mine Train loaded with Energy and stopped at an adjacent non-destroyed Train Stop.</p>
       <button id="turretEnergyOkay" class="btn btn-command">OK</button>
     </div>
   </div>
