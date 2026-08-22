@@ -223,7 +223,7 @@ button { touch-action: manipulation; }
 .research-points-summary strong { color: #d4b8ff; font-size: 18px; }
 .research-actions { margin-top: 10px; }
 .research-actions .btn { font-size: 15px; text-align: left; }
-.research-group-heading { margin: 12px 0 2px; color: var(--accent); font: 800 13px/1.2 ui-monospace, monospace; letter-spacing: .09em; text-transform: uppercase; }
+.research-group-heading { margin: 12px 0 2px; color: var(--accent); font: 800 13px/1.2 ui-monospace, monospace; letter-spacing: .09em; }
 .research-group-heading:first-child { margin-top: 0; }
 
 .cargo-list { display: grid; gap: 5px; margin: 12px 0; }

@@ -54,6 +54,8 @@ describe("interface formatting", () => {
     assert.ok(html.indexOf('id="baseMaterialHud"')<html.indexOf('id="baseEnergyHud"'),"Construction should appear before Energy in the HUD");
     assert.ok(html.indexOf('id="baseEnergyHud"')<html.indexOf('id="unminedMaterialHud"')&&html.indexOf('id="unminedMaterialHud"')<html.indexOf('id="unminedEnergyHud"'));
     assert.equal(elements.get("researchPointsHud").textContent,0);
+    assert.match(html,/Base construction:/);assert.match(html,/Base energy:/);assert.match(html,/Unmined construction:/);assert.match(html,/Unmined energy:/);assert.match(html,/Research points:/);assert.match(html,/Time survived:/);
+    assert.doesNotMatch(html,/Base Construction:|Base Energy:|Unmined Construction:|Unmined Energy:|Research Points:|Time Survived:/);
   });
 
   test("the HUD totals resources only in active Mines connected to completed live Stops",()=>{
@@ -89,47 +91,49 @@ describe("interface formatting", () => {
     const hive = api.createHive(4, 4, 2);
     api.state.selected = { type: "hive", id: hive.id };
     const html = api.selectionHtml();
-    assert.match(html, /Level 2 Hive/);
-    assert.match(html, /Each spawn cycle chooses either 2 Creeps or a new Hive/);
-    assert.match(html, /1 in 2 chance of a Hive spawn/);
+    assert.match(html, /Level 2 hive/);
+    assert.match(html, /Periodically produces either 2 more creeps or a new hive/);
+    assert.match(html, /1 in 2 chance of a hive spawn/);
   });
 
   test("destroyed selections identify the wreckage and explain rebuild and clearing options",()=>{
     const state=api.state,ghost={id:"3,2",type:"ghost",objectType:"wall",q:3,r:2};state.ghosts.set(ghost.id,ghost);state.selected={type:"ghost",id:ghost.id};
-    const ghostHtml=api.selectionHtml();assert.match(ghostHtml,/Destroyed Wall/);assert.match(ghostHtml,/Any construction normally allowed on this terrain can replace this wreckage directly/);assert.match(ghostHtml,/stopped at an adjacent non-destroyed Train Stop/);assert.match(ghostHtml,/Salvage\/Clear Object/);
+    const ghostHtml=api.selectionHtml();assert.match(ghostHtml,/Destroyed wall/);assert.match(ghostHtml,/Any construction normally allowed on this terrain can replace this wreckage directly/);assert.match(ghostHtml,/stopped at an adjacent non-destroyed train stop/);assert.match(ghostHtml,/Salvage\/clear object/);
     const trackGhost={id:"4,2",type:"ghost",objectType:"track",q:4,r:2};state.ghosts.set(trackGhost.id,trackGhost);state.selected={type:"ghost",id:trackGhost.id};
-    assert.match(api.selectionHtml(),/can rebuild destroyed Track even when the Train is not at a Stop/);
-    state.base.hp=0;state.selected={type:"base",id:"base"};const baseHtml=api.selectionHtml();assert.match(baseHtml,/Destroyed Base/);assert.match(baseHtml,/cannot be rebuilt or salvaged/);
+    assert.match(api.selectionHtml(),/can rebuild destroyed track even when the train is not at a stop/);
+    state.base.hp=0;state.selected={type:"base",id:"base"};const baseHtml=api.selectionHtml();assert.match(baseHtml,/Destroyed base/);assert.match(baseHtml,/cannot be rebuilt or salvaged/);
   });
 
   test("the live Base pane explains its 110-unit unloading reserve",()=>{
     api.state.selected={type:"base",id:"base"};
-    assert.match(api.selectionHtml(),/Trains will only fill resources to 110 units so that they don't endlessly dump resources into the Base and starve buildings that need those resources/);
+    assert.match(api.selectionHtml(),/Trains will only fill resources to 110 units so that they don't endlessly dump resources into the base and starve buildings that need those resources/);
   });
 
   test("Mine selection describes Train service at an adjacent Stop",()=>{
     const materialMine={id:"material-mine-copy",type:"mine",resource:"material",q:7,r:-2,hp:22,maxHp:22};
     api.state.structures.set(api.key(materialMine.q,materialMine.r),materialMine);
     api.state.selected={type:"structure",id:materialMine.id};
-    assert.match(api.selectionHtml(),/A Train stopped at an adjacent non-destroyed Train Stop instantly mines and loads Construction Material/);
+    const materialHtml=api.selectionHtml();
+    assert.match(materialHtml,/<h2>Construction material mine<\/h2>/);assert.match(materialHtml,/Resource units/);assert.match(materialHtml,/Hit points/);
+    assert.match(materialHtml,/A train stopped at an adjacent non-destroyed train stop instantly mines and loads construction material/);
 
     const energyMine={id:"energy-mine-copy",type:"mine",resource:"energy",q:-4,r:7,hp:22,maxHp:22};
     api.state.structures.set(api.key(energyMine.q,energyMine.r),energyMine);
     api.state.selected={type:"structure",id:energyMine.id};
-    assert.match(api.selectionHtml(),/A Train stopped at an adjacent non-destroyed Train Stop instantly mines and loads Energy/);
+    assert.match(api.selectionHtml(),/<h2>Energy mine<\/h2>/);assert.match(api.selectionHtml(),/A train stopped at an adjacent non-destroyed train stop instantly mines and loads energy/);
   });
 
   test("Turret selection describes shot cadence and labels its shot Energy",()=>{
     const turret={id:"turret-copy",type:"turret",q:5,r:-2,hp:20,maxHp:20,energy:20,maxEnergy:20,cooldown:0};
     api.state.structures.set(api.key(turret.q,turret.r),turret);api.state.selected={type:"structure",id:turret.id};
-    const html=api.selectionHtml();assert.match(html,/Range 3 hexes/);assert.match(html,/Shoots every 1 second\(s\) for 1 damage/);assert.match(html,/ENERGY FOR SHOTS/);
+    const html=api.selectionHtml();assert.match(html,/Range 3 hexes/);assert.match(html,/Shoots every 1 second\(s\) for 1 damage/);assert.match(html,/Energy for shots/);
   });
 
   test("Artillery selection reports its range, cadence, three damage rings, and friendly-fire safety",()=>{
     const artillery={id:"artillery-copy",type:"artillery",q:6,r:-2,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};
     api.state.structures.set(api.key(artillery.q,artillery.r),artillery);api.state.selected={type:"structure",id:artillery.id};
     const html=api.selectionHtml();
-    assert.match(html,/Artillery/);assert.match(html,/Targets Hives only/);assert.match(html,/Range 11 hexes/);assert.match(html,/Shoots every 3 seconds/);assert.match(html,/Uses 10 Energy per shot/);assert.match(html,/8 center damage \+ 5 adjacent-ring damage \+ 1 outer-ring damage per hex/);assert.match(html,/Creeps can take splash damage/);assert.match(html,/No friendly fire/);assert.match(html,/ENERGY FOR SHOTS/);
+    assert.match(html,/Artillery/);assert.match(html,/Targets hives only/);assert.match(html,/Range 11 hexes/);assert.match(html,/Shoots every 3 seconds/);assert.match(html,/Uses 10 energy per shot/);assert.match(html,/8 center damage \+ 5 adjacent-ring damage \+ 1 outer-ring damage per hex/);assert.match(html,/Creeps can take splash damage/);assert.match(html,/No friendly fire/);assert.match(html,/Energy for shots/);
   });
 
   test("the selection label is hidden only when nothing is selected",()=>{
@@ -143,11 +147,11 @@ describe("interface formatting", () => {
     const pause=elements.get("pauseToggle"),sound=elements.get("soundToggle");
     api.state.paused=false;api.state.sound=true;api.updateUI(true);
     assert.match(pause.innerHTML,/<svg[^>]*flat-status-icon/);assert.match(pause.innerHTML,/Playing/);assert.equal(pause.classList.contains("status-playing"),true);
-    assert.match(sound.innerHTML,/Sound: ON/);assert.equal(sound.classList.contains("status-sound-on"),true);
+    assert.match(sound.innerHTML,/Sound: on/);assert.equal(sound.classList.contains("status-sound-on"),true);
 
     api.state.paused=true;api.state.sound=false;api.updateUI(true);
     assert.match(pause.innerHTML,/Paused/);assert.equal(pause.classList.contains("status-paused"),true);
-    assert.match(sound.innerHTML,/Sound: OFF/);assert.equal(sound.classList.contains("status-sound-off"),true);
+    assert.match(sound.innerHTML,/Sound: off/);assert.equal(sound.classList.contains("status-sound-off"),true);
   });
 
   test("unchanged status refreshes preserve the Playing button DOM",()=>{
@@ -212,7 +216,7 @@ describe("interface formatting", () => {
     assert.deepEqual({ ...api.state.selected },{type:"enemy",id:enemy.id});
     const html = api.selectionHtml();
     assert.match(html,/Creep/);
-    assert.match(html,/HIT POINTS/);
+    assert.match(html,/Hit points/);
     assert.match(html,/1 \/ 1/);
   });
 
@@ -220,14 +224,14 @@ describe("interface formatting", () => {
     const train=addTestTrain("builder");
     api.handleHexClick({q:train.wagons[1].q,r:train.wagons[1].r});
     let html=api.selectionHtml();
-    assert.match(html,/Build\/Mine Train A: Energy Supply/);
-    assert.match(html,/ENERGY FOR FUEL/);
-    assert.match(html,/Supply 1 · CONSTRUCTION MATERIAL/);
+    assert.match(html,/Build\/mine train A: energy supply/);
+    assert.match(html,/Energy for fuel/);
+    assert.match(html,/Supply 1 · construction material/);
     assert.doesNotMatch(html,/Wagon/);
-    assert.ok(html.indexOf("Add Schedule")<html.indexOf("Clear Schedule"));
+    assert.ok(html.indexOf("Add schedule")<html.indexOf("Clear schedule"));
 
     api.handleHexClick({q:train.q,r:train.r});
-    assert.match(api.selectionHtml(),/Build\/Mine Train A: Locomotive/);
+    assert.match(api.selectionHtml(),/Build\/mine train A: locomotive/);
   });
 
   test("the lost-game map allows read-only object selection",()=>{
@@ -235,14 +239,14 @@ describe("interface formatting", () => {
     api.state.gameOver=true;api.state.finalMapView=true;api.state.mode="turret";
     api.handleHexClick({q:train.wagons[0].q,r:train.wagons[0].r});
     const html=api.selectionHtml();
-    assert.match(html,/Turret Train A: Energy Supply/);
+    assert.match(html,/Turret train A: energy supply/);
     assert.doesNotMatch(html,/data-action=/,"post-loss inspection must not expose mutating actions");
     assert.equal(api.state.structures.size,0);
   });
 
   test("Turret Train selection uses the mobile defense description",()=>{
     const train=addTestTrain("combat");api.state.selected={type:"train",id:train.id};
-    assert.match(api.selectionHtml(),/A mobile turret train · Shot range 6 hexes · 1 damage every 1 second\(s\) · Restocks its fuel Energy and shot Energy at Base · Another Train can provide emergency fuel when it has no fuel Energy remaining/);
+    assert.match(api.selectionHtml(),/A mobile turret train · Shot range 6 hexes · 1 damage every 1 second\(s\) · Restocks its fuel energy and shot energy at base · Another train can provide emergency fuel when it has no fuel energy remaining/);
   });
 
   test("Turret Train fabrication costs 30 Construction Material and 10 Energy and cancellation refunds both",()=>{

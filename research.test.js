@@ -53,16 +53,17 @@ describe("Research building and upgrades",()=>{
   test("the Research pane exposes grouped upgrade buttons without hover tooltips",()=>{
     const state=api.state;addResearchBuilding();state.researchPoints=29;
     const html=api.selectionHtml();
+    assert.match(html,/<h2>Research building<\/h2>/);
     assert.equal((html.match(/data-action="research-/g)||[]).length,15);
     assert.equal((html.match(/disabled aria-disabled="true"/g)||[]).length,15);
     assert.doesNotMatch(html,/data-bs-toggle="tooltip"|title="/);
-    for(const heading of ["Turrets (Fixed and Train)","Artillery","Trains and Mining","Infrastructure","Other"])assert.match(html,new RegExp(heading.replace(/[()]/g,"\\$&")));
-    assert.match(html,/\+20% Turret Range \(1\)/);assert.match(html,/\+20% Artillery Range \(1\)/);
-    assert.match(html,/\+25% Turret Energy Storage \(1\)/);assert.match(html,/\+25% Artillery Energy Storage \(1\)/);
-    assert.match(html,/\+20% Mining Efficiency \(1\)/);
-    assert.match(html,/\+25% Load\/Unload Efficiency \(1\)/);
-    assert.match(html,/1 Research point\(s\) gained for each second of survival/);
-    assert.match(html,/All Research items cost 30 Research points/);
+    for(const heading of ["Turrets (fixed and train)","Artillery","Trains and mining","Infrastructure","Other"])assert.match(html,new RegExp(heading.replace(/[()]/g,"\\$&")));
+    assert.match(html,/\+20% turret range \(1\)/);assert.match(html,/\+20% artillery range \(1\)/);
+    assert.match(html,/\+25% turret energy storage \(1\)/);assert.match(html,/\+25% artillery energy storage \(1\)/);
+    assert.match(html,/\+20% mining efficiency \(1\)/);
+    assert.match(html,/\+25% load\/unload efficiency \(1\)/);
+    assert.match(html,/1 research point\(s\) gained for each second of survival/);
+    assert.match(html,/All research items cost 30 research points/);
   });
 
   test("all fifteen upgrades immediately update existing units and expose upgraded future values",()=>{
@@ -98,7 +99,7 @@ describe("Research building and upgrades",()=>{
 
     moveTrain(train,api.basePerimeter()[0].q,api.basePerimeter()[0].r);state.tracks.set(api.key(train.q,train.r),makeTrack(train.q,train.r));train.schedule=[{q:train.q,r:train.r}];train.scheduleComplete=true;train.wagons[0].amount=5;state.baseMaterial=0;state.worldMessages=[];
     api.serviceBaseLogistics(train);
-    const message=state.worldMessages.find(item=>item.message==="Train A: Unloaded Resources to Base");assert.ok(message);assert.equal(message.until-state.elapsed,1.25);
+    const message=state.worldMessages.find(item=>item.message==="Train A: Unloaded resources to base");assert.ok(message);assert.equal(message.until-state.elapsed,1.25);
   });
 
   test("improved Mines transact only whole resource units while consuming fewer Resource Node units",()=>{
@@ -135,6 +136,10 @@ describe("Research building and upgrades",()=>{
     assert.equal(state.structures.size,0);const ghost=state.ghosts.get(api.key(research.q,research.r));assert.equal(ghost.objectType,"research");assert.equal(ghost.footprint.length,3);
     for(const cell of ghost.footprint)assert.equal(api.ghostAt(cell.q,cell.r),ghost);
     state.mode="select";api.handleHexClick(ghost.footprint[1]);assert.deepEqual({...state.selected},{type:"ghost",id:ghost.id});
+    state.particles=[];api.clearGhost(ghost);
+    assert.equal(state.particles.length,24,"clearing a three-hex research wreckage should burst in all three hexes");
+    const expectedOrigins=new Set(research.footprint.map(cell=>{const point=api.axialToWorld(cell.q,cell.r);return `${point.x},${point.y}`;}));
+    assert.deepEqual(new Set(state.particles.map(particle=>`${particle.x},${particle.y}`)),expectedOrigins);
   });
 
   test("salvaging healthy Research refunds its full configured Construction Material and Energy cost",()=>{
@@ -143,6 +148,9 @@ describe("Research building and upgrades",()=>{
     api.salvageStructure(research);
 
     assert.equal(state.baseMaterial,materialBefore+api.constants.COSTS.research.material);assert.equal(state.baseEnergy,energyBefore+api.constants.COSTS.research.energy);
-    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 50 Construction Material and 50 Energy.");
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 50 construction material and 50 energy.");
+    assert.equal(state.particles.length,24,"salvaging a three-hex research building should burst in all three hexes");
+    const expectedOrigins=new Set(research.footprint.map(cell=>{const point=api.axialToWorld(cell.q,cell.r);return `${point.x},${point.y}`;}));
+    assert.deepEqual(new Set(state.particles.map(particle=>`${particle.x},${particle.y}`)),expectedOrigins);
   });
 });

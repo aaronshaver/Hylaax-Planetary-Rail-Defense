@@ -42,7 +42,7 @@ function spawnEnemyAt(q,r,spawnNumber=state.nextId){
 
 function debugAddCreepAt(q,r){
   const enemy=spawnEnemyAt(q,r,state.nextId);
-  if(!enemy)return fail("Cannot add a Creep on that hex.");
+  if(!enemy)return fail("Cannot add a creep on that hex.");
   updateUI(true);render();toast("Debug: Creep added.","info");return enemy;
 }
 
@@ -341,12 +341,12 @@ function leaveGhost(target,objectType){
 }
 
 function rebuiltLabel(ghost){
-  if(ghost.objectType==="track")return "Track";
-  if(ghost.objectType==="turret")return "Turret";
-  if(ghost.objectType==="artillery")return "Artillery";
-  if(ghost.objectType==="wall")return "Wall";
-  if(ghost.objectType==="research")return "Research";
-  return `${resourceLabel(ghost.resource)} Mine`;
+  if(ghost.objectType==="track")return "track";
+  if(ghost.objectType==="turret")return "turret";
+  if(ghost.objectType==="artillery")return "artillery";
+  if(ghost.objectType==="wall")return "wall";
+  if(ghost.objectType==="research")return "research";
+  return `${resourceLabel(ghost.resource)} mine`;
 }
 
 function rebuildGhost(ghost,train){
@@ -428,7 +428,7 @@ function trainPartDestroyed(train,partLabel){
   toast(`${train.name}: ${partLabel} destroyed.`,"danger");
 }
 
-function supplyLabel(supply){return `${resourceLabel(supply.role||supply.type)} Supply`;}
+function supplyLabel(supply){return `${resourceLabel(supply.role||supply.type)} supply`;}
 
 function damageTarget(target, amount) {
   const targetIsTrack=state.tracks.get(key(target.q,target.r))===target;
@@ -459,7 +459,7 @@ function damageTarget(target, amount) {
     state.trains = state.trains.filter(t => t.id !== target.id);
     if (state.selected?.id === target.id) state.selected = null;
     if(state.scheduleTrainId===target.id){state.scheduleTrainId=null;state.mode="select";canvas.style.cursor="default";document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));}
-    trainPartDestroyed(target,"Locomotive");
+    trainPartDestroyed(target,"locomotive");
   } else if (["turret","artillery","mine","wall","research"].includes(target.type)) {
     leaveGhost(target,target.type);
     state.structures.delete(key(target.q,target.r));

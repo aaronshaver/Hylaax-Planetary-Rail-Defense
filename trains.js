@@ -32,7 +32,7 @@ function handleHexClick(hex) {
     if (structure?.type === "research" && structure.hp > 0) return requestResearchSalvage(structure);
     if (structure && structure.type !== "base") return salvageStructure(structure);
     if(ghost)return clearGhost(ghost);
-    return fail("Cannot Salvage/Clear this type of object.");
+    return fail("Cannot salvage/clear this type of object.");
   }
   if (train) { select("train", train.id,{segmentId:trainPart.segment.id}); setMode("select"); return; }
   if (state.mode === "turret") return buildTurret(q,r);
@@ -53,12 +53,12 @@ function handleHexClick(hex) {
 function canBaseAfford(cost){return state.baseMaterial>=cost.material&&state.baseEnergy>=cost.energy;}
 
 const CONSTRUCTION_MODE_COSTS={track:COSTS.track,turret:COSTS.turret,mine:COSTS.mine,wall:COSTS.wall,artillery:COSTS.artillery,research:COSTS.research};
-const CONSTRUCTION_MODE_LABELS={track:"Track",turret:"Turret",mine:"Mine",wall:"Wall",artillery:"Artillery",research:"Research"};
+const CONSTRUCTION_MODE_LABELS={track:"track",turret:"turret",mine:"mine",wall:"wall",artillery:"artillery",research:"research"};
 function constructionModeCost(mode){return CONSTRUCTION_MODE_COSTS[mode]||null;}
 function constructionModeAffordable(mode){const cost=constructionModeCost(mode);return !cost||canBaseAfford(cost);}
 function constructionModeUnavailableMessage(mode){
   const cost=constructionModeCost(mode),label=CONSTRUCTION_MODE_LABELS[mode];
-  return cost?`Needs ${cost.material} Construction Material${cost.energy?` and ${cost.energy} Energy`:""} for ${label}.`:"";
+  return cost?`Needs ${cost.material} construction material${cost.energy?` and ${cost.energy} energy`:""} for ${label}.`:"";
 }
 
 function addBaseResources(amount=1000){
@@ -68,22 +68,22 @@ function addBaseResources(amount=1000){
     added[resource.key]=amount;
   }
   sounds.place();updateUI(true);
-  toast(`Debug: Added ${amount.toLocaleString()} of every Base resource.`,"info");
+  toast(`Debug: Added ${amount.toLocaleString()} of every base resource.`,"info");
   return added;
 }
 
 function trainFabricationCost(trainType="builder"){return trainType==="combat"?COSTS.combatTrain:COSTS.train;}
 
 function trainFabricationDisabledReason(trainType="builder"){
-  if(state.nextTrainIndex>=26)return "Maximum of 26 Trains reached.";
-  if(state.mode==="deploy")return "Finish or cancel the current Train placement first.";
+  if(state.nextTrainIndex>=26)return "Maximum of 26 trains reached.";
+  if(state.mode==="deploy")return "Finish or cancel the current train placement first.";
   const cost=trainFabricationCost(trainType),missingMaterial=Math.max(0,cost.material-Math.floor(state.baseMaterial)),missingEnergy=Math.max(0,cost.energy-Math.floor(state.baseEnergy));
-  if(missingMaterial||missingEnergy)return `Base needs ${[missingMaterial?`${missingMaterial} more Construction Material`:"",missingEnergy?`${missingEnergy} more Energy`:""].filter(Boolean).join(" and ")}.`;
+  if(missingMaterial||missingEnergy)return `Base needs ${[missingMaterial?`${missingMaterial} more construction material`:"",missingEnergy?`${missingEnergy} more energy`:""].filter(Boolean).join(" and ")}.`;
   return "";
 }
 
 function payBase(cost,item) {
-  if (!canBaseAfford(cost)) { fail(`Needs ${cost.material} Construction Material${cost.energy?` and ${cost.energy} Energy`:""} for ${item}.`); return false; }
+  if (!canBaseAfford(cost)) { fail(`Needs ${cost.material} construction material${cost.energy?` and ${cost.energy} energy`:""} for ${item}.`); return false; }
   state.baseMaterial -= cost.material; state.baseEnergy -= cost.energy; return true;
 }
 
@@ -129,16 +129,16 @@ function serviceBaseLogistics(train) {
   if(!trainAtLiveStop(train)||distanceToStructure(train,state.base)!==1)return false;
   if(train.trainType==="combat"){
     const energyLoaded=refuelAtBase(train)+fillBaseCargo(train);
-    if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy for Fuel from Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
+    if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded energy for fuel from base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
     return true;
   }
   const emptyOnArrival=new Set(train.wagons.filter(w=>w.amount<=.0001).map(w=>w.id));
   let energyLoaded=refuelAtBase(train);
   const material=unloadCargoToBaseTarget(train,"material");
   const energy=unloadCargoToBaseTarget(train,"energy");
-  if(material+energy>0)showTrainActivity(train,state.base,"Unloaded Resources to Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
+  if(material+energy>0)showTrainActivity(train,state.base,"Unloaded resources to base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
   for(const wagon of train.wagons.filter(w=>emptyOnArrival.has(w.id))){const moved=fillWagonFromBase(train,wagon);if((wagon.role||wagon.type)==="energy")energyLoaded+=moved;}
-  if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded Energy for Fuel from Base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
+  if(energyLoaded>0)showTrainActivity(train,state.base,"Loaded energy for fuel from base",TRAIN_ACTIVITY_MESSAGE_SECONDS);
   return true;
 }
 
@@ -189,8 +189,8 @@ function emergencyRefuelTrain(receiver){
   if(!donor)return null;
   const moved=removeCargo(donor,"energy",Math.min(Math.floor(totalCargo(donor,"energy")/2),receiver.maxFuel-receiver.fuel));
   if(moved<=0)return null;
-  receiver.fuel+=moved;receiver.energyDepleted=false;receiver.nextEnergyWarningAt=0;receiver.status=`Fueled by Train ${trainScheduleCode(donor)}`;
-  showTrainActivity(donor,receiver,`Fueled Train ${trainScheduleCode(receiver)} with Energy`,1.35);
+  receiver.fuel+=moved;receiver.energyDepleted=false;receiver.nextEnergyWarningAt=0;receiver.status=`Fueled by train ${trainScheduleCode(donor)}`;
+  showTrainActivity(donor,receiver,`Fueled train ${trainScheduleCode(receiver)} with energy`,1.35);
   return {donor,receiver,moved};
 }
 
@@ -204,7 +204,7 @@ function updateEmergencyTrainRefueling(){
 function showTrainEnergyWarning(train){
   if(!train.energyDepleted||train.fuel>0||totalCargo(train,"energy")>0)return false;
   if(state.elapsed<(train.nextEnergyWarningAt??0))return false;
-  showTrainActivity(train,train,"Ran Out of Energy",1.35);
+  showTrainActivity(train,train,"Ran out of energy",1.35);
   train.nextEnergyWarningAt=state.elapsed+2.5;
   return true;
 }
@@ -212,13 +212,13 @@ function showTrainEnergyWarning(train){
 function updateTrainEnergyWarnings(){for(const train of state.trains)showTrainEnergyWarning(train);}
 
 function repairLabel(target) {
-  if(target.type==="base")return "Base";
-  if(target.type==="turret")return "Turret";
-  if(target.type==="artillery")return "Artillery";
-  if(target.type==="research")return "Research";
-  if(target.type==="mine")return "Mine";
-  if(target.type==="wall")return "Wall";
-  return "Track";
+  if(target.type==="base")return "base";
+  if(target.type==="turret")return "turret";
+  if(target.type==="artillery")return "artillery";
+  if(target.type==="research")return "research";
+  if(target.type==="mine")return "mine";
+  if(target.type==="wall")return "wall";
+  return "track";
 }
 
 function repairPriority(target){
@@ -236,7 +236,7 @@ function updateAutomaticRepair(train) {
   if(!trainAtLiveStop(train)||state.elapsed<(train.repairHoldUntil||0)||totalCargo(train,"material")<=0)return false;
   const nextTrackKey=train.route[0]?key(train.route[0].q,train.route[0].r):null;
   const targets=[state.base,...state.structures.values(),...state.tracks.values()]
-    .filter(target=>target.hp<target.maxHp&&(target.type==="wall"?hexDistance(train,target)<=5:(target.type==="base"?distanceToStructure(train,target):hexDistance(train,target))<=1))
+    .filter(target=>target.hp<target.maxHp&&(target.type==="wall"?hexDistance(train,target)<=WALL_SERVICE_RANGE:(target.type==="base"?distanceToStructure(train,target):hexDistance(train,target))<=1))
     .sort((a,b)=>Number(key(b.q,b.r)===nextTrackKey&&repairPriority(b)===0)-Number(key(a.q,a.r)===nextTrackKey&&repairPriority(a)===0)||repairPriority(a)-repairPriority(b)||(a.type==="base"?distanceToStructure(train,a):hexDistance(train,a))-(b.type==="base"?distanceToStructure(train,b):hexDistance(train,b))||(a.hp/a.maxHp)-(b.hp/b.maxHp));
   const target=targets[0];
   if(!target)return false;
@@ -247,7 +247,7 @@ function updateAutomaticRepair(train) {
   removeCargo(train,"material",materialCost);target.hp=isTrack?target.maxHp:Math.min(target.maxHp,target.hp+materialCost);
   const fullyRepaired=target.hp>=target.maxHp-.0001,label=repairLabel(target);
   train.repairResumeStatus=train.status;train.repairHoldUntil=state.elapsed+REPAIR_PAUSE_SECONDS;train.status=`Repairing ${label}`;
-  showTrainActivity(train,target,fullyRepaired?`Repaired ${label}`:`Partially Repaired: ${label}`,1.25);
+  showTrainActivity(train,target,fullyRepaired?`Repaired ${label}`:`Partially repaired: ${label}`,1.25);
   return true;
 }
 
@@ -280,7 +280,7 @@ function updateAutomaticLogistics() {
     const energyRoom=Math.max(0,structure.maxEnergy-structure.energy);
     const moved=removeCargo(train,"energy",Math.min(energyRoom,totalCargo(train,"energy")));
     structure.energy+=moved;
-    if(moved>0){cargoChangedTrains.add(train.id);showTrainActivity(train,structure,`Supplied ${structure.type==="artillery"?"Artillery":"Turret"} with Energy`);}
+    if(moved>0){cargoChangedTrains.add(train.id);showTrainActivity(train,structure,`Supplied ${structure.type==="artillery"?"artillery":"turret"} with energy`);}
   }
   for(const train of state.trains){
     const nearBase=locoNearBase(train);
@@ -295,13 +295,13 @@ function handleAction(action, element) {
   element?.blur();
   const selected=getSelected();
   if(action==="fabricate-place-builder-train"||action==="fabricate-place-combat-train"){
-    if(state.nextTrainIndex>=26)return fail("No more than 26 Trains can be built.");
+    if(state.nextTrainIndex>=26)return fail("No more than 26 trains can be built.");
     const trainType=action==="fabricate-place-combat-train"?"combat":"builder";
-    if(payBase(trainFabricationCost(trainType),trainType==="combat"?"Turret Train":"Build/Mine Train")){state.deploymentPaid=true;state.deploymentTrainType=trainType;sounds.place();setMode("deploy");toast("Click an empty Track hex for the Train Head, then click a highlighted Tail point.","info");if(trainType==="builder")tutorialEvent("builder-fabrication-started");}
+    if(payBase(trainFabricationCost(trainType),trainType==="combat"?"turret train":"build/mine train")){state.deploymentPaid=true;state.deploymentTrainType=trainType;sounds.place();setMode("deploy");toast("Click an empty track hex for the train head, then click a highlighted tail point.","info");if(trainType==="builder")tutorialEvent("builder-fabrication-started");}
   }
   if(action==="add-schedule"&&selected?.wagons){
-    if(!trainStopped(selected))return fail("Clear the current schedule and wait for the Train to stop first.");
-    if(selected.scheduleComplete)return fail("Use Clear Schedule before creating a new schedule.");
+    if(!trainStopped(selected))return fail("Clear the current schedule and wait for the train to stop first.");
+    if(selected.scheduleComplete)return fail("Use 'Clear schedule' before creating a new schedule.");
     selected.schedule||=[];selected.scheduleComplete=false;selected.scheduleTargetIndex=0;selected.servicingStop=false;selected.stopHoldUntil=0;
     state.scheduleTrainId=selected.id;state.mode="schedule";canvas.style.cursor="crosshair";
     document.querySelectorAll("[data-mode]").forEach(button=>button.classList.remove("active"));
@@ -324,7 +324,7 @@ function updateTrains(dt) {
       const pulled = removeCargo(train,"energy",1);
       if (pulled > 0) {train.fuel += pulled;train.energyDepleted=false;}
       else {
-        snapTrainToGrid(train);train.route = []; train.routePurpose=null; train.status = "Stuck — no Energy";
+        snapTrainToGrid(train);train.route = []; train.routePurpose=null; train.status = "Stuck — no energy";
         train.energyDepleted=true;showTrainEnergyWarning(train);
         continue;
       }
@@ -351,10 +351,10 @@ function updateTrains(dt) {
       if (!train.route.length) {
         const completedPurpose=train.routePurpose;train.routePurpose=null;
         if(completedPurpose==="repair"){
-          train.status="Waiting to rebuild Track";train.scheduleRetryAt=state.elapsed;
+          train.status="Waiting to rebuild track";train.scheduleRetryAt=state.elapsed;
         }else if(train.scheduleComplete){
           const reached=train.scheduleTargetIndex;
-          train.servicingStop=true;train.stopHoldUntil=state.elapsed+loadUnloadDuration();train.scheduleTargetIndex=(reached+1)%train.schedule.length;train.status=`At Stop ${trainScheduleCode(train)}${reached+1}`;
+          train.servicingStop=true;train.stopHoldUntil=state.elapsed+loadUnloadDuration();train.scheduleTargetIndex=(reached+1)%train.schedule.length;train.status=`At stop ${trainScheduleCode(train)}${reached+1}`;
         }else train.status="Idle";
       }
     }
@@ -371,11 +371,11 @@ function prepareTrainStep(train) {
     : train.forwardDirection;
   if (forward && direction.q === -forward.q && direction.r === -forward.r) {
     train.route=[]; train.status="Stuck — no reverse travel";
-    fail(`${train.name} cannot reverse. Build a Track loop to turn around.`); return false;
+    fail(`${train.name} cannot reverse. Build a track loop to turn around.`); return false;
   }
   const to = [nextHead, ...from.slice(0,-1)];
   if(to.some(position=>state.deploymentReserved.has(key(position.q,position.r)))){
-    train.status="Waiting — Track Reserved For Deployment";
+    train.status="Waiting — track reserved for deployment";
     return false;
   }
   if (new Set(to.map(position=>key(position.q,position.r))).size !== to.length) {
@@ -387,9 +387,9 @@ function prepareTrainStep(train) {
     if (!isRailHex(position.q,position.r)) {
       if(trackGhostAt(position.q,position.r)&&occupiedBefore.has(key(position.q,position.r)))continue;
       train.route=[];train.routePurpose=null;
-      if(trackGhostAt(position.q,position.r)){train.status="Waiting to rebuild Track";train.scheduleRetryAt=state.elapsed+.1;return false;}
+      if(trackGhostAt(position.q,position.r)){train.status="Waiting to rebuild track";train.scheduleRetryAt=state.elapsed+.1;return false;}
       train.status="Stuck — train is too long";
-      fail(`${train.name} cannot move that way: every Supply needs Track.`); return false;
+      fail(`${train.name} cannot move that way: every supply needs track.`); return false;
     }
   }
   train.stepFrom=from; train.stepTo=to; train.progress=0;

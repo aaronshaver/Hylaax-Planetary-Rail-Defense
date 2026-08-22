@@ -318,13 +318,13 @@ describe("enemy navigation", () => {
     const originalTone=api.sounds.tone;api.sounds.tone=(...args)=>toneCalls.push(args);
     try{
       api.damageTarget(train.wagons[0],train.wagons[0].hp);
-      assert.equal(toastStack.children.at(-1).textContent,"Turret Train A: Energy Supply destroyed.");
+      assert.equal(toastStack.children.at(-1).textContent,"Turret train A: energy supply destroyed.");
       assert.equal(train.wagons.length,0);assert.equal(toneCalls.length,3);assert.deepEqual(toneCalls.map(call=>call[0]),[105,82,62]);
       assert.equal(state.screenShakeUntil,api.constants.TRAIN_LOSS_SHAKE_SECONDS);
       assert.notDeepEqual(api.screenShakeOffset(),{x:0,y:0});
 
       state.elapsed=.5;api.damageTarget(train,train.hp);
-      assert.equal(toastStack.children.at(-1).textContent,"Turret Train A: Locomotive destroyed.");
+      assert.equal(toastStack.children.at(-1).textContent,"Turret train A: locomotive destroyed.");
       assert.equal(state.trains.includes(train),false);assert.equal(toneCalls.length,6);
       assert.equal(state.screenShakeUntil,.5+api.constants.TRAIN_LOSS_SHAKE_SECONDS);
     }finally{api.sounds.tone=originalTone;}

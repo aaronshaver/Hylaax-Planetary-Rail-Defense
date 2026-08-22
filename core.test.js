@@ -33,8 +33,8 @@ describe("geometry and initial state", () => {
   });
 
   test("Train names use the Build/Mine and Turret labels", () => {
-    assert.equal(api.trainName(0,"builder"),"Build/Mine Train A");
-    assert.equal(api.trainName(1,"combat"),"Turret Train B");
+    assert.equal(api.trainName(0,"builder"),"Build/mine train A");
+    assert.equal(api.trainName(1,"combat"),"Turret train B");
   });
 
   test("the seven Creep positions are the center and six separated hex-corner positions",()=>{

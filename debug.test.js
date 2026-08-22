@@ -40,7 +40,7 @@ describe("Debug menu",()=>{
     try{
       assert.deepEqual({...api.addBaseResources()},{material:1000,energy:1000,research:1000});
       assert.equal(state.baseMaterial,1012);assert.equal(state.baseEnergy,1034);assert.equal(state.baseResearch,1056);
-      state.selected={type:"base",id:"base"};assert.match(api.selectionHtml(),/RESEARCH/);assert.match(api.selectionHtml(),/1056/);
+      state.selected={type:"base",id:"base"};assert.match(api.selectionHtml(),/Research/);assert.match(api.selectionHtml(),/1056/);
     }finally{
       registry.pop();delete state.baseResearch;
     }

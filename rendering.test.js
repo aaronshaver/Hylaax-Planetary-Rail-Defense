@@ -25,11 +25,11 @@ describe("rendering caches", () => {
   });
 
   test("nearby activity messages stack in the defined priority order", () => {
-    api.showWorldActivity({ q: 1, r: 0, type: "turret" }, "Train A: Supplied Turret with Energy");
-    api.showWorldActivity({ q: 0, r: 1, type: "mine" }, "Train A: Mined Energy");
-    api.showWorldActivity({ q: 0, r: 0, type: "base" }, "Train A: Repaired Base");
+    api.showWorldActivity({ q: 1, r: 0, type: "turret" }, "Train A: Supplied turret with energy");
+    api.showWorldActivity({ q: 0, r: 1, type: "mine" }, "Train A: Mined energy");
+    api.showWorldActivity({ q: 0, r: 0, type: "base" }, "Train A: Repaired base");
     const layout = api.worldMessageLayout();
-    assert.equal(layout.map(entry => entry.item.message).join("|"), "Train A: Repaired Base|Train A: Mined Energy|Train A: Supplied Turret with Energy");
+    assert.equal(layout.map(entry => entry.item.message).join("|"), "Train A: Repaired base|Train A: Mined energy|Train A: Supplied turret with energy");
     assert.ok(layout[0].y < layout[1].y && layout[1].y < layout[2].y);
   });
 
@@ -42,17 +42,18 @@ describe("rendering caches", () => {
       {id:"stop-turret",type:"turret",q:3,r:0,hp:18,maxHp:18,energy:0,maxEnergy:20},
       {id:"stop-artillery",type:"artillery",q:2,r:-1,hp:36,maxHp:36,energy:0,maxEnergy:40},
       {id:"stop-mine",type:"mine",q:3,r:-1,hp:22,maxHp:22,resource:"material"},
-      {id:"stop-wall",type:"wall",q:5,r:0,hp:100,maxHp:100}
+      {id:"stop-wall",type:"wall",q:5,r:0,hp:100,maxHp:100},
+      {id:"stop-wall-range-five",type:"wall",q:7,r:0,hp:100,maxHp:100}
     ];
     for(const target of targets.slice(1))state.structures.set(api.key(target.q,target.r),target);
-    state.structures.set("6,0",{id:"far-wall",type:"wall",q:6,r:0,hp:100,maxHp:100});
+    state.structures.set("8,0",{id:"far-wall",type:"wall",q:8,r:0,hp:100,maxHp:100});
     state.structures.set("4,-1",{id:"far-turret",type:"turret",q:4,r:-1,hp:18,maxHp:18,energy:0,maxEnergy:20});
     context.strokeCalls.length=0;
 
     api.drawStopSupplyLines();
 
     const lines=context.strokeCalls.filter(call=>call.strokeStyle==="rgba(112,189,119,.44)"&&call.lineWidth===2.2),start=api.axialToWorld(stop.q,stop.r);
-    assert.equal(lines.length,5,"Base, Mine, Turret, Artillery, and a Wall three hexes away should connect");
+    assert.equal(lines.length,6,"Base, mine, turret, artillery, and walls up to five hexes away should connect");
     assert.ok(lines.every(call=>call.path.length===2&&call.path[0].command==="moveTo"&&call.path[0].x===start.x&&call.path[0].y===start.y),"every line should begin at the center of the Stop's Track hex");
     const endpoints=new Set(lines.map(call=>`${call.path[1].x},${call.path[1].y}`));
     for(const target of targets){const cell=target.type==="base"?api.nearestStructureCell(stop,target):target,point=api.axialToWorld(cell.q,cell.r);assert.ok(endpoints.has(`${point.x},${point.y}`),target.type);}
@@ -76,12 +77,12 @@ describe("rendering caches", () => {
 
   test("world activity messages use white text with a green outline",()=>{
     const context=elements.get("gameCanvas").context;
-    api.showWorldActivity({q:2,r:2,type:"mine"},"Train A: Mined Energy");
+    api.showWorldActivity({q:2,r:2,type:"mine"},"Train A: Mined energy");
     context.textCalls.length=0;context.strokeCalls.length=0;
 
     api.drawWorldMessages();
 
-    assert.equal(context.textCalls.find(call=>call.text==="Train A: Mined Energy").fillStyle,"#f3f7f8");
+    assert.equal(context.textCalls.find(call=>call.text==="Train A: Mined energy").fillStyle,"#f3f7f8");
     assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#70bd77"&&call.lineWidth===1));
   });
 
@@ -141,10 +142,13 @@ describe("rendering caches", () => {
 
   test("a Hive draws a brief bright-red production pulse",()=>{
     const hive=api.createHive(4,3,2),context=elements.get("gameCanvas").context;
-    hive.productionPulseUntil=api.state.elapsed+.75;context.strokeCalls.length=0;
+    hive.productionPulseUntil=api.state.elapsed+.75;context.strokeCalls.length=0;context.textCalls.length=0;
 
     api.drawHives();
     assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#ff4054"&&call.lineWidth>2.5));
+    const hivePoint=api.axialToWorld(hive.q,hive.r),hiveBorder=context.strokeCalls.find(call=>call.strokeStyle==="#d33a51"&&call.lineWidth===2.2);
+    assert.ok(hiveBorder.path.some(item=>item.command==="lineTo"&&Math.hypot(item.x-hivePoint.x,item.y-hivePoint.y)>22),"the hive's colored interior border should sit closer to the hex edge");
+    const hiveLabel=context.textCalls.find(call=>call.text==="H");assert.equal(hiveLabel.fillStyle,"#ff8793");assert.equal(hiveLabel.font,"900 20px ui-monospace, monospace");
 
     api.state.elapsed=.76;context.strokeCalls.length=0;api.drawHives();
     assert.equal(context.strokeCalls.some(call=>call.strokeStyle==="#ff4054"),false);
@@ -157,16 +161,37 @@ describe("rendering caches", () => {
     api.drawBase();
 
     const baseLabels=context.textCalls.filter(call=>call.text==="B");
-    assert.equal(baseLabels.length,4);assert.ok(baseLabels.every(label=>label.fillStyle==="#aeb8bb"));
-    assert.ok(baseLabels.every(label=>label.fillStyle!=="#f4cf69"));
+    assert.equal(baseLabels.length,4);assert.ok(baseLabels.every(label=>label.fillStyle==="#f3f7f8"&&label.font==="900 16.5px ui-monospace, monospace"));
   });
 
   test("the live Base renders one B on each of its four diamond cells",()=>{
     const context=elements.get("gameCanvas").context;context.textCalls.length=0;api.drawBase();
-    const labels=context.textCalls.filter(call=>call.text==="B"&&call.fillStyle==="#f4cf69");
+    const labels=context.textCalls.filter(call=>call.text==="B"&&call.fillStyle==="#f3f7f8"&&call.font==="900 16.5px ui-monospace, monospace");
     assert.equal(labels.length,4);
-    const expected=new Set(api.structureFootprint(api.state.base).map(cell=>{const point=api.axialToWorld(cell.q,cell.r);return `${point.x},${point.y+1}`;}));
+    const expected=new Set(api.structureFootprint(api.state.base).map(cell=>{const point=api.axialToWorld(cell.q,cell.r);return `${point.x},${point.y+.5}`;}));
     assert.deepEqual(new Set(labels.map(label=>`${label.x},${label.y}`)),expected);
+  });
+
+  test("building and resource-node letters share one medium very-light-gray style and larger circles",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state;
+    const structures=[
+      {id:"glyph-turret",type:"turret",q:10,r:10,hp:20,maxHp:20,energy:20,maxEnergy:20},
+      {id:"glyph-artillery",type:"artillery",q:12,r:10,hp:36,maxHp:36,energy:50,maxEnergy:50},
+      {id:"glyph-wall",type:"wall",q:14,r:10,hp:100,maxHp:100},
+      {id:"glyph-research",type:"research",q:16,r:10,hp:300,maxHp:300,footprint:[{q:16,r:10},{q:17,r:10},{q:16,r:11}]}
+    ];
+    for(const structure of structures)state.structures.set(api.key(structure.q,structure.r),structure);
+    context.textCalls.length=0;context.strokeCalls.length=0;api.drawBase();api.drawStructures();
+    const material={q:7,r:-2},energy={q:-4,r:7};
+    api.drawResourceNode(material.q,material.r,api.axialToWorld(material.q,material.r),"material");
+    api.drawResourceNode(energy.q,energy.r,api.axialToWorld(energy.q,energy.r),"energy");
+
+    const glyphs=context.textCalls.filter(call=>["B","T","A","W","R","C","E"].includes(call.text));
+    assert.equal(glyphs.length,12);assert.ok(glyphs.every(call=>call.fillStyle==="#f3f7f8"&&call.font==="900 16.5px ui-monospace, monospace"));
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#b879ff"&&call.path.some(item=>item.command==="arc"&&item.r===20)),"turret circle should use the larger radius");
+    for(const color of ["#e6b94a","#60d5db"])assert.ok(context.strokeCalls.some(call=>call.strokeStyle===color&&call.path.some(item=>item.command==="arc"&&item.r===20)),`${color} resource-node circle should use the larger radius`);
+    const artilleryPoint=api.axialToWorld(12,10),artilleryOutline=context.strokeCalls.find(call=>call.strokeStyle==="#ef9b54");
+    assert.ok(artilleryOutline.path.some(item=>item.command==="lineTo"&&Math.hypot(item.x-artilleryPoint.x,item.y-artilleryPoint.y)>21),"artillery outline should sit closer to the hex edge");
   });
 
   test("fixed Turrets omit the gray gun and constructed Mines use a triangular roof",()=>{
@@ -174,11 +199,12 @@ describe("rendering caches", () => {
     const turret={id:"turret-art",type:"turret",q:2,r:1,hp:18,maxHp:18,energy:10,maxEnergy:20,cooldown:0};
     const mine={id:"mine-art",type:"mine",resource:"material",q:7,r:-2,hp:22,maxHp:22};
     state.structures.set(api.key(turret.q,turret.r),turret);state.structures.set(api.key(mine.q,mine.r),mine);
-    context.strokeCalls.length=0;context.fillCalls.length=0;context.fillRectCalls.length=0;
+    context.strokeCalls.length=0;context.fillCalls.length=0;context.fillRectCalls.length=0;context.textCalls.length=0;
     api.drawStructures();
     assert.equal(context.strokeCalls.some(call=>call.strokeStyle==="#b7c6c9"&&call.lineWidth===4),false);
-    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#b879ff"&&call.path.some(item=>item.command==="arc"&&item.r===13)),"fixed Turret outline should be purple");
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#b879ff"&&call.path.some(item=>item.command==="arc"&&item.r===20)),"fixed Turret outline should be purple and enlarged");
     assert.ok(context.fillCalls.some(call=>call.path.filter(item=>item.command==="lineTo").length===2&&call.path.some(item=>item.command==="closePath")),"Mine should render a filled triangular roof");
+    const mineLabel=context.textCalls.find(call=>call.text==="M:C");assert.equal(mineLabel.font,"900 11px ui-monospace, monospace");assert.equal(mineLabel.fillStyle,"#f3f7f8","mine lettering should remain unchanged");
     assert.equal(context.fillCalls.some(call=>call.path.some(item=>item.command==="arc"&&item.r===7)),false,"Turret must not have a center circle");
     const minePoint=api.axialToWorld(mine.q,mine.r);
     assert.equal(context.fillRectCalls.some(call=>call.x===minePoint.x-13&&call.y===minePoint.y-7&&call.width===26&&call.height===14),false,"Mine must not have a center rectangle");
@@ -190,10 +216,10 @@ describe("rendering caches", () => {
     state.ghosts.set(turret.id,turret);state.ghosts.set(artillery.id,artillery);state.ghosts.set(track.id,track);context.strokeCalls.length=0;context.fillCalls.length=0;context.textCalls.length=0;
     api.drawGhosts();
     const turretPoint=api.axialToWorld(turret.q,turret.r),artilleryPoint=api.axialToWorld(artillery.q,artillery.r);
-    assert.ok(context.fillCalls.some(call=>call.path.some(item=>item.command==="arc"&&item.x===turretPoint.x&&item.y===turretPoint.y&&item.r===13)),"destroyed Turret should retain the live circular body");
+    assert.ok(context.fillCalls.some(call=>call.path.some(item=>item.command==="arc"&&item.x===turretPoint.x&&item.y===turretPoint.y&&item.r===20)),"destroyed Turret should retain the enlarged live circular body");
     assert.equal(context.strokeCalls.some(call=>call.path.some(item=>item.command==="lineTo"&&item.x===turretPoint.x+17&&item.y===turretPoint.y-8)),false,"destroyed Turret must not restore the obsolete gun arm");
     const turretLabel=context.textCalls.find(call=>call.text==="T"&&call.x===turretPoint.x&&call.y===turretPoint.y+.5);
-    assert.equal(turretLabel.fillStyle,"#c2cbcd","destroyed Turret should retain a visible gray T with no cyan center effect");
+    assert.equal(turretLabel.fillStyle,"#f3f7f8","destroyed Turret should retain the standardized very-light-gray T with no cyan center effect");assert.equal(turretLabel.font,"900 16.5px ui-monospace, monospace");
     assert.equal([...context.fillCalls,...context.strokeCalls,...context.textCalls].some(call=>call.fillStyle==="#60d5db"||call.strokeStyle==="#60d5db"),false,"destroyed graphics must not add cyan center effects");
     assert.ok(context.textCalls.some(call=>call.text==="A"&&call.x===artilleryPoint.x&&call.y===artilleryPoint.y+.5));
     assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#697276"&&call.lineWidth===3),"destroyed Track should retain its cross ties");
@@ -250,7 +276,7 @@ describe("rendering caches", () => {
     api.drawStructures();
 
     const point=api.axialToWorld(wall.q,wall.r),label=context.textCalls.find(call=>call.text==="W"&&call.x===point.x&&call.y===point.y+.5);
-    assert.ok(label);assert.equal(label.fillStyle,"#f3f7f8");
+    assert.ok(label);assert.equal(label.fillStyle,"#f3f7f8");assert.equal(label.font,"900 16.5px ui-monospace, monospace");
     const wallFace=context.fillCalls.find(call=>call.fillStyle==="#51585a");assert.ok(wallFace,"Wall should have a filled masonry face");
     assert.ok(wallFace.path.filter(item=>item.command==="lineTo").length>=5,"Wall face should fill a broad hexagonal silhouette");
     assert.equal(context.fillRectCalls.some(call=>call.fillStyle==="#51585a"),false,"Wall should no longer be a small rectangle");
@@ -301,7 +327,7 @@ describe("rendering caches", () => {
 
     api.drawStructures();
     const point=api.axialToWorld(artillery.q,artillery.r),label=context.textCalls.find(call=>call.text==="A"&&call.x===point.x&&call.y===point.y+.5);
-    assert.ok(label);assert.equal(label.fillStyle,"#fff4ea");
+    assert.ok(label);assert.equal(label.fillStyle,"#f3f7f8");assert.equal(label.font,"900 16.5px ui-monospace, monospace");
 
     context.strokeCalls.length=0;api.drawTurretRanges();
     assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="rgba(96,213,219,.34)"&&call.lineWidth===1.4).length,66,"a radius-11 hex has 66 boundary tiles");

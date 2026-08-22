@@ -26,6 +26,8 @@ const WALL_HIT_POINTS = 100;
 const TRAIN_LOSS_SHAKE_SECONDS = .32;
 const ENEMY_SPAWN_BUFFER = 4;
 const REPAIR_PAUSE_SECONDS = 1;
+const WALL_SERVICE_RANGE = 5;
+const SALVAGE_BURST_SCALE = 1.3;
 const TURRET_RANGE = 3;
 const COMBAT_TRAIN_RANGE = 6;
 const ARTILLERY_RANGE = 11;
@@ -60,8 +62,8 @@ const COSTS = {
 };
 const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, artillery: 30, research: 30 };
 const BASE_RESOURCE_TYPES = [
-  { key: "material", stateKey: "baseMaterial", label: "Construction Material" },
-  { key: "energy", stateKey: "baseEnergy", label: "Energy" }
+  { key: "material", stateKey: "baseMaterial", label: "construction material" },
+  { key: "energy", stateKey: "baseEnergy", label: "energy" }
 ];
 const TRAIN_CAR_COLORS = {
   material:["#705c2c","#8c7337","#a88a42"],
@@ -102,7 +104,7 @@ function trainCode(index) {
   return label;
 }
 
-function trainName(index,type="builder") {return `${type==="combat"?"Turret Train":"Build/Mine Train"} ${trainCode(index)}`;}
+function trainName(index,type="builder") {return `${type==="combat"?"Turret train":"Build/mine train"} ${trainCode(index)}`;}
 function randomTrainColorShade(){return Math.floor(Math.random()*3);}
 function trainCarColor(family,shade=1){return TRAIN_CAR_COLORS[family]?.[clamp(Math.round(shade),0,2)]||TRAIN_CAR_COLORS.builder[1];}
 

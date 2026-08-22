@@ -26,7 +26,7 @@ describe("guided tutorial",()=>{
 
     assert.equal(api.state.paused,true);
     assert.equal(api.state.tutorial.step,1);
-    assert.equal(elements.get("tutorialText").textContent,"This is a tower defense game where automating train networks is the key to successful survival.\n\nStep 1: Click Build Track in the Actions panel");
+    assert.equal(elements.get("tutorialText").textContent,"This is a tower defense game where automating train networks is the key to successful survival.\n\nStep 1: Click 'Build track' in the actions panel");
     assert.equal(elements.get("pauseToggle").disabled,true);
   });
 
@@ -45,7 +45,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.tracks.size,1);
     assert.equal(api.state.trains.length,0);
     assert.equal(api.state.baseMaterial,150);
-    assert.equal(elements.get("tutorialText").textContent,"This is a tower defense game where automating train networks is the key to successful survival.\n\nStep 1: Click Build Track in the Actions panel");
+    assert.equal(elements.get("tutorialText").textContent,"This is a tower defense game where automating train networks is the key to successful survival.\n\nStep 1: Click 'Build track' in the actions panel");
   });
 
   test("requires the ordered build, Train, schedule, Mine, and Turret milestones",()=>{
@@ -54,7 +54,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.tutorial.step,2);
     api.tutorialEvent("track-selected");
     assert.equal(api.state.tutorial.step,3);
-    assert.equal(api.tutorialMessage(),"Step 3: Click nearby hexes to add one more Track segment.");
+    assert.equal(api.tutorialMessage(),"Step 3: Click nearby hexes to add one more track segment.");
     let addedQ=2;while(api.state.tracks.has(`${addedQ},0`))addedQ++;
     api.state.tracks.set(`${addedQ},0`,makeTrack(addedQ,0));
     api.tutorialEvent("track-built");
@@ -75,7 +75,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.tutorial.step,8);
     api.tutorialEvent("schedule-started",{trainId:train.id,train});
     assert.equal(api.state.tutorial.step,9);
-    assert.equal(api.tutorialMessage(),"Step 9: Add three Stops, making sure there is a Stop by the Base, C resource node, and E resource node. Click Done Adding when finished.");
+    assert.equal(api.tutorialMessage(),"Step 9: Add three stops, making sure there is a stop by the base, C resource node, and E resource node. Click 'Done adding' when finished.");
 
     train.schedule=[loop[0],loop[5],loop[14]];
     train.scheduleComplete=true;
@@ -93,7 +93,7 @@ describe("guided tutorial",()=>{
     api.tutorialEvent("mine-built");
     api.tutorialEvent("mode",{mode:"turret"});
     assert.equal(api.state.tutorial.step,13);
-    assert.equal(api.tutorialMessage(),"Step 13: Place a Turret one hex away from one of the Train Stops");
+    assert.equal(api.tutorialMessage(),"Step 13: Place a turret one hex away from one of the train stops");
 
     const turret={id:"tutorial-turret",type:"turret",q:3,r:0};
     api.state.structures.set(api.key(turret.q,turret.r),turret);
@@ -102,7 +102,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.paused,true,"the final step must remain paused until Okay is clicked");
     assert.equal(elements.get("pauseToggle").disabled,true);
     assert.equal(elements.get("tutorialOkay").hidden,false);
-    assert.equal(elements.get("tutorialText").textContent,"Step 14: You now have a basic automated train system for gathering Construction Material for building new structures, Energy for fueling Trains and Turrets, and a Turret to defend part of your Base.\n\nClick the \"Playing\" button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like Walls and Artillery and a Research building to give you more tools to survive and improve efficiency.");
+    assert.equal(elements.get("tutorialText").textContent,"Step 14: You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base.\n\nClick the 'Playing' button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like walls and artillery and a research building to give you more tools to survive and improve efficiency.");
 
     api.finishTutorial();
     assert.equal(api.state.tutorial,null);

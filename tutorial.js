@@ -2,20 +2,20 @@
 
 const TUTORIAL_MESSAGES = [
   "",
-  "Click Build Track in the Actions panel",
-  "Click the existing Track (a light gray circle inside a purple outline)",
-  "Click nearby hexes to add one more Track segment.",
-  "Keep adding Track until you have a complete loop that passes by the Base, an Energy node, and a Construction Material node; it must be a fully closed loop",
-  "Click the Base",
-  "Click Fabricate and Place Build/Mine Train",
-  "Do two clicks to place the Train: one for the head of the Train, another for its tail",
-  "Click Add Schedule in the Train's pane on the right",
-  "Add three Stops, making sure there is a Stop by the Base, C resource node, and E resource node. Click Done Adding when finished.",
-  "Click Build Mine",
-  "Click on the C and E nodes to add Mines to them",
-  "Click Build Turret",
-  "Place a Turret one hex away from one of the Train Stops",
-  "You now have a basic automated train system for gathering Construction Material for building new structures, Energy for fueling Trains and Turrets, and a Turret to defend part of your Base.\n\nClick the \"Playing\" button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like Walls and Artillery and a Research building to give you more tools to survive and improve efficiency."
+  "Click 'Build track' in the actions panel",
+  "Click the existing track (a light gray circle inside a purple outline)",
+  "Click nearby hexes to add one more track segment.",
+  "Keep adding track until you have a complete loop that passes by the base, an energy node, and a construction material node; it must be a fully closed loop",
+  "Click the base",
+  "Click 'Fabricate and place build/mine train'",
+  "Do two clicks to place the train: one for the head of the train, another for its tail",
+  "Click 'Add schedule' in the train's pane on the right",
+  "Add three stops, making sure there is a stop by the base, C resource node, and E resource node. Click 'Done adding' when finished.",
+  "Click 'Build mine'",
+  "Click on the C and E nodes to add mines to them",
+  "Click 'Build turret'",
+  "Place a turret one hex away from one of the train stops",
+  "You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base.\n\nClick the 'Playing' button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like walls and artillery and a research building to give you more tools to survive and improve efficiency."
 ];
 const TUTORIAL_INTRO="This is a tower defense game where automating train networks is the key to successful survival.";
 

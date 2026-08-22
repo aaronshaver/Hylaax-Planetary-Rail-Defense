@@ -23,8 +23,8 @@ function installCompletedStop(position,train=api.state.trains[0]||addTestTrain()
 describe("repairs, ghosts, and schedules", () => {
   test("a fixed Turret requires a completed Train Stop within one hex",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
-    assert.equal(api.constructionStopRequirement(1),"Must be built within 1 hex of a Train Stop so that it can be resupplied and/or repaired.");
-    assert.equal(api.constructionStopRequirement(5),"Must be built within 5 hexes of a Train Stop so that it can be resupplied and/or repaired.");
+    assert.equal(api.constructionStopRequirement(1),"Must be built within 1 hex of a train stop so that it can be resupplied and/or repaired.");
+    assert.equal(api.constructionStopRequirement(5),"Must be built within 5 hexes of a train stop so that it can be resupplied and/or repaired.");
     let target=null;
     for(let q=-10;q<=10&&!target;q++)for(let r=-10;r<=10&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>4)target={q,r};
     assert.ok(target);
@@ -76,7 +76,7 @@ describe("repairs, ghosts, and schedules", () => {
     api.buildWall(target.q,target.r);
 
     assert.equal(state.structures.size,0);assert.equal(state.baseMaterial,materialBefore);assert.equal(state.baseEnergy,energyBefore);
-    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot build in a hex occupied by a Creep.");
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot build in a hex occupied by a creep.");
   });
 
   test("Wall and Artillery placement repaint immediately while paused",()=>{
@@ -118,9 +118,13 @@ describe("repairs, ghosts, and schedules", () => {
 
     assert.equal(api.updateAutomaticRepair(train),true);
     assert.equal(wall.hp,100);assert.equal(train.wagons[0].amount,0);
-    assert.ok(state.worldMessages.some(item=>item.message==="Train A: Repaired Wall"));
+    assert.ok(state.worldMessages.some(item=>item.message==="Train A: Repaired wall"));
 
-    wall.hp=90;train.wagons[0].amount=10;train.repairHoldUntil=0;train.schedule=[];
+    const outOfRangeWall={id:"out-of-range-wall",type:"wall",q:0,r:6,hp:90,maxHp:100};state.structures.set(api.key(outOfRangeWall.q,outOfRangeWall.r),outOfRangeWall);
+    train.wagons[0].amount=10;train.repairHoldUntil=0;
+    assert.equal(api.updateAutomaticRepair(train),false,"a wall six hexes from the live stop must remain out of repair range");assert.equal(outOfRangeWall.hp,90);assert.equal(train.wagons[0].amount,10);
+
+    wall.hp=90;train.repairHoldUntil=0;train.schedule=[];
     assert.equal(api.updateAutomaticRepair(train),false,"an idle Train that is not at its Stop must not use the extended Wall range");
     assert.equal(wall.hp,90);
   });
@@ -231,15 +235,19 @@ describe("repairs, ghosts, and schedules", () => {
     state.tracks.set("4,0",makeTrack(4,0));const materialBefore=state.baseMaterial;
     api.setMode("salvage");api.handleHexClick({q:4,r:0});
     assert.equal(state.tracks.has("4,0"),false);assert.equal(state.baseMaterial,materialBefore+1);
-    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 1 Construction Material.");
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 1 construction material.");
+    assert.equal(state.particles.length,8,"track salvage should use the standard gray-square effect");assert.ok(state.particles.every(particle=>particle.color==="#9ba9ad"));
+    const expandedSpeeds=state.particles.map(particle=>Math.hypot(particle.vx,particle.vy)),point=api.axialToWorld(4,0);state.particles=[];api.burstAt(point.x,point.y,"#baseline",8);
+    const baselineSpeeds=state.particles.map(particle=>Math.hypot(particle.vx,particle.vy));
+    assert.ok(expandedSpeeds.every((speed,index)=>Math.abs(speed/baselineSpeeds[index]-1.3)<1e-9),"the gray salvage effect circumference should be 30% larger");
   });
 
   test("healthy Mine, Wall, and Artillery salvage returns their configured resources",()=>{
     const state=api.state;
     const cases=[
-      {structure:{id:"mine-salvage",type:"mine",resource:"material",q:20,r:20,hp:22,maxHp:22},material:10,energy:0,message:"Salvaged 10 Construction Material."},
-      {structure:{id:"wall-salvage",type:"wall",q:21,r:20,hp:100,maxHp:100},material:30,energy:0,message:"Salvaged 30 Construction Material."},
-      {structure:{id:"artillery-salvage",type:"artillery",q:22,r:20,hp:36,maxHp:36,energy:17,maxEnergy:50},material:50,energy:17,message:"Salvaged 50 Construction Material and 17 Energy."}
+      {structure:{id:"mine-salvage",type:"mine",resource:"material",q:20,r:20,hp:22,maxHp:22},material:10,energy:0,message:"Salvaged 10 construction material."},
+      {structure:{id:"wall-salvage",type:"wall",q:21,r:20,hp:100,maxHp:100},material:30,energy:0,message:"Salvaged 30 construction material."},
+      {structure:{id:"artillery-salvage",type:"artillery",q:22,r:20,hp:36,maxHp:36,energy:17,maxEnergy:50},material:50,energy:17,message:"Salvaged 50 construction material and 17 energy."}
     ];
     for(const item of cases){state.baseMaterial=0;state.baseEnergy=0;state.structures.set(api.key(item.structure.q,item.structure.r),item.structure);api.salvageStructure(item.structure);assert.equal(state.baseMaterial,item.material,item.structure.type);assert.equal(state.baseEnergy,item.energy,item.structure.type);assert.equal(elements.get("toastStack").children.at(-1).textContent,item.message);}
   });
@@ -249,20 +257,20 @@ describe("repairs, ghosts, and schedules", () => {
     state.baseMaterial=0;state.baseEnergy=0;state.structures.set(api.key(turret.q,turret.r),turret);
     api.salvageStructure(turret);
     assert.equal(state.baseMaterial,10);assert.equal(state.baseEnergy,7);
-    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 10 Construction Material and 7 Energy.");
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Salvaged 10 construction material and 7 energy.");
   });
 
   test("healthy Research salvage requires OK and Cancel leaves it intact",()=>{
     const state=api.state,research={id:"research-confirm",type:"research",q:12,r:12,hp:300,maxHp:300,footprint:[{q:12,r:12},{q:13,r:12},{q:12,r:13}]};state.structures.set("12,12",research);state.baseMaterial=0;state.baseEnergy=0;
     api.setMode("salvage");api.handleHexClick({q:12,r:12});
-    assert.equal(elements.get("confirmDialog").hidden,false);assert.equal(elements.get("confirmMessage").textContent,"Are you sure you want to Salvage the Research building?");assert.equal(state.structures.has("12,12"),true);
+    assert.equal(elements.get("confirmDialog").hidden,false);assert.equal(elements.get("confirmMessage").textContent,"Are you sure you want to salvage the research building?");assert.equal(state.structures.has("12,12"),true);
     api.cancelTrainSalvage();assert.equal(state.structures.has("12,12"),true);
     api.handleHexClick({q:12,r:12});assert.equal(api.confirmTrainSalvage(),true);assert.equal(state.structures.has("12,12"),false);assert.equal(state.baseMaterial,50);assert.equal(state.baseEnergy,50);
   });
 
   test("invalid Salvage/Clear targets use the concise shared message",()=>{
     const state=api.state;api.setMode("salvage");api.handleHexClick({q:state.base.q,r:state.base.r});
-    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot Salvage/Clear this type of object.");
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot salvage/clear this type of object.");
   });
 
   test("Salvage/Clear has no Track-distance limit",()=>{
@@ -339,7 +347,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(track.hp, 2);
     assert.equal(train.wagons[0].amount, 0);
     assert.equal(train.repairHoldUntil, 1);
-    assert.ok(state.worldMessages.some(item => item.message === "Train A: Repaired Track"));
+    assert.ok(state.worldMessages.some(item => item.message === "Train A: Repaired track"));
   });
 
   test("structure repairs can be partial and pause the Train for one second", () => {
@@ -356,7 +364,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(turret.hp, 15);
     assert.equal(train.wagons[0].amount, 0);
     assert.equal(train.repairHoldUntil, state.elapsed + 1);
-    assert.ok(state.worldMessages.some(item => item.message === "Train A: Partially Repaired: Turret"));
+    assert.ok(state.worldMessages.some(item => item.message === "Train A: Partially repaired: turret"));
   });
 
   test("rebuilding destroyed Track preserves its Train Stop", () => {
@@ -378,7 +386,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(state.tracks.get("1,0").hp, 1);
     assert.equal(state.ghosts.has("1,0"), false);
     assert.equal(api.scheduleStopAt(1, 0).index, 0);
-    assert.ok(state.worldMessages.some(item => item.message === "Train A: Rebuilt Track"));
+    assert.ok(state.worldMessages.some(item =>item.message === "Train A: Rebuilt track"));
   });
 
   test("structure repair and non-Track rebuilding cannot spend Construction Material away from a live Stop",()=>{
@@ -408,23 +416,23 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(train.schedule.length, 1);
     assert.equal(`${train.schedule[0].q},${train.schedule[0].r}`, "4,0");
     state.selected = { type: "ghost", id: "4,0" };
-    assert.match(api.selectionHtml(), /Destroyed Stop A1 \(Build\/Mine Train A\)/);
+    assert.match(api.selectionHtml(), /Destroyed stop A1 \(Build\/mine train A\)/);
   });
 
   test("Done Adding automatically closes the loop, Undo removes one Stop, and placement uses the soft Stop sound",()=>{
     const state=api.state,train=state.trains[0];installScheduleRing(train);state.selected={type:"train",id:train.id};state.mode="schedule";state.scheduleTrainId=train.id;train.schedule=[];
     const calls=[],originalTone=api.sounds.tone;api.sounds.tone=(...args)=>calls.push(args);
     try{
-      let html=api.selectionHtml();assert.match(html,/class="btn btn-quiet" data-action="undo-last-stop"[^>]*disabled[^>]*>Undo Last Stop<\/button>/,"Undo begins gray and disabled when no Stops exist");
-      api.addScheduleStop(train,1,0);html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="undo-last-stop"[^>]*>Undo Last Stop<\/button>/,"Undo turns yellow as soon as a Stop can be removed");assert.doesNotMatch(html,/data-action="undo-last-stop"[^>]*disabled/);
+      let html=api.selectionHtml();assert.match(html,/class="btn btn-quiet" data-action="undo-last-stop"[^>]*disabled[^>]*>Undo last stop<\/button>/,"Undo begins gray and disabled when no stops exist");
+      api.addScheduleStop(train,1,0);html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="undo-last-stop"[^>]*>Undo last stop<\/button>/,"Undo turns yellow as soon as a stop can be removed");assert.doesNotMatch(html,/data-action="undo-last-stop"[^>]*disabled/);
       api.addScheduleStop(train,0,-1);api.addScheduleStop(train,-1,1);
-      html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="finish-schedule"[^>]*>Done Adding<\/button>/);assert.match(html,/class="btn btn-command" data-action="undo-last-stop"[^>]*>Undo Last Stop<\/button>/);assert.ok(html.indexOf("Done Adding")<html.indexOf("Undo Last Stop"));assert.doesNotMatch(html,/click the first Stop again/);
+      html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="finish-schedule"[^>]*>Done adding<\/button>/);assert.match(html,/class="btn btn-command" data-action="undo-last-stop"[^>]*>Undo last stop<\/button>/);assert.ok(html.indexOf("Done adding")<html.indexOf("Undo last stop"));assert.doesNotMatch(html,/click the first stop again/);
       const context=elements.get("gameCanvas").context;context.textCalls.length=0;
       assert.equal(api.undoLastScheduleStop(train),true);assert.equal(train.schedule.length,2);assert.deepEqual(context.textCalls.filter(call=>/^A\d+$/.test(call.text)).map(call=>call.text),["A1","A2"],"Undo must synchronously redraw the remaining Stop markers");api.addScheduleStop(train,-1,1);
       assert.equal(api.finishSchedule(train),true);
     }finally{api.sounds.tone=originalTone;}
 
-    assert.equal(train.scheduleComplete,true);assert.equal(train.schedule.length,3,"Stop 1 should not be duplicated at the end");assert.equal(train.scheduleTargetIndex,0);assert.equal(state.mode,"select");assert.equal(state.selected,null,"completing a schedule should return the right pane to its unselected Select Object state");
+    assert.equal(train.scheduleComplete,true);assert.equal(train.schedule.length,3,"Stop 1 should not be duplicated at the end");assert.equal(train.scheduleTargetIndex,0);assert.equal(state.mode,"select");assert.equal(state.selected,null,"completing a schedule should return the right pane to its unselected Select object state");
     assert.equal(calls.filter(call=>call[2]==="sine"&&call[3]<=.012).length,8,"each of four Stop placements should use two soft sine sweeps");
   });
 
@@ -445,14 +453,14 @@ describe("repairs, ghosts, and schedules", () => {
     api.clearTrainSchedule(train);
 
     assert.equal(api.trainStopped(train),true);assert.equal(train.stepFrom,null);assert.equal(train.route.length,0);assert.equal(train.status,"Idle");
-    const html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="add-schedule"[^>]*>Add Schedule<\/button>/);assert.doesNotMatch(html,/data-action="add-schedule"[^>]*disabled/);
+    const html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="add-schedule"[^>]*>Add schedule<\/button>/);assert.doesNotMatch(html,/data-action="add-schedule"[^>]*disabled/);
   });
 
   test("leaving Add Schedule deletes the unfinished schedule but preserves the Train",()=>{
     const state=api.state,train=state.trains[0],initialTrack=[...state.tracks.values()][0];state.selected={type:"train",id:train.id};
     state.mode="schedule";state.scheduleTrainId=train.id;train.schedule=[{q:4,r:0}];train.scheduleComplete=false;
     assert.equal(api.setMode("turret"),true);assert.equal(state.scheduleTrainId,null);assert.equal(train.schedule.length,0);assert.equal(train.scheduleComplete,false);assert.ok(state.trains.includes(train));
-    assert.match(api.selectionHtml(),/data-action="add-schedule"[^>]*>Add Schedule<\/button>/);
+    assert.match(api.selectionHtml(),/data-action="add-schedule"[^>]*>Add schedule<\/button>/);
 
     assert.equal(api.setMode("track"),true);api.layTrack(initialTrack.q,initialTrack.r);assert.ok(state.trackStart);
     assert.equal(api.setMode("salvage"),true);assert.equal(state.trackStart,null,"switching tools must cancel the pending Track anchor");
@@ -469,7 +477,7 @@ describe("repairs, ghosts, and schedules", () => {
     state.tracks.set("4,0",track);
     state.selected = {type:"track",id:"4,0"};
 
-    assert.match(api.selectionHtml(),/Stop B1 \(Turret Train B\)/);
+    assert.match(api.selectionHtml(),/Stop B1 \(Turret train B\)/);
   });
 
   test("starting and visiting scheduled Stops no longer plays the recurring dispatch sound",()=>{
@@ -497,7 +505,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(api.showTrainEnergyWarning(train), true);
     assert.equal(api.showTrainEnergyWarning(train), false);
     assert.equal(state.worldMessages.length, 1);
-    assert.equal(state.worldMessages[0].message,"Train A: Ran Out of Energy");
+    assert.equal(state.worldMessages[0].message,"Train A: Ran out of energy");
     assert.equal(train.nextEnergyWarningAt, 2.5);
     state.elapsed = 2.4;
     assert.equal(api.showTrainEnergyWarning(train), false);

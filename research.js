@@ -1,21 +1,21 @@
 "use strict";
 
 const RESEARCH_UPGRADES = [
-  {key:"turretFireRate",group:"Turrets (Fixed and Train)",label:"+50% Turret Firing Rate",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
-  {key:"turretDamage",group:"Turrets (Fixed and Train)",label:"+50% Turret Damage",multiplier:1.5,description:"Applies to both Fixed Turrets and Turret Trains."},
-  {key:"turretRange",group:"Turrets (Fixed and Train)",label:"+20% Turret Range",multiplier:1.2,description:"Applies to both Fixed Turrets and Turret Trains."},
-  {key:"turretEnergyStorage",group:"Turrets (Fixed and Train)",label:"+25% Turret Energy Storage",multiplier:1.25,description:"Fixed Turrets store 25% more Energy."},
-  {key:"artilleryFireRate",group:"Artillery",label:"+50% Artillery Firing Rate",multiplier:1.5,description:"Artillery fires 50% more frequently."},
-  {key:"artilleryDamage",group:"Artillery",label:"+50% Artillery Damage",multiplier:1.5,description:"Artillery center and splash damage increase by 50%."},
-  {key:"artilleryRange",group:"Artillery",label:"+20% Artillery Range",multiplier:1.2,description:"Artillery range increases by 20%."},
-  {key:"artilleryEnergyStorage",group:"Artillery",label:"+25% Artillery Energy Storage",multiplier:1.25,description:"Artillery stores 25% more Energy."},
-  {key:"trainCapacity",group:"Trains and Mining",label:"+50% Train Capacity",multiplier:1.5,description:"All Train Supply wagons hold 50% more resources."},
-  {key:"trainSpeed",group:"Trains and Mining",label:"+25% Train Speed",multiplier:1.25,description:"All Trains move 25% faster."},
-  {key:"mineEfficiency",group:"Trains and Mining",label:"+20% Mining Efficiency",multiplier:1.2,description:"Mining uses fewer resources, extending the life of the Resource Node under the Mine."},
-  {key:"loadUnloadEfficiency",group:"Trains and Mining",label:"+25% Load/Unload Efficiency",multiplier:.75,description:"Trains spend 25% less time stopped at each Train Stop."},
-  {key:"wallStrength",group:"Infrastructure",label:"+50% Wall Hit Points",multiplier:1.5,description:"Walls have 50% more Hit Points."},
-  {key:"trackStrength",group:"Infrastructure",label:"+100% Track Hit Points",multiplier:2,description:"Tracks have 100% more Hit Points."},
-  {key:"researchSpeed",group:"Other",label:"+25% Research Rate",multiplier:1.25,description:"Research points are acquired 25% faster."}
+  {key:"turretFireRate",group:"Turrets (fixed and train)",label:"+50% turret firing rate",multiplier:1.5,description:"Applies to both fixed turrets and turret trains."},
+  {key:"turretDamage",group:"Turrets (fixed and train)",label:"+50% turret damage",multiplier:1.5,description:"Applies to both fixed turrets and turret trains."},
+  {key:"turretRange",group:"Turrets (fixed and train)",label:"+20% turret range",multiplier:1.2,description:"Applies to both fixed turrets and turret trains."},
+  {key:"turretEnergyStorage",group:"Turrets (fixed and train)",label:"+25% turret energy storage",multiplier:1.25,description:"Fixed turrets store 25% more energy."},
+  {key:"artilleryFireRate",group:"Artillery",label:"+50% artillery firing rate",multiplier:1.5,description:"Artillery fires 50% more frequently."},
+  {key:"artilleryDamage",group:"Artillery",label:"+50% artillery damage",multiplier:1.5,description:"Artillery center and splash damage increase by 50%."},
+  {key:"artilleryRange",group:"Artillery",label:"+20% artillery range",multiplier:1.2,description:"Artillery range increases by 20%."},
+  {key:"artilleryEnergyStorage",group:"Artillery",label:"+25% artillery energy storage",multiplier:1.25,description:"Artillery stores 25% more energy."},
+  {key:"trainCapacity",group:"Trains and mining",label:"+50% train capacity",multiplier:1.5,description:"All train supply wagons hold 50% more resources."},
+  {key:"trainSpeed",group:"Trains and mining",label:"+25% train speed",multiplier:1.25,description:"All trains move 25% faster."},
+  {key:"mineEfficiency",group:"Trains and mining",label:"+20% mining efficiency",multiplier:1.2,description:"Mining uses fewer resources, extending the life of the resource node under the mine."},
+  {key:"loadUnloadEfficiency",group:"Trains and mining",label:"+25% load/unload efficiency",multiplier:.75,description:"Trains spend 25% less time stopped at each train stop."},
+  {key:"wallStrength",group:"Infrastructure",label:"+50% wall hit points",multiplier:1.5,description:"Walls have 50% more hit points."},
+  {key:"trackStrength",group:"Infrastructure",label:"+100% track hit points",multiplier:2,description:"Tracks have 100% more hit points."},
+  {key:"researchSpeed",group:"Other",label:"+25% research rate",multiplier:1.25,description:"Research points are acquired 25% faster."}
 ];
 
 function researchUpgrade(keyName){return RESEARCH_UPGRADES.find(upgrade=>upgrade.key===keyName)||null;}
@@ -61,7 +61,7 @@ function buildResearch(q,r){
   if(!requireNoCreep(q,r))return;
   const footprint=researchPlacementFootprint(q,r);
   if(!footprint)return fail("Research needs three connected clear ground hexes in a triangle.");
-  if(!payBase(COSTS.research,"Research"))return null;
+  if(!payBase(COSTS.research,"research"))return null;
   const replacedGhosts=new Map();
   for(const cell of footprint){const ghost=ghostAt(cell.q,cell.r);if(ghost)replacedGhosts.set(ghost.id,{ghost,site:nonMineConstructionSite(cell.q,cell.r)});}
   for(const {ghost,site} of replacedGhosts.values())replaceDestroyedSite(ghost,site);
@@ -92,7 +92,7 @@ function applyResearchUpgrade(keyName){
 function purchaseResearchUpgrade(keyName){
   const selected=getSelected(),upgrade=researchUpgrade(keyName);
   if(!upgrade||selected?.type!=="research")return false;
-  if(state.researchPoints+1e-9<RESEARCH_UPGRADE_COST)return fail(`Needs ${RESEARCH_UPGRADE_COST} Research points.`);
+  if(state.researchPoints+1e-9<RESEARCH_UPGRADE_COST)return fail(`Needs ${RESEARCH_UPGRADE_COST} research points.`);
   state.researchPoints-=RESEARCH_UPGRADE_COST;
   state.researchUpgrades[keyName]=researchUpgradeCount(keyName)+1;
   applyResearchUpgrade(keyName);sounds.place();toast(`${upgrade.label} (${researchUpgradeCount(keyName)}) researched.`,"info");return true;
@@ -101,5 +101,5 @@ function purchaseResearchUpgrade(keyName){
 function updateResearch(dt){if(state.researchUnlocked)state.researchPoints+=dt*researchRate();}
 
 function addResearchPoints(amount=1000){
-  state.researchPoints+=amount;sounds.place();updateUI(true);toast(`Debug: Added ${amount.toLocaleString()} Research points.`,"info");return amount;
+  state.researchPoints+=amount;sounds.place();updateUI(true);toast(`Debug: Added ${amount.toLocaleString()} research points.`,"info");return amount;
 }
