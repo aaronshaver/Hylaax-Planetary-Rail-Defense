@@ -38,9 +38,10 @@ function makeCanvasContext() {
     closePath:()=>values.currentPath.push({command:"closePath"}),
     fill:()=>{const call={path:[...values.currentPath],fillStyle:values.fillStyle};values.fillCalls.push(call);values.paintCalls.push({kind:"fill",...call});},
     stroke:()=>{const call={path:[...values.currentPath],strokeStyle:values.strokeStyle,lineWidth:values.lineWidth};values.strokeCalls.push(call);values.paintCalls.push({kind:"stroke",...call});},
-    fillRect:(x,y,width,height)=>values.fillRectCalls.push({x,y,width,height,fillStyle:values.fillStyle})
+    fillRect:(x,y,width,height)=>values.fillRectCalls.push({x,y,width,height,fillStyle:values.fillStyle}),
+    drawImage:(...args)=>values.drawImageCalls.push({args})
   };
-  values.textCalls=[];values.fillCalls=[];values.strokeCalls=[];values.fillRectCalls=[];values.translateCalls=[];values.scaleCalls=[];values.paintCalls=[];values.currentPath=[];
+  values.textCalls=[];values.fillCalls=[];values.strokeCalls=[];values.fillRectCalls=[];values.drawImageCalls=[];values.translateCalls=[];values.scaleCalls=[];values.paintCalls=[];values.currentPath=[];
   return new Proxy(values, {
     get(target, property) {
       if (property in target) return target[property];
@@ -131,7 +132,7 @@ function loadGame() {
     vm.runInContext(fs.readFileSync(path.join(root, filename), "utf8"), context, { filename });
   }
   assert.ok(window.__HYLAAX_TEST_API__, "game.js did not expose its test interface");
-  return { api: window.__HYLAAX_TEST_API__, elements };
+  return { api: window.__HYLAAX_TEST_API__, elements, document };
 }
 
 const harness = loadGame();
@@ -161,4 +162,4 @@ function addTestTrain(trainType="builder") {
   state.trains.push(train);return train;
 }
 
-module.exports = { api, elements: harness.elements, moveTrain, makeTrack, makeEnemy, addTestTrain, performance, GAME_SCRIPTS };
+module.exports = { api, elements: harness.elements, document: harness.document, moveTrain, makeTrack, makeEnemy, addTestTrain, performance, GAME_SCRIPTS };

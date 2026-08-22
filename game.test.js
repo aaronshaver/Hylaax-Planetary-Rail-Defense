@@ -4,9 +4,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { describe, test, beforeEach } = require("node:test");
-const { api, elements, GAME_SCRIPTS } = require("./harness.js");
+const { api, elements, document, GAME_SCRIPTS } = require("./harness.js");
 
-beforeEach(() => { api.reset(); });
+beforeEach(() => { api.reset(); document.hidden=false; });
 
 describe("game bootstrap", () => {
   test("all feature modules load before the entry point", () => {
@@ -44,6 +44,26 @@ describe("game bootstrap", () => {
   test("Pause and Sound buttons have accessible labels without hover tooltips",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     for(const id of ["pauseToggle","soundToggle"]){const button=html.match(new RegExp(`<button id="${id}"[^>]*>`))?.[0]||"";assert.match(button,/aria-label="[^"]+"/);assert.doesNotMatch(button,/\stitle=/);assert.doesNotMatch(button,/data-bs-toggle="tooltip"/);}
+  });
+
+  test("hidden-tab time is discarded instead of caught up when the tab returns",()=>{
+    const stepMilliseconds=api.constants.SIMULATION_STEP*1000;
+    api.state.paused=false;
+    document.hidden=true;api.handleVisibilityChange(1000);api.runFrame(31000);
+    assert.equal(api.state.elapsed,0,"throttled hidden frames must not advance the simulation");
+    document.hidden=false;api.handleVisibilityChange(31000);api.runFrame(31000);
+    assert.equal(api.state.elapsed,0,"showing the tab must not catch up hidden time");
+    assert.equal(api.state.paused,false,"visibility changes must preserve the player's pause state");
+    api.runFrame(31000+stepMilliseconds);
+    assert.equal(api.state.elapsed,api.constants.SIMULATION_STEP,"normal simulation should resume from the new visible-time baseline");
+  });
+
+  test("a browser visibility event cannot poison the simulation clock",()=>{
+    api.state.paused=false;
+    document.hidden=true;api.handleVisibilityChange({type:"visibilitychange"});
+    document.hidden=false;api.handleVisibilityChange({type:"visibilitychange"});
+    api.runFrame(Date.now()+1000);
+    assert.ok(api.state.elapsed>0,"the game must keep advancing after returning to a visible tab");
   });
 
   test("the feedback contact is anchored to the bottom-right",()=>{
@@ -122,9 +142,9 @@ describe("game bootstrap", () => {
     assert.equal((dialog.match(/Confirm salvage/g)||[]).length,1);assert.match(dialog,/id="confirmTitle" class="eyebrow text-danger">Confirm salvage/);assert.doesNotMatch(dialog,/<h2[^>]*>Confirm salvage<\/h2>/);
   });
 
-  test("the displayed and package versions are 3.9.1",()=>{
+  test("the displayed and package versions are 3.9.2",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 3\.9\.1/);assert.match(html,/DEFENSE 3\.9\.1/);assert.equal(packageJson.version,"3.9.1");
+    assert.match(html,/Planetary Rail Defense 3\.9\.2/);assert.match(html,/DEFENSE 3\.9\.2/);assert.equal(packageJson.version,"3.9.2");
   });
 });

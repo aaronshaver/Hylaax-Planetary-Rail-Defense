@@ -118,9 +118,12 @@ function ensureTerrainLayer(){
 
 function drawTerrainLayer(){
   if(!terrainLayerView){ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,0,0,width,height);return;}
-  const scale=state.camera.zoom/terrainLayerView.zoom;
-  const left=width/2+(terrainLayerView.x-state.camera.x)*state.camera.zoom-terrainLayerView.layerWidth/2*scale,top=height/2+(terrainLayerView.y-state.camera.y)*state.camera.zoom-terrainLayerView.layerHeight/2*scale;
-  ctx.drawImage(terrainLayer,0,0,terrainLayer.width,terrainLayer.height,left,top,terrainLayerView.layerWidth*scale,terrainLayerView.layerHeight*scale);
+  const scale=state.camera.zoom/terrainLayerView.zoom,destinationWidth=terrainLayerView.layerWidth*scale,destinationHeight=terrainLayerView.layerHeight*scale;
+  const left=width/2+(terrainLayerView.x-state.camera.x)*state.camera.zoom-destinationWidth/2,top=height/2+(terrainLayerView.y-state.camera.y)*state.camera.zoom-destinationHeight/2;
+  const visibleLeft=Math.max(0,left),visibleTop=Math.max(0,top),visibleRight=Math.min(width,left+destinationWidth),visibleBottom=Math.min(height,top+destinationHeight);
+  if(visibleRight<=visibleLeft||visibleBottom<=visibleTop)return;
+  const sourceX=(visibleLeft-left)/destinationWidth*terrainLayer.width,sourceY=(visibleTop-top)/destinationHeight*terrainLayer.height,sourceWidth=(visibleRight-visibleLeft)/destinationWidth*terrainLayer.width,sourceHeight=(visibleBottom-visibleTop)/destinationHeight*terrainLayer.height;
+  ctx.drawImage(terrainLayer,sourceX,sourceY,sourceWidth,sourceHeight,visibleLeft,visibleTop,visibleRight-visibleLeft,visibleBottom-visibleTop);
 }
 
 function drawResourceNodes(){for(const resource of terrainLayerResources)drawResourceNode(resource.q,resource.r,resource.p,resource.type);}

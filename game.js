@@ -23,7 +23,7 @@ if(window.__HYLAAX_TEST__){
     showWorldActivity,showTrainActivity,worldMessagePriority,worldMessageLayout,terrainLayerStats,ensureTerrainLayer,terrainLayerPreviewCoversViewport,drawTerrainLayer,drawResourceNode,stopSupplyTargets,stopSupplyConnections,drawStopSupplyLines,drawTracks,drawTrainStops,drawTurretRanges,drawBase,drawHives,drawGhosts,drawStructures,drawTrains,drawBuildTrackGlow,trackGlowPhase,trackGlowAnimationActive,drawEnemies,drawEffects,drawWorldMessages,screenShakeOffset,screenShakeActive,render,
     canBaseAfford,constructionModeCost,constructionModeAffordable,constructionModeUnavailableMessage,trainFabricationCost,trainFabricationDisabledReason,payBase,handleAction,addBaseResources,
     selectedTrainPartLabel,selectionHtml,setStatusButtonMarkup,updateConstructionToolAvailability,setDebugMenuOpen,updateDebugUI,showTurretEnergyWarning,dismissTurretEnergyWarning,connectedUnminedResources,beginSelectionInteraction,finishSelectionInteraction,scheduleSelectionInteractionFinish,currentSelectionCacheKey,researchSelectionDescription,updateResearchSelectionContent,updateBaseSelectionContent,updateUI,formatSurvivalTime,
-    tutorialMessage,tutorialLoopTargets,tutorialScheduleTargets,tutorialTargetsHaveMines,tutorialTurretIsByStop,tutorialEvent,startTutorial,finishTutorial,restartTutorial,startGame,resetGameState,queueCameraPan,queueCameraZoom,finishZoomGesture
+    tutorialMessage,tutorialLoopTargets,tutorialScheduleTargets,tutorialTargetsHaveMines,tutorialTurretIsByStop,tutorialEvent,startTutorial,finishTutorial,restartTutorial,startGame,resetGameState,queueCameraPan,queueCameraZoom,finishZoomGesture,handleVisibilityChange,runFrame
   };
 }
 
@@ -74,7 +74,16 @@ ui.viewMapButton.addEventListener("click",showFinalMap);
 ui.viewFinalStats.addEventListener("click",showFinalStats);
 function resetGameState(){state=makeInitialState();resetEnemyNavigation();seedInitialHives();lastWallTime=Date.now();simulationAccumulator=0;selectionCache="";selectionCacheKey="";selectionInteractionActive=false;selectionRefreshPending=false;selectionRefreshPendingForce=false;zoomGestureActive=false;zoomRenderPending=false;panRenderPending=false;if(zoomSettleTimer!==null)clearTimeout(zoomSettleTimer);zoomSettleTimer=null;ui.gameOver.hidden=true;ui.gameOver.classList.add("d-none");ui.viewFinalStats.hidden=true;ui.viewFinalStats.classList.add("d-none");ui.confirmDialog.hidden=true;ui.confirmDialog.classList.add("d-none");ui.turretEnergyDialog.hidden=true;ui.turretEnergyDialog.classList.add("d-none");setDebugMenuOpen(false);document.querySelectorAll("[data-mode]").forEach(button=>button.disabled=false);syncTutorialUI();setMode("select");}
 ui.restartButton.addEventListener("click",()=>{resetGameState();showReminders();});
-document.addEventListener("visibilitychange",()=>{if(!document.hidden){const now=Date.now();advanceSimulation((now-lastWallTime)/1000);lastWallTime=now;render();}});
+function handleVisibilityChange(eventOrNow){
+  const now=typeof eventOrNow==="number"?eventOrNow:Date.now();
+  lastWallTime=now;simulationAccumulator=0;
+  if(!document.hidden)render();
+}
+document.addEventListener("visibilitychange",handleVisibilityChange);
 window.addEventListener("resize",resize);
 ui.gameOver.hidden=true;ui.viewFinalStats.hidden=true;ui.confirmDialog.hidden=true;ui.turretEnergyDialog.hidden=true;resize();initializeTooltips();updateUI(true);showReminders();
-function frame(){const now=Date.now(),ticks=advanceSimulation((now-lastWallTime)/1000),cameraChanged=zoomRenderPending||panRenderPending;lastWallTime=now;zoomRenderPending=false;panRenderPending=false;if(ticks>0||screenShakeActive()||trackGlowAnimationActive()||cameraChanged)render();requestAnimationFrame(frame);}requestAnimationFrame(frame);
+function runFrame(now=Date.now()){
+  if(document.hidden){lastWallTime=now;simulationAccumulator=0;return;}
+  const ticks=advanceSimulation((now-lastWallTime)/1000),cameraChanged=zoomRenderPending||panRenderPending;lastWallTime=now;zoomRenderPending=false;panRenderPending=false;if(ticks>0||screenShakeActive()||trackGlowAnimationActive()||cameraChanged)render();
+}
+function frame(){runFrame();requestAnimationFrame(frame);}requestAnimationFrame(frame);

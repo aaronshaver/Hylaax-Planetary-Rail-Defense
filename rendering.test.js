@@ -96,6 +96,18 @@ describe("rendering caches", () => {
     assert.equal(second.cells, first.cells);
   });
 
+  test("terrain compositing crops the overscanned bitmap to the visible viewport",()=>{
+    const context=elements.get("gameCanvas").context;api.ensureTerrainLayer();context.drawImageCalls.length=0;
+
+    api.drawTerrainLayer();
+
+    const call=context.drawImageCalls.at(-1)?.args;assert.equal(call.length,9,"the terrain layer should use a source and destination crop");
+    const [source,sourceX,sourceY,sourceWidth,sourceHeight,destinationX,destinationY,destinationWidth,destinationHeight]=call;
+    assert.ok(sourceX>0&&sourceY>0,"the centered viewport should skip the overscan around its top and left edges");
+    assert.ok(sourceWidth<source.width&&sourceHeight<source.height,"the full oversized bitmap must not be submitted for scaling");
+    assert.deepEqual([destinationX,destinationY,destinationWidth,destinationHeight],[0,0,1024,768]);
+  });
+
   test("zoom input is coalesced and reuses the overscanned terrain layer in both directions until the gesture settles",()=>{
     api.ensureTerrainLayer();const first=api.terrainLayerStats(),initialZoom=api.state.camera.zoom;
 
