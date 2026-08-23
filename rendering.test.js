@@ -251,6 +251,25 @@ describe("rendering caches", () => {
     assert.equal(context.fillRectCalls.some(call=>call.x===minePoint.x-13&&call.y===minePoint.y-7&&call.width===26&&call.height===14),false,"Mine must not have a center rectangle");
   });
 
+  test("orange offensive buildings use distinct cached line textures",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state;
+    const turret={id:"turret-texture",type:"turret",q:2,r:1,hp:20,maxHp:20,energy:10,maxEnergy:20,cooldown:0};
+    const artillery={id:"artillery-texture",type:"artillery",q:5,r:1,hp:36,maxHp:36,energy:50,maxEnergy:50,cooldown:0};
+    const neutralizer={id:"neutralizer-texture",type:"neutralizer-building",q:8,r:1,footprint:[{q:8,r:1},{q:8,r:2}],hp:200,maxHp:200,material:0,energy:0,maxMaterial:20,maxEnergy:20,productionClock:0};
+    for(const structure of [turret,artillery,neutralizer])state.structures.set(api.key(structure.q,structure.r),structure);
+    context.strokeCalls.length=0;api.drawStructures();
+
+    const textures=context.strokeCalls.filter(call=>(call.strokeStyle==="#5e696c"||call.strokeStyle==="#3b4244")&&call.lineWidth===1.4);
+    assert.equal(textures.length,4,"T and A should each have one texture, while both N cells should be textured");
+    assert.equal(textures.filter(call=>call.strokeStyle==="#5e696c").length,2,"T and A should use the brighter texture color");
+    assert.equal(textures.filter(call=>call.strokeStyle==="#3b4244").length,2,"both N cells should use the darker texture color");
+    const segments=call=>Array.from({length:call.path.length/2},(_,index)=>({from:call.path[index*2],to:call.path[index*2+1]}));
+    assert.equal(textures.filter(call=>segments(call).every(({from,to})=>from.x!==to.x&&from.y!==to.y)).length,1,"T should use diagonal texture lines");
+    assert.equal(textures.filter(call=>segments(call).every(({from,to})=>from.x===to.x&&from.y!==to.y)).length,1,"A should use vertical texture lines");
+    assert.equal(textures.filter(call=>segments(call).every(({from,to})=>from.x!==to.x&&from.y===to.y)).length,2,"N should use horizontal texture lines on both cells");
+    assert.ok(textures.every(call=>call.path.length===8),"each textured cell should contain four tiny line segments");
+  });
+
   test("a destroyed Mine suppresses its Resource Node's low-resource red pulse",()=>{
     const context=elements.get("gameCanvas").context,state=api.state,node=api.resourceNodeAt(7,-2);api.setNodeAmount(node,1);const point=api.axialToWorld(node.q,node.r);
     context.strokeCalls.length=0;api.drawResourceNode(node.q,node.r,point,node.type);assert.ok(context.strokeCalls.some(call=>call.shadowColor==="#ff3848"&&call.shadowBlur>0));

@@ -40,10 +40,11 @@ function spawnEnemyAt(q,r,spawnNumber=state.nextId){
   state.enemies.push(enemy);return enemy;
 }
 
-function debugAddCreepAt(q,r){
-  const enemy=spawnEnemyAt(q,r,state.nextId);
-  if(!enemy)return fail("Cannot add a creep on that hex.");
-  updateUI(true);render();toast("Debug: Creep added.","info");return enemy;
+function debugAddMaxCreepsAt(q,r){
+  let added=0;
+  while(added<CREEP_HEX_CAPACITY&&spawnEnemyAt(q,r,state.nextId))added++;
+  if(!added)return fail("Cannot add creeps on that hex.");
+  updateUI(true);render();toast(`Debug: Added ${added} creep${added===1?"":"s"}.`,"info");return added;
 }
 
 function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
@@ -72,9 +73,11 @@ function queueCreepBatch(hive,count,spawnNumber,spawnTime=state.elapsed){
 function processCreepSpawnQueue(){
   let processed=0;
   while(state.creepSpawnQueue.length&&state.creepSpawnQueue[0].executeAt<=state.elapsed+1e-9){
-    const operation=state.creepSpawnQueue.shift(),source=[...state.hives.values()].find(candidate=>candidate.id===operation.hiveId);let spawned=false;
+    const operation=state.creepSpawnQueue.shift(),source=state.hives.get(key(operation.q,operation.r));
+    if(!source||source.id!==operation.hiveId){processed++;continue;}
+    let spawned=false;
     for(let creep=0;creep<operation.count;creep++)spawned=Boolean(spawnEnemyFromHive(operation,operation.spawnNumber*32+creep))||spawned;
-    if(spawned&&source)source.productionPulseUntil=state.elapsed+.75;
+    if(spawned)source.productionPulseUntil=state.elapsed+.75;
     processed++;
   }
   return processed;
@@ -123,7 +126,9 @@ function updateEncroachingHives(){
 function processHiveSpawnQueue(){
   let spawned=0;
   while(state.hiveSpawnQueue.length&&state.hiveSpawnQueue[0].executeAt<=state.elapsed+1e-9){
-    const operation=state.hiveSpawnQueue.shift(),constructionAnchors=playerConstructionAnchors();let location=operation;
+    const operation=state.hiveSpawnQueue.shift();
+    if(operation.sourceHiveId&&![...state.hives.values()].some(candidate=>candidate.id===operation.sourceHiveId))continue;
+    const constructionAnchors=playerConstructionAnchors();let location=operation;
     if(!hiveHexOpen(location.q,location.r,constructionAnchors)){
       if(operation.kind==="encroachment")location=encroachingHiveLocation(operation.spawnTime);
       else location=hiveSpawnCandidates(operation,operation.spawnNumber).find(candidate=>hiveHexOpen(candidate.q,candidate.r,constructionAnchors));
@@ -269,13 +274,13 @@ function ensureEnemyNavigation(){
   return signature!==enemyNavigationCache.signature||outsideBounds?rebuildEnemyNavigation():enemyNavigationCache;
 }
 
-function nextEnemyNavigationStep(enemy,reservations){
+function nextEnemyNavigationStep(enemy,reservations,neutralizerIndex=null){
   const navigation=enemyNavigationCache,currentDistance=navigation.distances.get(key(enemy.q,enemy.r));
   if(currentDistance===undefined)return null;
   const enemyNumber=Number(enemy.id.replace(/\D/g,""))||0;
   const options=neighbors(enemy.q,enemy.r).filter(position=>{
     const positionKey=key(position.q,position.r);
-    return enemyHexHasRoom(reservations,position.q,position.r)&&!neutralizerOccupiesHex(position.q,position.r)&&!navigation.targetKeys.has(positionKey)&&navigation.distances.has(positionKey);
+    return enemyHexHasRoom(reservations,position.q,position.r)&&!neutralizerOccupiesHex(position.q,position.r,neutralizerIndex)&&!navigation.targetKeys.has(positionKey)&&navigation.distances.has(positionKey);
   }).map(position=>({...position,slot:chooseEnemySpaceSlot(reservations,position.q,position.r,enemy),distance:navigation.distances.get(key(position.q,position.r)),score:hash(position.q,position.r,(state.mapSeed+enemyNumber*7919)|0)}));
   options.sort((a,b)=>a.distance-b.distance||a.score-b.score);
   const forward=options.find(option=>option.distance<currentDistance);
@@ -284,8 +289,17 @@ function nextEnemyNavigationStep(enemy,reservations){
   return options.find(option=>option.distance===currentDistance&&notBacktracking(option))||options.find(option=>option.distance===currentDistance+1&&notBacktracking(option))||null;
 }
 
-function adjacentEnemyTarget(enemy){
-  const neutralizer=state.neutralizers.filter(unit=>hexDistance(enemy,worldToAxial(unit.x,unit.y))<=1).sort((a,b)=>hexDistance(enemy,worldToAxial(a.x,a.y))-hexDistance(enemy,worldToAxial(b.x,b.y)))[0];
+function adjacentEnemyTarget(enemy,neutralizerIndex=null,proximity=null){
+  let neutralizer=null,neutralizerDistance=Infinity;
+  const candidates=neutralizerIndex?indexedUnitsInRange(neutralizerIndex,enemy.q,enemy.r,1):state.neutralizers;
+  for(const unit of candidates){
+    if(unit.hp<=0)continue;
+    const distance=hexDistance(enemy,worldToAxial(unit.x,unit.y));
+    if(distance<=1&&distance<neutralizerDistance){neutralizer=unit;neutralizerDistance=distance;}
+  }
+  if(proximity&&neutralizerIndex?.destinations)for(const unit of indexedUnitsInRange(neutralizerIndex.destinations,enemy.q,enemy.r,1)){
+    if(hexDistance(enemy,worldToAxial(unit.x,unit.y))>1){proximity.incoming=unit;break;}
+  }
   if(neutralizer)return neutralizer;
   if(distanceToStructure(enemy,state.base)<=1)return state.base;
   const positions=[{q:enemy.q,r:enemy.r},...neighbors(enemy.q,enemy.r)];
@@ -449,6 +463,9 @@ function damageTarget(target, amount) {
   if (target.hp > 0) return;
   if(target.type==="hive"){
     state.hives.delete(key(target.q,target.r));
+    state.creepSpawnQueue=state.creepSpawnQueue.filter(operation=>operation.hiveId!==target.id);
+    state.hiveProductionQueue=state.hiveProductionQueue.filter(operation=>operation.hiveId!==target.id);
+    state.hiveSpawnQueue=state.hiveSpawnQueue.filter(operation=>operation.sourceHiveId!==target.id);
     state.hivesNeutralized++;
     if(state.selected?.type==="hive"&&state.selected.id===target.id)state.selected=null;
     burst(target.q,target.r,"#d94a4a",16);updateUI(true);return;
@@ -483,6 +500,7 @@ function damageTarget(target, amount) {
     salvageBurst(target);
     deleteTrack(target.q,target.r);
     if (state.selected?.type === "track" && state.selected.id === key(target.q,target.r)) state.selected = null;
+    showTrackDestroyedWarning();
   }
   if(target.wagons)burst(target.q,target.r,"#d94a4a",12);
   updateUI(true);
@@ -491,11 +509,11 @@ function damageTarget(target, amount) {
 function updateEnemies(dt) {
   if(state.gameOver||!state.enemies.length)return;
   ensureEnemyNavigation();
-  const reservations=enemySpaceReservations();
+  const reservations=enemySpaceReservations(),neutralizerIndex=unitHexIndex(state.neutralizers);
   for (const enemy of state.enemies) {
     if(state.gameOver)break;
     enemy.phase += dt*2.2;
-    const target=enemy.progress>=1?adjacentEnemyTarget(enemy):null;
+    const proximity={},target=enemy.progress>=1?adjacentEnemyTarget(enemy,neutralizerIndex,proximity):null;
     if (target) {
       enemy.attackClock += dt;
       const shots=Math.floor((enemy.attackClock+1e-9)/CREEP_ATTACK_INTERVAL);
@@ -507,10 +525,11 @@ function updateEnemies(dt) {
       }
       continue;
     }
+    if(enemy.progress>=1&&proximity.incoming)continue;
     if (enemy.progress >= 1 && state.elapsed >= (enemy.nextPathAt||0)) {
       const currentSlot=Number.isInteger(enemy.slot)?enemy.slot:0;
       releaseEnemySpace(reservations,enemy.q,enemy.r,currentSlot);
-      const next=nextEnemyNavigationStep(enemy,reservations);
+      const next=nextEnemyNavigationStep(enemy,reservations,neutralizerIndex);
       reserveEnemySpace(reservations,enemy.q,enemy.r,currentSlot);
       if (next) {
         enemy.previousQ=enemy.q;enemy.previousR=enemy.r;

@@ -191,7 +191,7 @@ function buildTurret(q, r) {
   state.structures.set(key(q,r), turret);
   invalidateEnemyNavigation();
   state.stats.turretsBuilt++;
-  sounds.place(); burst(q, r, "#65dbe0", 10); select("structure", turret.id);tutorialEvent("turret-built",{turret});
+  sounds.place(); burst(q, r, "#65dbe0", 10); select("structure", turret.id);tutorialEvent("turret-built",{turret});render();
 }
 
 function buildWall(q, r) {

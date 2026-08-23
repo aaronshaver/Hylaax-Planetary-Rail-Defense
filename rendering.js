@@ -11,8 +11,25 @@ const MAP_GLYPH_RADIUS = 20;
 const ARTILLERY_GLYPH_SCALE = .72;
 const HIVE_GLYPH_SCALE = .72;
 const TERRAIN_LAYER_OVERSCAN_RATIO = .25;
+const OFFENSIVE_TEXTURE_SEGMENTS={
+  diagonal:[[[-13,-10],[-9,-6]],[[10,-8],[14,-4]],[[-14,5],[-10,9]],[[8,8],[12,12]]],
+  vertical:[[[-11,-10],[-11,-5]],[[12,-8],[12,-3]],[[-12,4],[-12,9]],[[10,7],[10,12]]],
+  horizontal:[[[-13,-8],[-8,-8]],[[9,-6],[14,-6]],[[-14,7],[-9,7]],[[8,10],[13,10]]]
+};
+const OFFENSIVE_TEXTURE_COLORS={diagonal:"#5e696c",vertical:"#5e696c",horizontal:"#3b4244"};
+const OFFENSIVE_TEXTURE_PATHS=typeof Path2D==="undefined"?null:Object.fromEntries(Object.entries(OFFENSIVE_TEXTURE_SEGMENTS).map(([orientation,segments])=>{
+  const path=new Path2D();for(const [[x1,y1],[x2,y2]] of segments){path.moveTo(x1,y1);path.lineTo(x2,y2);}return [orientation,path];
+}));
 
 function drawMapGlyph(label,x,y){ctx.fillStyle=MAP_GLYPH_COLOR;ctx.font=MAP_GLYPH_FONT;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(label,x,y);}
+
+function drawOffensiveTexture(x,y,orientation){
+  ctx.save();ctx.translate(x,y);ctx.strokeStyle=OFFENSIVE_TEXTURE_COLORS[orientation];ctx.lineWidth=1.4;ctx.lineCap="round";
+  const cachedPath=OFFENSIVE_TEXTURE_PATHS?.[orientation];
+  if(cachedPath)ctx.stroke(cachedPath);
+  else{ctx.beginPath();for(const [[x1,y1],[x2,y2]] of OFFENSIVE_TEXTURE_SEGMENTS[orientation]){ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);}ctx.stroke();}
+  ctx.restore();
+}
 
 function hexPathOn(context,q,r,scale=.94){
   const p=axialToWorld(q,r),radius=HEX*scale;context.beginPath();
@@ -335,12 +352,12 @@ function drawStructures(){
     const p=axialToWorld(s.q,s.r);ctx.save();
     if(s.type==="turret"){
       if(s.energy<=s.maxEnergy*.2){const pulse=.5+.5*Math.sin(state.elapsed*6);ctx.shadowBlur=20+pulse*12;ctx.shadowColor="#ff3848";ctx.strokeStyle=`rgba(255,56,72,${.65+pulse*.35})`;ctx.lineWidth=3;ctx.beginPath();ctx.arc(p.x,p.y,23+pulse*2,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;}
-      ctx.shadowBlur=12;ctx.shadowColor="#ef9b54";ctx.fillStyle="#4b3028";ctx.strokeStyle="#ef9b54";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,MAP_GLYPH_RADIUS,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;drawMapGlyph("T",p.x,p.y+.5);
+      ctx.shadowBlur=12;ctx.shadowColor="#ef9b54";ctx.fillStyle="#4b3028";ctx.strokeStyle="#ef9b54";ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,MAP_GLYPH_RADIUS,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.shadowBlur=0;drawOffensiveTexture(p.x,p.y,"diagonal");drawMapGlyph("T",p.x,p.y+.5);
     }else if(s.type==="artillery"){
       if(s.energy<ARTILLERY_SHOT_ENERGY){const pulse=.5+.5*Math.sin(state.elapsed*6);ctx.shadowBlur=18+pulse*10;ctx.shadowColor="#ff3848";hexPath(s.q,s.r,ARTILLERY_GLYPH_SCALE);ctx.fillStyle="#4b3028";ctx.strokeStyle="#ef9b54";ctx.lineWidth=2.3;ctx.fill();ctx.stroke();ctx.shadowBlur=0;}
       ctx.shadowBlur=12;ctx.shadowColor="#ef9b54";
       hexPath(s.q,s.r,ARTILLERY_GLYPH_SCALE);ctx.fillStyle="#4b3028";ctx.strokeStyle="#ef9b54";ctx.lineWidth=2.3;ctx.fill();ctx.stroke();ctx.shadowBlur=0;
-      drawMapGlyph("A",p.x,p.y+.5);
+      drawOffensiveTexture(p.x,p.y,"vertical");drawMapGlyph("A",p.x,p.y+.5);
     }else if(s.type==="wall"||s.type==="gate"){
       hexPath(s.q,s.r,.9);ctx.fillStyle="#51585a";ctx.strokeStyle="#8b9294";ctx.lineWidth=2;ctx.fill();ctx.stroke();
       ctx.strokeStyle="#373e41";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x-21,p.y-9);ctx.lineTo(p.x+21,p.y-9);ctx.moveTo(p.x-21,p.y+9);ctx.lineTo(p.x+21,p.y+9);ctx.moveTo(p.x-8,p.y-20);ctx.lineTo(p.x-8,p.y-9);ctx.moveTo(p.x+10,p.y-20);ctx.lineTo(p.x+10,p.y-9);ctx.moveTo(p.x-14,p.y-9);ctx.lineTo(p.x-14,p.y+9);ctx.moveTo(p.x+5,p.y-9);ctx.lineTo(p.x+5,p.y+9);ctx.moveTo(p.x-7,p.y+9);ctx.lineTo(p.x-7,p.y+20);ctx.moveTo(p.x+12,p.y+9);ctx.lineTo(p.x+12,p.y+20);if(s.type==="gate"){ctx.moveTo(p.x-11,p.y+18);ctx.lineTo(p.x-11,p.y-12);ctx.quadraticCurveTo(p.x,p.y-24,p.x+11,p.y-12);ctx.lineTo(p.x+11,p.y+18);ctx.moveTo(p.x,p.y-18);ctx.lineTo(p.x,p.y+18);}ctx.stroke();
@@ -350,7 +367,7 @@ function drawStructures(){
       drawFootprintCoreConnections(cells,"rgba(184,121,255,.16)",10);
       for(const cell of cells){const point=axialToWorld(cell.q,cell.r);drawMapGlyph("R",point.x,point.y+.5);}
     }else if(s.type==="neutralizer-building"){
-      const cells=structureFootprint(s);ctx.shadowBlur=10;ctx.shadowColor="rgba(239,155,84,.35)";drawConnectedHexFootprint(cells,{scale:.78,fillStyle:"#8b552f",strokeStyle:"#ffad55",lineWidth:2.3});ctx.shadowBlur=0;drawFootprintCoreConnections(cells,"rgba(255,190,111,.22)",10);for(const cell of cells){const point=axialToWorld(cell.q,cell.r);drawMapGlyph("N",point.x,point.y+.5);}
+      const cells=structureFootprint(s);ctx.shadowBlur=10;ctx.shadowColor="rgba(239,155,84,.35)";drawConnectedHexFootprint(cells,{scale:.78,fillStyle:"#8b552f",strokeStyle:"#ffad55",lineWidth:2.3});ctx.shadowBlur=0;drawFootprintCoreConnections(cells,"rgba(255,190,111,.22)",10);for(const cell of cells){const point=axialToWorld(cell.q,cell.r);drawOffensiveTexture(point.x,point.y,"horizontal");drawMapGlyph("N",point.x,point.y+.5);}
     }else{
       const exhausted=resourceNodeAt(s.q,s.r).amount<=0;
       ctx.fillStyle=exhausted?"#34393c":"#273239";ctx.strokeStyle=exhausted?"#70787c":s.resource==="energy"?"#60d5db":"#e6b94a";ctx.shadowBlur=10;ctx.shadowColor=ctx.strokeStyle;ctx.lineWidth=2;ctx.beginPath();ctx.rect(p.x-15,p.y-15,30,30);ctx.fill();ctx.stroke();ctx.fillStyle=ctx.strokeStyle;ctx.beginPath();ctx.moveTo(p.x-8,p.y-15);ctx.lineTo(p.x,p.y-23);ctx.lineTo(p.x+8,p.y-15);ctx.closePath();ctx.fill();ctx.shadowBlur=0;

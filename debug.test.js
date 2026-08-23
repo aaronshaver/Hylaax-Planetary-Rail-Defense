@@ -16,21 +16,32 @@ describe("Debug menu",()=>{
     api.setMode("debug-destroy");
     assert.equal(api.state.mode,"debug-destroy");
     assert.equal(elements.get("debugDestroyObject").classList.contains("active"),true);
-    api.setMode("debug-add-creep");assert.equal(elements.get("debugAddCreep").classList.contains("active"),true);
+    api.setMode("debug-add-max-creeps");assert.equal(elements.get("debugAddMaxCreeps").classList.contains("active"),true);
+    api.setMode("debug-add-max-neutralizers");assert.equal(elements.get("debugAddMaxNeutralizers").classList.contains("active"),true);
     api.setDebugMenuOpen(false);
     assert.equal(api.state.mode,"select");
     assert.equal(elements.get("debugMenu").hidden,true);
     assert.equal(elements.get("debugToggle").ariaExpanded,"false");
   });
 
-  test("Add Creep uses normal seven-slot Creep spawning on the chosen hex",()=>{
+  test("Add max creeps fills only the remaining slots on the chosen hex",()=>{
     const state=api.state;state.enemies=[];state.structures.clear();state.ghosts.clear();state.trains=[];
     let target=null;
     for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&!state.tracks.has(api.key(q,r))&&api.hexDistance({q,r},state.base)>3)target={q,r};
-    assert.ok(target);api.setMode("debug-add-creep");
-    for(let index=0;index<api.constants.CREEP_HEX_CAPACITY;index++)assert.ok(api.handleHexClick(target));
+    assert.ok(target);assert.ok(api.spawnEnemyAt(target.q,target.r));assert.ok(api.spawnEnemyAt(target.q,target.r));api.setMode("debug-add-max-creeps");
+    assert.equal(api.handleHexClick(target),5);
     assert.equal(state.enemies.length,7);assert.deepEqual([...new Set(state.enemies.map(enemy=>enemy.slot))].sort((a,b)=>a-b),[0,1,2,3,4,5,6]);
-    assert.equal(api.handleHexClick(target),undefined);assert.equal(state.enemies.length,7,"an eighth Creep must not overfill the hex");
+    assert.equal(api.handleHexClick(target),undefined);assert.equal(state.enemies.length,7,"a full hex must not be overfilled");
+  });
+
+  test("Add max neutralizers fills only the remaining slots on the chosen hex",()=>{
+    const state=api.state;state.neutralizers=[];state.enemies=[];state.structures.clear();state.ghosts.clear();state.trains=[];
+    let target=null;
+    for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&!state.tracks.has(api.key(q,r))&&api.hexDistance({q,r},state.base)>3)target={q,r};
+    assert.ok(target);for(let index=0;index<3;index++)assert.ok(api.spawnNeutralizerAt(target.q,target.r));api.setMode("debug-add-max-neutralizers");
+    assert.equal(api.handleHexClick(target),4);
+    assert.equal(state.neutralizers.length,7);assert.deepEqual([...new Set(state.neutralizers.map(unit=>unit.slot))].sort((a,b)=>a-b),[0,1,2,3,4,5,6]);
+    assert.equal(api.handleHexClick(target),undefined);assert.equal(state.neutralizers.length,7,"a full hex must not be overfilled");
   });
 
   test("adds 1,000 of every registered Base resource, including future resource types",()=>{
@@ -84,6 +95,6 @@ describe("Debug menu",()=>{
     api.setMode("debug-destroy");
     assert.equal(api.handleHexClick({q:0,r:0}),true);
     assert.equal(api.state.base.hp,0);assert.equal(api.state.gameOver,true);
-    assert.equal(elements.get("debugDestroyObject").disabled,true);assert.equal(elements.get("debugAddCreep").disabled,true);assert.equal(elements.get("debugAddBaseResources").disabled,true);assert.equal(elements.get("debugAddResearchPoints").disabled,true);
+    assert.equal(elements.get("debugDestroyObject").disabled,true);assert.equal(elements.get("debugAddMaxCreeps").disabled,true);assert.equal(elements.get("debugAddMaxNeutralizers").disabled,true);assert.equal(elements.get("debugAddBaseResources").disabled,true);assert.equal(elements.get("debugAddResearchPoints").disabled,true);
   });
 });

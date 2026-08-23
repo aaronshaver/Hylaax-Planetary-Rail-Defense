@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 4.0.4</title>
+  <title>Planetary Rail Defense 4.1.0</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 4.0.4 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 4.1.0 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -65,7 +65,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 4.0.4</span></h1>
+          <h1>RAIL<br><span>DEFENSE 4.1.0</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -103,7 +103,8 @@
     <div class="debug-menu-title">Debug</div>
     <div class="debug-menu-warning">This is a debug menu intended for development. It's &quot;cheating&quot; if you use this during your game. But it's a single player game, so do whatever is fun for you.</div>
     <button id="debugDestroyObject" class="btn debug-action" data-mode="debug-destroy">Destroy object</button>
-    <button id="debugAddCreep" class="btn debug-action" data-mode="debug-add-creep">Add creep</button>
+    <button id="debugAddMaxCreeps" class="btn debug-action" data-mode="debug-add-max-creeps">Add max creeps to hex</button>
+    <button id="debugAddMaxNeutralizers" class="btn debug-action" data-mode="debug-add-max-neutralizers">Add max neutralizers to hex</button>
     <button id="debugAddBaseResources" class="btn debug-action">Add base building resources</button>
     <button id="debugAddResearchPoints" class="btn debug-action">Add research points</button>
   </aside>
@@ -140,11 +141,20 @@
     </div>
   </div>
 
+  <div id="trackDestroyedDialog" class="confirm-overlay d-none" hidden role="dialog" aria-modal="true" aria-labelledby="trackDestroyedTitle" aria-describedby="trackDestroyedMessage">
+    <div class="confirm-card">
+      <div class="eyebrow text-danger">Track warning</div>
+      <h2 id="trackDestroyedTitle">Train track destroyed</h2>
+      <p id="trackDestroyedMessage">Some of your train track has been destroyed. Trains carrying construction material will automatically rebuild it if they can, but note that you can also manually rebuild track with the 'Build track' button, laying it from healthy track to where the destroyed track is.</p>
+      <button id="trackDestroyedOkay" class="btn btn-command">OK</button>
+    </div>
+  </div>
+
   <div id="neutralizerGateDialog" class="confirm-overlay d-none" hidden role="dialog" aria-modal="true" aria-labelledby="neutralizerGateTitle" aria-describedby="neutralizerGateMessage">
     <div class="confirm-card">
       <div class="eyebrow">Neutralizer note</div>
       <h2 id="neutralizerGateTitle">Use gates with walls</h2>
-      <p id="neutralizerGateMessage">Note: if you build walls surrounding your base building, note that gates can be used to let neutralizer (ally units) pass through so that you can keep a solid defense of walls while allowing neutralizer units to leave the base building. Creeps cannot pass through gates.</p>
+      <p id="neutralizerGateMessage">If you build walls surrounding your base, note that gates can be used to let neutralizers (blue ally units) pass through so that you can keep a solid defense of walls while allowing neutralizer units to leave. Creeps cannot pass through gates.</p>
       <button id="neutralizerGateOkay" class="btn btn-command">OK</button>
     </div>
   </div>

@@ -22,7 +22,8 @@ function handleHexClick(hex) {
     state.selected=null;updateUI(true);return;
   }
   if(state.mode==="debug-destroy")return debugDestroyAt(q,r);
-  if(state.mode==="debug-add-creep")return debugAddCreepAt(q,r);
+  if(state.mode==="debug-add-max-creeps")return debugAddMaxCreepsAt(q,r);
+  if(state.mode==="debug-add-max-neutralizers")return debugAddMaxNeutralizersAt(q,r);
   if (state.mode === "track") return layTrack(q,r);
   if(state.mode==="schedule"){
     const scheduleTrain=state.trains.find(candidate=>candidate.id===state.scheduleTrainId);

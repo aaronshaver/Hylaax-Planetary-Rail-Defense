@@ -91,8 +91,9 @@ const ui = Object.fromEntries([
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart", "tutorialArrows",
-  "debugToggle", "debugMenu", "debugDestroyObject", "debugAddCreep", "debugAddBaseResources", "debugAddResearchPoints",
+  "debugToggle", "debugMenu", "debugDestroyObject", "debugAddMaxCreeps", "debugAddMaxNeutralizers", "debugAddBaseResources", "debugAddResearchPoints",
   "turretEnergyDialog", "turretEnergyMessage", "turretEnergyOkay",
+  "trackDestroyedDialog", "trackDestroyedOkay",
   "neutralizerGateDialog", "neutralizerGateOkay",
   "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt", "defeatEnergyMined", "defeatMaterialMined"
 ].map(id => [id, document.getElementById(id)]));
@@ -103,8 +104,31 @@ const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const hexDistance = (a, b) => (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
 const neighbors = (q, r) => DIRECTIONS.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
-function creepOccupiesHex(q,r){return state.enemies.some(creep=>{const position=worldToAxial(creep.x,creep.y);return position.q===q&&position.r===r;});}
-function neutralizerOccupiesHex(q,r){return state.neutralizers.some(unit=>{const position=worldToAxial(unit.x,unit.y);return position.q===q&&position.r===r;});}
+function unitHexIndex(units){
+  const index=new Map(),destinations=new Map();
+  const add=(target,unit,q,r)=>{const positionKey=key(q,r),bucket=target.get(positionKey)||[];bucket.push(unit);target.set(positionKey,bucket);};
+  for(const unit of units){
+    if(unit.hp<=0)continue;
+    const position=worldToAxial(unit.x,unit.y);add(index,unit,position.q,position.r);
+    if(unit.progress<1&&Number.isFinite(unit.toQ)&&Number.isFinite(unit.toR)&&key(position.q,position.r)!==key(unit.toQ,unit.toR))add(destinations,unit,unit.toQ,unit.toR);
+  }
+  index.destinations=destinations;
+  return index;
+}
+function indexedUnitsAt(index,q,r){return index?.get(key(q,r))||[];}
+function indexedUnitsInRange(index,q,r,range=1){
+  const units=[];
+  for(let dq=-range;dq<=range;dq++){
+    const minDr=Math.max(-range,-dq-range),maxDr=Math.min(range,-dq+range);
+    for(let dr=minDr;dr<=maxDr;dr++)for(const unit of indexedUnitsAt(index,q+dq,r+dr))if(unit.hp>0)units.push(unit);
+  }
+  return units;
+}
+function unitOccupiesHex(units,q,r){
+  return units.some(unit=>{if(unit.hp<=0)return false;const position=worldToAxial(unit.x,unit.y);return position.q===q&&position.r===r;});
+}
+function creepOccupiesHex(q,r,index=null){return index?indexedUnitsAt(index,q,r).some(creep=>creep.hp>0):unitOccupiesHex(state.enemies,q,r);}
+function neutralizerOccupiesHex(q,r,index=null){return index?indexedUnitsAt(index,q,r).some(unit=>unit.hp>0):unitOccupiesHex(state.neutralizers,q,r);}
 function footprintPerimeter(cells){
   const occupied=new Set(cells.map(cell=>key(cell.q,cell.r))),perimeter=new Map();
   for(const cell of cells)for(const position of neighbors(cell.q,cell.r))if(!occupied.has(key(position.q,position.r)))perimeter.set(key(position.q,position.r),position);

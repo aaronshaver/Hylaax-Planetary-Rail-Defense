@@ -44,6 +44,59 @@ describe("Hive and defense behavior", () => {
     assert.equal(hive.productionPulseUntil, batchSpawnAt + .75);
   });
 
+  test("destroying a Hive cancels only that Hive's pending Creep batches", () => {
+    const state = api.state;
+    state.hives.clear();
+    state.enemies = [];
+    const destroyedHive = api.createHive(12, 0, 2, false, false);
+    const survivingHive = api.createHive(0, 12, 2, false, false);
+    api.queueCreepBatch(destroyedHive, 2, 0);
+    api.queueCreepBatch(survivingHive, 2, 0);
+    api.queueCreepBatch(destroyedHive, 2, 1);
+    state.hiveProductionQueue.push({hiveId:destroyedHive.id,q:destroyedHive.q,r:destroyedHive.r,executeAt:1});
+
+    api.damageTarget(destroyedHive, destroyedHive.hp);
+
+    assert.equal(state.creepSpawnQueue.length, 1);
+    assert.equal(state.creepSpawnQueue[0].hiveId, survivingHive.id);
+    assert.equal(state.hiveProductionQueue.length, 0);
+    state.elapsed = state.creepSpawnQueue[0].executeAt;
+    assert.equal(api.processCreepSpawnQueue(), 1);
+    assert.equal(state.enemies.length, 2);
+  });
+
+  test("a stale Creep batch cannot be inherited by a replacement Hive on the same hex", () => {
+    const state = api.state;
+    state.hives.clear();
+    state.enemies = [];
+    const originalHive = api.createHive(12, 0, 2, false, false);
+    const operation = api.queueCreepBatch(originalHive, 2, 0);
+    state.hives.delete(api.key(originalHive.q, originalHive.r));
+    api.createHive(originalHive.q, originalHive.r, 2, false, false);
+
+    state.elapsed = operation.executeAt;
+
+    assert.equal(api.processCreepSpawnQueue(), 1);
+    assert.equal(state.enemies.length, 0);
+    assert.equal(state.creepSpawnQueue.length, 0);
+  });
+
+  test("destroying a Hive cancels only that Hive's pending replication", () => {
+    const state = api.state;
+    state.hives.clear();
+    const destroyedHive = api.createHive(12, 0, 2, false, false);
+    const survivingHive = api.createHive(0, 12, 2, false, false);
+    api.queueHiveSpawn({q:16,r:0},{sourceHiveId:destroyedHive.id});
+    api.queueHiveSpawn({q:0,r:16},{sourceHiveId:survivingHive.id});
+    api.queueHiveSpawn({q:-16,r:16},{kind:"encroachment"});
+
+    api.damageTarget(destroyedHive, destroyedHive.hp);
+
+    assert.equal(state.hiveSpawnQueue.length, 2);
+    assert.ok(state.hiveSpawnQueue.some(operation=>operation.sourceHiveId===survivingHive.id));
+    assert.ok(state.hiveSpawnQueue.some(operation=>operation.kind==="encroachment"));
+  });
+
   test("a Hive replication queues its child for an independent 1–15 second delay", () => {
     const state = api.state;
     state.elapsed = 180;

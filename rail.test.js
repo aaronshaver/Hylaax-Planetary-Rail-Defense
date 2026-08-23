@@ -79,8 +79,8 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot build in a hex occupied by a creep.");
   });
 
-  test("Wall and Artillery placement repaint immediately while paused",()=>{
-    for(const item of [{type:"wall",label:"W",build:api.buildWall},{type:"artillery",label:"A",build:api.buildArtillery}]){
+  test("Turret, Wall, and Artillery placement repaint immediately while paused",()=>{
+    for(const item of [{type:"turret",label:"T",build:api.buildTurret},{type:"wall",label:"W",build:api.buildWall},{type:"artillery",label:"A",build:api.buildArtillery}]){
       api.reset();const state=api.state,context=elements.get("gameCanvas").context;addTestTrain();state.tracks.clear();state.structures.clear();state.baseMaterial=500;state.baseEnergy=500;state.paused=true;
       let target=null;
       for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
@@ -293,6 +293,21 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(state.tracks.has("4,0"),false);
     assert.equal(state.ghosts.get("4,0").objectType,"track");
     assert.equal(state.ghosts.get("4,0").hp,0);
+  });
+
+  test("the first destroyed Track pauses for one rebuild notice",()=>{
+    const state=api.state;state.tracks.clear();state.paused=false;
+    const firstTrack=makeTrack(4,0),secondTrack=makeTrack(5,0);state.tracks.set("4,0",firstTrack);state.tracks.set("5,0",secondTrack);
+
+    api.damageTarget(firstTrack,.01);
+
+    assert.equal(state.trackDestroyedWarningShown,true);assert.equal(state.paused,true);assert.equal(elements.get("trackDestroyedDialog").hidden,false);
+    const html=require("node:fs").readFileSync(require("node:path").join(__dirname,"index.html"),"utf8");assert.match(html,/Some of your train track has been destroyed\.[\s\S]*'Build track' button,[\s\S]*from healthy track to where the destroyed track is\./);
+    assert.equal(api.dismissTrackDestroyedWarning(),true);assert.equal(state.paused,false);assert.equal(elements.get("trackDestroyedDialog").hidden,true);
+
+    api.damageTarget(secondTrack,.01);
+
+    assert.equal(elements.get("trackDestroyedDialog").hidden,true);assert.equal(state.paused,false);
   });
 
   test("a newly deployed Turret Train starts with 10 Energy in its wagon",()=>{

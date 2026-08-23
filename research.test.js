@@ -45,7 +45,9 @@ describe("Research building and upgrades",()=>{
 
   test("repeated upgrades cost 30 points and multiply their current effect",()=>{
     const state=api.state;addResearchBuilding();state.researchPoints=100;
+    assert.match(api.selectionHtml(),/\+50% turret damage \(0\)/);
     assert.equal(api.purchaseResearchUpgrade("turretDamage"),true);
+    assert.match(api.selectionHtml(),/\+50% turret damage \(1\)/);assert.equal(elements.get("toastStack").children.at(-1).textContent,"+50% turret damage (1) researched.");
     assert.equal(api.purchaseResearchUpgrade("turretDamage"),true);
     assert.equal(state.researchPoints,40);assert.equal(api.researchUpgradeCount("turretDamage"),2);assert.equal(api.turretDamage(),3);
   });
@@ -58,11 +60,12 @@ describe("Research building and upgrades",()=>{
     assert.equal((html.match(/disabled aria-disabled="true"/g)||[]).length,21);
     assert.doesNotMatch(html,/data-bs-toggle="tooltip"|title="/);
     for(const heading of ["Turrets (fixed and train)","Artillery","Neutralizers","Trains and mining","Infrastructure","Other"])assert.match(html,new RegExp(heading.replace(/[()]/g,"\\$&")));
-    assert.match(html,/\+20% turret range \(1\)/);assert.match(html,/\+20% artillery range \(1\)/);
-    assert.match(html,/\+25% turret energy storage \(1\)/);assert.match(html,/\+25% artillery energy storage \(1\)/);
-    assert.match(html,/\+20% mining efficiency \(1\)/);
-    assert.match(html,/\+25% load\/unload efficiency \(1\)/);
-    assert.match(html,/\+50% neutralizer hit points \(1\)/);assert.match(html,/\+10% neutralizer movement speed \(1\)/);assert.match(html,/\+25% neutralizer production speed \(1\)/);
+    assert.equal((html.match(/\(0\)/g)||[]).length,21,"every unresearched item should display its current level as 0");
+    assert.match(html,/\+20% turret range \(0\)/);assert.match(html,/\+20% artillery range \(0\)/);
+    assert.match(html,/\+25% turret energy storage \(0\)/);assert.match(html,/\+25% artillery energy storage \(0\)/);
+    assert.match(html,/\+20% mining efficiency \(0\)/);
+    assert.match(html,/\+25% load\/unload efficiency \(0\)/);
+    assert.match(html,/\+50% neutralizer hit points \(0\)/);assert.match(html,/\+20% neutralizer movement speed \(0\)/);assert.match(html,/\+25% neutralizer production speed \(0\)/);
     assert.match(html,/1 research point\(s\) gained for each second of survival/);
     assert.match(html,/All research items cost 30 research points/);
     assert.doesNotMatch(html,/infinite/i);
@@ -72,7 +75,7 @@ describe("Research building and upgrades",()=>{
     const state=api.state;addResearchBuilding();state.researchPoints=150;
     const bonuses=[25,20,15,10,5],rates=[1.25,1.5,1.725,1.8975,1.992375];
     for(let level=0;level<bonuses.length;level++){
-      assert.match(api.selectionHtml(),new RegExp(`\\+${bonuses[level]}% research rate \\(${level+1}\\)`));
+      assert.match(api.selectionHtml(),new RegExp(`\\+${bonuses[level]}% research rate \\(${level}\\)`));
       assert.equal(api.purchaseResearchUpgrade("researchSpeed"),true);
       assert.ok(Math.abs(api.researchRate()-rates[level])<1e-12);
     }
@@ -80,13 +83,15 @@ describe("Research building and upgrades",()=>{
     const pointsBefore=state.researchPoints;assert.equal(Boolean(api.purchaseResearchUpgrade("researchSpeed")),false);assert.equal(state.researchPoints,pointsBefore);assert.equal(api.researchUpgradeCount("researchSpeed"),5);
   });
 
-  test("ordinary research caps at ten levels while both range upgrades cap at four",()=>{
-    const state=api.state;addResearchBuilding();state.researchPoints=1000;
-    for(const upgrade of api.constants.RESEARCH_UPGRADES)assert.equal(api.researchUpgradeMaxLevel(upgrade),["turretRange","artilleryRange"].includes(upgrade.key)?4:upgrade.key==="researchSpeed"?5:10,upgrade.key);
-    for(let level=0;level<10;level++)assert.equal(api.purchaseResearchUpgrade("mineEfficiency"),true);
-    assert.match(api.selectionHtml(),/Mining efficiency maxed \(10\)/);const afterMine=state.researchPoints;assert.equal(Boolean(api.purchaseResearchUpgrade("mineEfficiency")),false);assert.equal(state.researchPoints,afterMine);
-    for(const keyName of ["turretRange","artilleryRange"]){for(let level=0;level<4;level++)assert.equal(api.purchaseResearchUpgrade(keyName),true);assert.equal(api.researchUpgradeCount(keyName),4);const points=state.researchPoints;assert.equal(Boolean(api.purchaseResearchUpgrade(keyName)),false);assert.equal(state.researchPoints,points);}
-    assert.match(api.selectionHtml(),/Turret range maxed \(4\)/);assert.match(api.selectionHtml(),/Artillery range maxed \(4\)/);
+  test("every research item caps after five purchases",()=>{
+    const state=api.state;addResearchBuilding();state.researchPoints=10000;
+    for(const upgrade of api.constants.RESEARCH_UPGRADES){
+      assert.equal(api.researchUpgradeMaxLevel(upgrade),5,upgrade.key);
+      for(let level=0;level<5;level++)assert.equal(api.purchaseResearchUpgrade(upgrade.key),true,`${upgrade.key} level ${level+1}`);
+      assert.equal(api.researchUpgradeCount(upgrade.key),5,upgrade.key);
+      const points=state.researchPoints;assert.equal(Boolean(api.purchaseResearchUpgrade(upgrade.key)),false,`${upgrade.key} must reject a sixth purchase`);assert.equal(state.researchPoints,points);
+    }
+    const html=api.selectionHtml();assert.equal((html.match(/maxed \(5\)/gi)||[]).length,api.constants.RESEARCH_UPGRADES.length);assert.equal(api.artilleryRange(),27);
   });
 
   test("all twenty-one upgrades immediately update existing units and expose upgraded future values",()=>{
@@ -106,7 +111,7 @@ describe("Research building and upgrades",()=>{
     assert.equal(wall.maxHp,150);assert.equal(wall.hp,120);assert.equal(track.maxHp,2);assert.equal(track.hp,2);assert.equal(api.researchRate(),1.25);
     assert.ok(Math.abs(turret.cooldown-2/3)<1e-9);assert.equal(artillery.cooldown,2);
     assert.equal(api.wallHitPoints(),150);assert.equal(api.trackHitPoints(),2);assert.equal(api.trainCapacity(),45);assert.equal(api.trainSpeed(),2.8125);assert.equal(api.loadUnloadDuration(),1.5);
-    assert.equal(gate.maxHp,150);assert.equal(gate.hp,150);assert.equal(api.neutralizerHitPoints(),2);assert.equal(neutralizer.maxHp,2);assert.equal(neutralizer.hp,2);assert.equal(api.neutralizerDamage(),2);assert.ok(Math.abs(api.neutralizerFireInterval()-2/3)<1e-9);assert.ok(Math.abs(api.neutralizerSpeed()-api.constants.NEUTRALIZER_SPEED*1.1)<1e-12);assert.equal(neutralizer.speed,api.neutralizerSpeed());const futureNeutralizer=api.spawnNeutralizer(neutralizerBuilding);assert.ok(futureNeutralizer);assert.equal(futureNeutralizer.speed,api.neutralizerSpeed());assert.equal(api.neutralizerProductionInterval(),7.2);assert.equal(api.neutralizerStorage(),30);assert.equal(neutralizerBuilding.maxMaterial,30);assert.equal(neutralizerBuilding.maxEnergy,30);assert.equal(neutralizerBuilding.productionClock,.4);
+    assert.equal(gate.maxHp,150);assert.equal(gate.hp,150);assert.equal(api.neutralizerHitPoints(),2);assert.equal(neutralizer.maxHp,2);assert.equal(neutralizer.hp,2);assert.equal(api.neutralizerDamage(),2);assert.ok(Math.abs(api.neutralizerFireInterval()-2/3)<1e-9);assert.ok(Math.abs(api.neutralizerSpeed()-api.constants.NEUTRALIZER_SPEED*1.2)<1e-12);assert.equal(neutralizer.speed,api.neutralizerSpeed());const futureNeutralizer=api.spawnNeutralizer(neutralizerBuilding);assert.ok(futureNeutralizer);assert.equal(futureNeutralizer.speed,api.neutralizerSpeed());assert.equal(api.neutralizerProductionInterval(),7.2);assert.equal(api.neutralizerStorage(),30);assert.equal(neutralizerBuilding.maxMaterial,30);assert.equal(neutralizerBuilding.maxEnergy,30);assert.equal(neutralizerBuilding.productionClock,.4);
   });
 
   test("repeated Wall Hit Points research keeps live and future hit points whole",()=>{

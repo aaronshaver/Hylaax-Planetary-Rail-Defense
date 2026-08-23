@@ -3,16 +3,16 @@
 const RESEARCH_UPGRADES = [
   {key:"turretFireRate",group:"Turrets (fixed and train)",label:"+50% turret firing rate",multiplier:1.5,description:"Applies to both fixed turrets and turret trains."},
   {key:"turretDamage",group:"Turrets (fixed and train)",label:"+50% turret damage",multiplier:1.5,description:"Applies to both fixed turrets and turret trains."},
-  {key:"turretRange",group:"Turrets (fixed and train)",label:"+20% turret range",multiplier:1.2,maxLevel:4,description:"Applies to both fixed turrets and turret trains."},
+  {key:"turretRange",group:"Turrets (fixed and train)",label:"+20% turret range",multiplier:1.2,description:"Applies to both fixed turrets and turret trains."},
   {key:"turretEnergyStorage",group:"Turrets (fixed and train)",label:"+25% turret energy storage",multiplier:1.25,description:"Fixed turrets store 25% more energy."},
   {key:"artilleryFireRate",group:"Artillery",label:"+50% artillery firing rate",multiplier:1.5,description:"Artillery fires 50% more frequently."},
   {key:"artilleryDamage",group:"Artillery",label:"+50% artillery damage",multiplier:1.5,description:"Artillery center and splash damage increase by 50%."},
-  {key:"artilleryRange",group:"Artillery",label:"+20% artillery range",multiplier:1.2,maxLevel:4,description:"Artillery range increases by 20%."},
+  {key:"artilleryRange",group:"Artillery",label:"+20% artillery range",multiplier:1.2,description:"Artillery range increases by 20%."},
   {key:"artilleryEnergyStorage",group:"Artillery",label:"+25% artillery energy storage",multiplier:1.25,description:"Artillery stores 25% more energy."},
   {key:"neutralizerHitPoints",group:"Neutralizers",label:"+50% neutralizer hit points",multiplier:1.5,description:"All existing and future neutralizer ally units have 50% more hit points."},
   {key:"neutralizerFireRate",group:"Neutralizers",label:"+50% neutralizer firing rate",multiplier:1.5,description:"Neutralizer ally units fire 50% more frequently."},
   {key:"neutralizerDamage",group:"Neutralizers",label:"+50% neutralizer damage",multiplier:1.5,description:"Neutralizer ally units deal 50% more damage per shot."},
-  {key:"neutralizerSpeed",group:"Neutralizers",label:"+10% neutralizer movement speed",multiplier:1.1,description:"Neutralizer ally units move 10% faster."},
+  {key:"neutralizerSpeed",group:"Neutralizers",label:"+20% neutralizer movement speed",multiplier:1.2,description:"Neutralizer ally units move 20% faster."},
   {key:"neutralizerProduction",group:"Neutralizers",label:"+25% neutralizer production speed",multiplier:1.25,description:"Neutralizer buildings produce ally units 25% faster."},
   {key:"neutralizerStorage",group:"Neutralizers",label:"+50% neutralizer building storage",multiplier:1.5,description:"Neutralizer buildings store 50% more construction material and energy."},
   {key:"trainCapacity",group:"Trains and mining",label:"+50% train capacity",multiplier:1.5,description:"All train supply wagons hold 50% more resources."},
@@ -25,13 +25,13 @@ const RESEARCH_UPGRADES = [
 ];
 
 function researchUpgrade(keyName){return RESEARCH_UPGRADES.find(upgrade=>upgrade.key===keyName)||null;}
-function researchUpgradeMaxLevel(upgrade){return upgrade?.maxLevel||10;}
+function researchUpgradeMaxLevel(upgrade){return upgrade?.maxLevel||5;}
 function researchUpgradeCount(keyName){const count=state.researchUpgrades?.[keyName]||0,upgrade=researchUpgrade(keyName);return upgrade?Math.min(count,researchUpgradeMaxLevel(upgrade)):count;}
 function researchMultiplierAtCount(keyName,count){const upgrade=researchUpgrade(keyName);if(!upgrade)return 1;if(upgrade.levelMultipliers)return upgrade.levelMultipliers.slice(0,count).reduce((total,multiplier)=>total*multiplier,1);return Math.pow(upgrade.multiplier,count);}
 function researchMultiplier(keyName){return researchMultiplierAtCount(keyName,researchUpgradeCount(keyName));}
 function researchUpgradeIsMaxed(upgrade){return Boolean(upgrade&&researchUpgradeCount(upgrade.key)>=researchUpgradeMaxLevel(upgrade));}
 function researchUpgradeEffectLabel(upgrade){return upgrade.label.replace(/^\+\d+%\s+/,"");}
-function researchUpgradeButtonLabel(upgrade){const count=researchUpgradeCount(upgrade.key),effect=researchUpgradeEffectLabel(upgrade);if(researchUpgradeIsMaxed(upgrade))return `${effect.charAt(0).toUpperCase()+effect.slice(1)} maxed (${count})`;const multiplier=upgrade.levelMultipliers?.[count],label=multiplier?`+${Math.round((multiplier-1)*100)}% ${effect}`:upgrade.label;return `${label} (${count+1})`;}
+function researchUpgradeButtonLabel(upgrade){const count=researchUpgradeCount(upgrade.key),effect=researchUpgradeEffectLabel(upgrade);if(researchUpgradeIsMaxed(upgrade))return `${effect.charAt(0).toUpperCase()+effect.slice(1)} maxed (${count})`;const multiplier=upgrade.levelMultipliers?.[count],label=multiplier?`+${Math.round((multiplier-1)*100)}% ${effect}`:upgrade.label;return `${label} (${count})`;}
 function researchedWholeValue(base,keyName){const upgrade=researchUpgrade(keyName);let value=base;for(let level=0;level<researchUpgradeCount(keyName);level++)value=Math.ceil(value*upgrade.multiplier);return value;}
 
 function turretFireInterval(){return 1/researchMultiplier("turretFireRate");}

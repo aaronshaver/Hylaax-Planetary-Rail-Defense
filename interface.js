@@ -94,9 +94,10 @@ function setDebugMenuOpen(open){
 }
 
 function updateDebugUI(){
-  ui.debugDestroyObject.disabled=state.gameOver;ui.debugAddCreep.disabled=state.gameOver;ui.debugAddBaseResources.disabled=state.gameOver;ui.debugAddResearchPoints.disabled=state.gameOver;
+  ui.debugDestroyObject.disabled=state.gameOver;ui.debugAddMaxCreeps.disabled=state.gameOver;ui.debugAddMaxNeutralizers.disabled=state.gameOver;ui.debugAddBaseResources.disabled=state.gameOver;ui.debugAddResearchPoints.disabled=state.gameOver;
   ui.debugDestroyObject.classList.toggle("active",state.mode==="debug-destroy");
-  ui.debugAddCreep.classList.toggle("active",state.mode==="debug-add-creep");
+  ui.debugAddMaxCreeps.classList.toggle("active",state.mode==="debug-add-max-creeps");
+  ui.debugAddMaxNeutralizers.classList.toggle("active",state.mode==="debug-add-max-neutralizers");
 }
 
 function showTurretEnergyWarning(){
@@ -108,6 +109,17 @@ function showTurretEnergyWarning(){
 function dismissTurretEnergyWarning(){
   if(ui.turretEnergyDialog.hidden)return false;
   ui.turretEnergyDialog.hidden=true;ui.turretEnergyDialog.classList.add("d-none");state.paused=state.turretEnergyWarningWasPaused;lastWallTime=Date.now();simulationAccumulator=0;updateUI(true);render();canvas.focus();return true;
+}
+
+function showTrackDestroyedWarning(){
+  if(state.trackDestroyedWarningShown||state.gameOver)return false;
+  state.trackDestroyedWarningShown=true;state.trackDestroyedWarningWasPaused=state.paused;state.paused=true;simulationAccumulator=0;
+  ui.trackDestroyedDialog.hidden=false;ui.trackDestroyedDialog.classList.remove("d-none");updateUI(true);render();setTimeout(()=>ui.trackDestroyedOkay.focus(),0);return true;
+}
+
+function dismissTrackDestroyedWarning(){
+  if(ui.trackDestroyedDialog.hidden)return false;
+  ui.trackDestroyedDialog.hidden=true;ui.trackDestroyedDialog.classList.add("d-none");state.paused=state.trackDestroyedWarningWasPaused;lastWallTime=Date.now();simulationAccumulator=0;updateUI(true);render();canvas.focus();return true;
 }
 
 function connectedUnminedResources(){

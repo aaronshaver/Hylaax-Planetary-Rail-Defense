@@ -37,6 +37,12 @@ describe("geometry and initial state", () => {
     assert.equal(api.trainName(1,"combat"),"Turret train B");
   });
 
+  test("the shared construction sound uses a softened triangle sweep",()=>{
+    const calls=[],originalTone=api.sounds.tone;api.sounds.tone=(...args)=>calls.push(args);
+    try{api.sounds.place();}finally{api.sounds.tone=originalTone;}
+    assert.deepEqual(calls,[[150,.12,"triangle",.018,260]]);
+  });
+
   test("the seven Creep positions are the center and six separated hex-corner positions",()=>{
     const offsets=Array.from({length:api.constants.CREEP_HEX_CAPACITY},(_,slot)=>api.enemySlotOffset(slot));
     assert.deepEqual({...offsets[0]},{x:0,y:0});

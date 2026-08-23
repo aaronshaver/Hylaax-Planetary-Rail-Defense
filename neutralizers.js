@@ -1,5 +1,10 @@
 "use strict";
 
+const NEUTRALIZER_TARGET_REFRESH_SECONDS=.9;
+const NEUTRALIZER_PATH_SEARCHES_PER_TICK=2;
+const NEUTRALIZER_PATH_CACHE_SECONDS=.75;
+let neutralizerPathStepCache=new Map(),neutralizerPathCacheVersion=-1;
+
 function neutralizerFootprintCandidates(q,r){return DIRECTIONS.map(([dq,dr])=>[{q,r},{q:q+dq,r:r+dr}]);}
 
 function neutralizerCellAvailable(cell){
@@ -61,9 +66,61 @@ function neutralizerTargets(unit){
   });
 }
 
-function adjacentNeutralizerTarget(unit){
+function neutralizerTargetLookup(){
+  const targets=new Map();
+  for(const enemy of state.enemies)if(enemy.hp>0)targets.set(enemy.id,enemy);
+  for(const hive of state.hives.values())if(hive.hp>0)targets.set(hive.id,hive);
+  return targets;
+}
+
+function neutralizerTargetPosition(target){return target.type==="enemy"?worldToAxial(target.x,target.y):target;}
+
+function neutralizerPathCacheKey(unit,targetPosition){return `${state.mapSeed}|${enemyNavigationVersion}|${unit.q},${unit.r}|${targetPosition.q},${targetPosition.r}`;}
+
+function cachedNeutralizerPathStep(unit,targetPosition,passable,pathBudget){
+  if(neutralizerPathCacheVersion!==enemyNavigationVersion){neutralizerPathStepCache.clear();neutralizerPathCacheVersion=enemyNavigationVersion;}
+  const cacheKey=neutralizerPathCacheKey(unit,targetPosition),cached=neutralizerPathStepCache.get(cacheKey);
+  if(cached&&cached.until>=state.elapsed&&passable(cached.position.q,cached.position.r))return cached.position;
+  if(cached)neutralizerPathStepCache.delete(cacheKey);
+  if(pathBudget&&pathBudget.remaining<=0)return false;
+  if(pathBudget)pathBudget.remaining--;
+  const position=findEnemyStep(unit,targetPosition,passable,1);
+  if(position){
+    if(neutralizerPathStepCache.size>=2048)neutralizerPathStepCache.clear();
+    neutralizerPathStepCache.set(cacheKey,{position,until:state.elapsed+NEUTRALIZER_PATH_CACHE_SECONDS});
+  }
+  return position;
+}
+
+function cachedNeutralizerTarget(unit,targetById=neutralizerTargetLookup()){
+  const cached=targetById.get(unit.targetId),refreshAt=unit.targetRefreshAt||0;
+  if(cached&&cached.hp>0&&state.elapsed<refreshAt)return cached;
+  const origin=worldToAxial(unit.x,unit.y),failedTargets=unit.failedTargets||{};
+  for(const [targetId,until] of Object.entries(failedTargets))if(state.elapsed>=until)delete failedTargets[targetId];
+  let best=null,bestDistance=Infinity,bestPriority=Infinity;
+  for(const target of targetById.values()){
+    if((failedTargets[target.id]||0)>state.elapsed||target.hp<=0)continue;
+    const distance=hexDistance(origin,neutralizerTargetPosition(target)),priority=target.type==="enemy"?0:1;
+    if(distance<bestDistance||(distance===bestDistance&&priority<bestPriority)){best=target;bestDistance=distance;bestPriority=priority;}
+  }
+  const unitNumber=Number(unit.id?.replace(/\D/g,""))||0;
+  unit.targetId=best?.id||null;unit.targetRefreshAt=state.elapsed+NEUTRALIZER_TARGET_REFRESH_SECONDS+hash(unit.q,unit.r,state.mapSeed+unitNumber)*.2;
+  return best;
+}
+
+function adjacentNeutralizerTarget(unit,enemyIndex=null,proximity=null){
   const origin=worldToAxial(unit.x,unit.y);
-  return neutralizerTargets(unit).find(target=>hexDistance(origin,target.type==="enemy"?worldToAxial(target.x,target.y):target)<=1)||null;
+  const candidates=enemyIndex?indexedUnitsInRange(enemyIndex,origin.q,origin.r,1):state.enemies.filter(enemy=>enemy.hp>0);
+  let best=null,bestDistance=Infinity,bestPriority=Infinity;
+  for(const target of [...candidates,...state.hives.values()]){
+    if(target.hp<=0)continue;
+    const distance=hexDistance(origin,neutralizerTargetPosition(target)),priority=target.type==="enemy"?0:1;
+    if(distance<=1&&(distance<bestDistance||(distance===bestDistance&&priority<bestPriority))){best=target;bestDistance=distance;bestPriority=priority;}
+  }
+  if(proximity&&enemyIndex?.destinations)for(const enemy of indexedUnitsInRange(enemyIndex.destinations,origin.q,origin.r,1)){
+    if(hexDistance(origin,worldToAxial(enemy.x,enemy.y))>1){proximity.incoming=enemy;break;}
+  }
+  return best;
 }
 
 function neutralizerSpawnLocation(building,reservations=neutralizerSpaceReservations()){
@@ -71,13 +128,24 @@ function neutralizerSpawnLocation(building,reservations=neutralizerSpaceReservat
   return footprintPerimeter(structureFootprint(building)).filter(position=>neutralizerCanTraverse(position.q,position.r)&&!creepOccupiesHex(position.q,position.r)&&!trainClaimsHex(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r)).sort((a,b)=>(targetPosition?hexDistance(a,targetPosition)-hexDistance(b,targetPosition):0)||hash(b.q,b.r,state.mapSeed+state.nextId)-hash(a.q,a.r,state.mapSeed+state.nextId))[0]||null;
 }
 
+function spawnNeutralizerAt(q,r,spawnNumber=state.nextId,reservations=neutralizerSpaceReservations()){
+  if(!neutralizerCanTraverse(q,r)||creepOccupiesHex(q,r)||trainClaimsHex(q,r)||!enemyHexHasRoom(reservations,q,r))return null;
+  const unitId=`neutralizer-${state.nextId}`,prototype={id:unitId,moveCount:0},slot=chooseEnemySpaceSlot(reservations,q,r,prototype);
+  if(slot===null)return null;
+  const point=enemyWorldPosition(q,r,slot),maxHp=neutralizerHitPoints(),unit={id:`neutralizer-${state.nextId++}`,type:"neutralizer",q,r,slot,x:point.x,y:point.y,fromQ:q,fromR:r,fromSlot:slot,toQ:q,toR:r,toSlot:slot,progress:1,moveCount:0,speed:neutralizerSpeed(),hp:maxHp,maxHp,attackClock:0,nextPathAt:0,phase:hash(q,r,spawnNumber)*Math.PI*2};
+  state.neutralizers.push(unit);return unit;
+}
+
 function spawnNeutralizer(building){
   const reservations=neutralizerSpaceReservations(),location=neutralizerSpawnLocation(building,reservations);
-  if(!location)return null;
-  const unitId=`neutralizer-${state.nextId}`,prototype={id:unitId,moveCount:0},slot=chooseEnemySpaceSlot(reservations,location.q,location.r,prototype);
-  if(slot===null)return null;
-  const point=enemyWorldPosition(location.q,location.r,slot),maxHp=neutralizerHitPoints(),unit={id:`neutralizer-${state.nextId++}`,type:"neutralizer",q:location.q,r:location.r,slot,x:point.x,y:point.y,fromQ:location.q,fromR:location.r,fromSlot:slot,toQ:location.q,toR:location.r,toSlot:slot,progress:1,moveCount:0,speed:neutralizerSpeed(),hp:maxHp,maxHp,attackClock:0,nextPathAt:0,phase:hash(location.q,location.r,state.nextId)*Math.PI*2};
-  state.neutralizers.push(unit);return unit;
+  return location?spawnNeutralizerAt(location.q,location.r,state.nextId,reservations):null;
+}
+
+function debugAddMaxNeutralizersAt(q,r){
+  let added=0;
+  while(added<CREEP_HEX_CAPACITY&&spawnNeutralizerAt(q,r,state.nextId))added++;
+  if(!added)return fail("Cannot add neutralizers on that hex.");
+  updateUI(true);render();toast(`Debug: Added ${added} neutralizer${added===1?"":"s"}.`,"info");return added;
 }
 
 function updateNeutralizerProduction(dt){
@@ -93,23 +161,27 @@ function updateNeutralizerProduction(dt){
   }
 }
 
-function neutralizerNextStep(unit,reservations){
+function neutralizerNextStep(unit,reservations,enemyIndex=null,targetById=null,pathBudget=null){
   const currentSlot=Number.isInteger(unit.slot)?unit.slot:0;
   releaseEnemySpace(reservations,unit.q,unit.r,currentSlot);
-  const passable=(q,r)=>neutralizerCanTraverse(q,r)&&!creepOccupiesHex(q,r)&&enemyHexHasRoom(reservations,q,r);
+  const target=cachedNeutralizerTarget(unit,targetById||neutralizerTargetLookup());
+  if(!target){reserveEnemySpace(reservations,unit.q,unit.r,currentSlot);return null;}
+  const passable=(q,r)=>neutralizerCanTraverse(q,r)&&!creepOccupiesHex(q,r,enemyIndex)&&enemyHexHasRoom(reservations,q,r);
+  const position=cachedNeutralizerPathStep(unit,neutralizerTargetPosition(target),passable,pathBudget);
+  if(position===false){reserveEnemySpace(reservations,unit.q,unit.r,currentSlot);return false;}
   let step=null;
-  for(const target of neutralizerTargets(unit)){
-    const targetPosition=target.type==="enemy"?worldToAxial(target.x,target.y):target;
-    const position=findEnemyStep(unit,targetPosition,passable,1);
-    if(!position)continue;
+  if(position){
     const slot=chooseEnemySpaceSlot(reservations,position.q,position.r,unit);
-    if(slot!==null){step={...position,slot};break;}
+    if(slot!==null)step={...position,slot};
+  }
+  if(!step){
+    unit.failedTargets??={};unit.failedTargets[target.id]=state.elapsed+1;unit.targetId=null;unit.targetRefreshAt=0;
   }
   reserveEnemySpace(reservations,unit.q,unit.r,currentSlot);return step;
 }
 
 function damageNeutralizer(unit,amount){
-  unit.hp-=amount;sounds.hit();
+  unit.hp-=amount;
   if(unit.hp>0)return false;
   state.neutralizers=state.neutralizers.filter(candidate=>candidate.id!==unit.id);
   if(state.selected?.type==="neutralizer"&&state.selected.id===unit.id)state.selected=null;
@@ -119,9 +191,12 @@ function damageNeutralizer(unit,amount){
 function updateNeutralizers(dt,initiativeRoll=Math.random){
   updateNeutralizerProduction(dt);
   if(!state.neutralizers.length)return;
-  const reservations=neutralizerSpaceReservations();
-  for(const unit of [...state.neutralizers]){
-    const target=unit.progress>=1?adjacentNeutralizerTarget(unit):null;
+  const units=[...state.neutralizers],start=(state.neutralizerPathCursor||0)%units.length;
+  state.neutralizerPathCursor=(start+NEUTRALIZER_PATH_SEARCHES_PER_TICK)%units.length;
+  const reservations=neutralizerSpaceReservations(),enemyIndex=unitHexIndex(state.enemies),targetById=neutralizerTargetLookup(),pathBudget={remaining:NEUTRALIZER_PATH_SEARCHES_PER_TICK};
+  for(let offset=0;offset<units.length;offset++){
+    const unit=units[(start+offset)%units.length];
+    const proximity={},target=unit.progress>=1?adjacentNeutralizerTarget(unit,enemyIndex,proximity):null;
     if(target){
       unit.attackClock+=dt;const interval=neutralizerFireInterval(),shots=Math.floor((unit.attackClock+1e-9)/interval);
       if(shots>0){
@@ -134,8 +209,10 @@ function updateNeutralizers(dt,initiativeRoll=Math.random){
       }
       continue;
     }
+    if(unit.progress>=1&&proximity.incoming)continue;
     if(unit.progress>=1&&state.elapsed>=(unit.nextPathAt||0)){
-      const currentSlot=Number.isInteger(unit.slot)?unit.slot:0,next=neutralizerNextStep(unit,reservations);
+      const currentSlot=Number.isInteger(unit.slot)?unit.slot:0,next=neutralizerNextStep(unit,reservations,enemyIndex,targetById,pathBudget);
+      if(next===false)continue;
       if(next){unit.previousQ=unit.q;unit.previousR=unit.r;unit.fromQ=unit.q;unit.fromR=unit.r;unit.fromSlot=currentSlot;unit.toQ=next.q;unit.toR=next.r;unit.toSlot=next.slot;unit.progress=0;unit.nextPathAt=0;unit.moveCount++;reserveEnemySpace(reservations,next.q,next.r,next.slot);}else unit.nextPathAt=state.elapsed+.25;
     }
     if(unit.progress<1){

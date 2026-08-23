@@ -34,12 +34,15 @@ function makeInitialState() {
     trains: [],
     enemies: [],
     neutralizers: [],
+    neutralizerPathCursor: 0,
     projectiles: [],
     particles: [],
     screenShakeUntil: 0,
     screenShakeUntilWallTime: 0,
     turretEnergyWarningShown: false,
     turretEnergyWarningWasPaused: false,
+    trackDestroyedWarningShown: false,
+    trackDestroyedWarningWasPaused: false,
     neutralizerGateNoticeShown: false,
     neutralizerGateNoticeWasPaused: false,
     baseMaterial: 200,
@@ -198,7 +201,7 @@ class SoundBank {
     osc.connect(amp).connect(this.audio.destination);
     osc.start(t); osc.stop(t + duration + .02);
   }
-  place() { this.tone(150, .12, "square", .025, 260); }
+  place() { this.tone(150, .12, "triangle", .018, 260); }
   scheduleStop() { this.tone(210, .13, "sine", .012, 420); this.tone(330, .1, "sine", .007, 560, .025); }
   remove() { this.tone(170, .16, "sawtooth", .022, 65); }
   shot() { const now = performance.now(); if (now - this.lastShot > 65) { this.lastShot = now; this.tone(430, .11, "triangle", .018, 240); this.tone(170, .13, "sine", .011, 105, .02); } }
