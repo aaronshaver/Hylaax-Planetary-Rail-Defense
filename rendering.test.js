@@ -444,4 +444,12 @@ describe("rendering caches", () => {
     assert.equal(context.scaleCalls.length,7);
     assert.ok(context.scaleCalls.every(call=>call.x<=api.constants.CREEP_RENDER_SCALE*1.08&&call.y===call.x));
   });
+
+  test("unit shadow blurs disable independently above 100 units and return at 100",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state,units=(kind,count)=>Array.from({length:count},(_,index)=>({...makeEnemy(`${kind}-${index}`,index%15,Math.floor(index/15),index%7),type:kind==="creep"?"enemy":"neutralizer"}));
+    state.enemies=units("creep",101);state.neutralizers=units("neutralizer",100);context.fillCalls.length=0;api.drawEnemies();api.drawNeutralizers();
+    assert.ok(context.fillCalls.filter(call=>call.fillStyle==="#b92838").every(call=>call.shadowBlur===0),"Creep shadows should be disabled at 101");assert.ok(context.fillCalls.filter(call=>call.fillStyle==="#258fc9").every(call=>call.shadowBlur===13),"Neutralizer shadows should remain at 100");
+    state.enemies.pop();state.neutralizers.push({...makeEnemy("neutralizer-101",20,20,0),type:"neutralizer"});context.fillCalls.length=0;api.drawEnemies();api.drawNeutralizers();
+    assert.ok(context.fillCalls.filter(call=>call.fillStyle==="#b92838").every(call=>call.shadowBlur===13),"Creep shadows should return at 100");assert.ok(context.fillCalls.filter(call=>call.fillStyle==="#258fc9").every(call=>call.shadowBlur===0),"Neutralizer shadows should be disabled at 101");assert.equal(api.constants.UNIT_SHADOW_RENDER_LIMIT,100);
+  });
 });
