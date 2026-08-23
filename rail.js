@@ -513,7 +513,7 @@ function updateTrainSchedules(){
   for(const train of state.trains){
     if(!train.scheduleComplete||!trainStopped(train))continue;
     if(state.elapsed<(train.repairHoldUntil||0))continue;
-    if(train.servicingStop){if(state.elapsed<train.stopHoldUntil)continue;train.servicingStop=false;}
+    if(train.servicingStop){if(state.elapsed<train.stopHoldUntil)continue;finalMineTopUp(train);train.servicingStop=false;}
     startScheduledLeg(train);
   }
 }

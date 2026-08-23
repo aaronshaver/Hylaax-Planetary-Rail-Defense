@@ -17,7 +17,7 @@ function findResearchSite(){
 }
 
 describe("Research building and upgrades",()=>{
-  test("the first Research building grants 30 points and only then begins passive accrual",()=>{
+  test("every newly constructed Research building grants 30 points and the first unlocks passive accrual",()=>{
     const state=api.state;api.updateResearch(95.75);api.updateUI(true);
     assert.equal(state.researchPoints,0);assert.equal(elements.get("researchPointsHud").textContent,0);
 
@@ -31,7 +31,10 @@ describe("Research building and upgrades",()=>{
     assert.equal(state.researchPoints,35);assert.equal(elements.get("researchPointsHud").textContent,35);
 
     const secondSite=findResearchSite();assert.ok(secondSite);assert.ok(api.buildResearch(secondSite.q,secondSite.r));
-    assert.equal(state.researchPoints,35,"additional Research buildings must not grant another 30 points");
+    assert.equal(state.researchPoints,65,"the second Research building should grant another 30 points");
+    const thirdSite=findResearchSite();assert.ok(thirdSite);assert.ok(api.buildResearch(thirdSite.q,thirdSite.r));
+    assert.equal(state.researchPoints,95,"the third Research building should grant another 30 points");
+    assert.equal(state.baseMaterial,50);assert.equal(state.baseEnergy,50);
   });
 
   test("all three triangular cells render R and select the same 300 HP building",()=>{

@@ -172,6 +172,23 @@ describe("resource logistics", () => {
     assert.ok(state.worldMessages.some(item=>item.message==="Train A: Mined energy"));
   });
 
+  test("a Train tops up each mineable wagon one final time before departing",()=>{
+    for(const scenario of [{resource:"energy",mine:{q:13,r:3},stop:{q:12,r:3}},{resource:"material",mine:{q:7,r:-2},stop:{q:6,r:-2}}]){
+      api.reset();const state=api.state;state.trains=[];state.structures.clear();state.tracks.clear();const train=addTestTrain();
+      moveTrain(train,scenario.stop.q,scenario.stop.r);train.fuel=train.maxFuel;
+      const next={q:scenario.stop.q-1,r:scenario.stop.r},stopKey=api.key(scenario.stop.q,scenario.stop.r),nextKey=api.key(next.q,next.r);
+      state.tracks.set(stopKey,makeTrack(scenario.stop.q,scenario.stop.r,[nextKey]));state.tracks.set(nextKey,makeTrack(next.q,next.r,[stopKey]));
+      train.schedule=[scenario.stop,next];train.scheduleComplete=true;train.scheduleTargetIndex=1;train.servicingStop=true;train.stopHoldUntil=state.elapsed;
+      const wagon=train.wagons.find(candidate=>candidate.role===scenario.resource);wagon.amount=7;
+      const node=api.resourceNodeAt(scenario.mine.q,scenario.mine.r),before=node.amount;
+      state.structures.set(api.key(scenario.mine.q,scenario.mine.r),{id:`departure-${scenario.resource}-mine`,type:"mine",resource:scenario.resource,...scenario.mine,hp:22,maxHp:22});
+
+      api.updateTrainSchedules();
+
+      assert.equal(wagon.amount,wagon.capacity,`${scenario.resource} wagon should be full`);assert.equal(api.resourceNodeAt(scenario.mine.q,scenario.mine.r).amount,before-23);assert.ok(train.route.length>0,"the Train should depart after its final mining check");
+    }
+  });
+
   test("ordinary resource transfers require a completed non-destroyed Train Stop",()=>{
     const state=api.state,train=state.trains[0];moveTrain(train,6,-2);train.fuel=train.maxFuel;train.wagons[0].amount=0;
     train.schedule=[{q:6,r:-2}];train.scheduleComplete=false;

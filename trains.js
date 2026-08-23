@@ -261,6 +261,37 @@ function updateAutomaticRepair(train) {
   return true;
 }
 
+function mineFromStructure(train,structure){
+  const node=resourceNodeAt(structure.q,structure.r);
+  const available=Math.floor(node?.amount||0),efficiency=mineEfficiency(),fuelRoom=structure.resource==="energy"?Math.floor(Math.max(0,train.maxFuel-train.fuel)):0,cargoRoom=Math.floor(cargoSpace(train,structure.resource)),outputRoom=fuelRoom+cargoRoom;
+  const sourceUnits=Math.min(available,Math.ceil(outputRoom/efficiency)),availableOutput=Math.min(outputRoom,Math.floor(sourceUnits*efficiency));
+  const fuelMoved=Math.min(fuelRoom,availableOutput);
+  if(fuelMoved>0){train.fuel+=fuelMoved;train.energyDepleted=false;}
+  const extractable=Math.floor(Math.min(cargoSpace(train,structure.resource),Math.max(0,availableOutput-fuelMoved)));
+  const moved=addCargo(train,structure.resource,extractable),totalMoved=fuelMoved+moved;
+  if(totalMoved>0){
+    state.stats[structure.resource==="energy"?"energyMined":"materialMined"]+=totalMoved;
+    setNodeAmount(node,node.amount-Math.min(sourceUnits,Math.ceil(totalMoved/efficiency)));
+    showTrainActivity(train,structure,`Mined ${resourceLabel(structure.resource)}`,1.25);
+  }
+  return totalMoved;
+}
+
+function finalMineTopUp(train){
+  if(train.trainType==="combat"||!trainAtLiveStop(train))return 0;
+  let moved=0;
+  for(const resource of ["energy","material"]){
+    if(cargoSpace(train,resource)<=0)continue;
+    for(const structure of state.structures.values()){
+      if(structure.type!=="mine"||structure.resource!==resource||distanceToStructure(train,structure)>1)continue;
+      if(nearestStoppedLoco(structure,1,candidate=>candidate.trainType!=="combat")?.id!==train.id)continue;
+      moved+=mineFromStructure(train,structure);
+      if(cargoSpace(train,resource)<=0)break;
+    }
+  }
+  return moved;
+}
+
 function updateAutomaticLogistics() {
   const cargoChangedTrains=new Set();
   updateEmergencyTrainRefueling();
@@ -269,19 +300,7 @@ function updateAutomaticLogistics() {
     if(structure.type!=="mine")continue;
     const train=nearestStoppedLoco(structure,1,candidate=>candidate.trainType!=="combat");
     if(!train)continue;
-    const node=resourceNodeAt(structure.q,structure.r);
-    const available=Math.floor(node?.amount||0),efficiency=mineEfficiency(),fuelRoom=structure.resource==="energy"?Math.floor(Math.max(0,train.maxFuel-train.fuel)):0,cargoRoom=Math.floor(cargoSpace(train,structure.resource)),outputRoom=fuelRoom+cargoRoom;
-    const sourceUnits=Math.min(available,Math.ceil(outputRoom/efficiency)),availableOutput=Math.min(outputRoom,Math.floor(sourceUnits*efficiency));
-    const fuelMoved=Math.min(fuelRoom,availableOutput);
-    if(fuelMoved>0){train.fuel+=fuelMoved;train.energyDepleted=false;}
-    const extractable=Math.floor(Math.min(cargoSpace(train,structure.resource),Math.max(0,availableOutput-fuelMoved)));
-    const moved=addCargo(train,structure.resource,extractable);
-    if(fuelMoved+moved>0){
-      state.stats[structure.resource==="energy"?"energyMined":"materialMined"]+=fuelMoved+moved;
-      cargoChangedTrains.add(train.id);
-      setNodeAmount(node,node.amount-Math.min(sourceUnits,Math.ceil((fuelMoved+moved)/efficiency)));
-      showTrainActivity(train,structure,`Mined ${resourceLabel(structure.resource)}`,1.25);
-    }
+    if(mineFromStructure(train,structure)>0)cargoChangedTrains.add(train.id);
   }
   for(const building of state.structures.values()){
     if(building.type!=="neutralizer-building")continue;
