@@ -24,7 +24,7 @@ if(window.__HYLAAX_TEST__){
     showWorldActivity,showTrainActivity,worldMessagePriority,worldMessageLayout,terrainLayerStats,ensureTerrainLayer,terrainLayerPreviewCoversViewport,drawTerrainLayer,drawResourceNode,stopSupplyTargets,stopSupplyConnections,drawStopSupplyLines,drawTracks,drawTrainStops,drawTurretRanges,drawBase,drawHives,drawGhosts,drawStructures,drawTrains,drawBuildTrackGlow,trackGlowPhase,trackGlowAnimationActive,drawEnemies,drawNeutralizers,drawEffects,drawWorldMessages,screenShakeOffset,screenShakeActive,render,
     canBaseAfford,constructionModeCost,constructionModeAffordable,constructionModeUnavailableMessage,trainFabricationCost,trainFabricationDisabledReason,payBase,handleAction,addBaseResources,
     selectedTrainPartLabel,selectionHtml,setStatusButtonMarkup,updateConstructionToolAvailability,setDebugMenuOpen,updateDebugUI,showTurretEnergyWarning,dismissTurretEnergyWarning,connectedUnminedResources,beginSelectionInteraction,finishSelectionInteraction,scheduleSelectionInteractionFinish,currentSelectionCacheKey,researchSelectionDescription,updateResearchSelectionContent,updateBaseSelectionContent,updateUI,formatSurvivalTime,
-    tutorialMessage,tutorialLoopTargets,tutorialScheduleTargets,tutorialTargetsHaveMines,tutorialTurretIsByStop,tutorialEvent,startTutorial,finishTutorial,restartTutorial,startGame,resetGameState,queueCameraPan,queueCameraZoom,finishZoomGesture,handleVisibilityChange,runFrame
+    tutorialMessage,tutorialLoopTargets,tutorialScheduleTargets,tutorialTargetsHaveMines,tutorialTurretIsByStop,tutorialEvent,startTutorial,handleTutorialOkay,finishTutorial,restartTutorial,startGame,resetGameState,queueCameraPan,queueCameraZoom,finishZoomGesture,handleVisibilityChange,runFrame
   };
 }
 
@@ -68,7 +68,7 @@ ui.turretEnergyOkay.addEventListener("click",dismissTurretEnergyWarning);
 ui.neutralizerGateOkay.addEventListener("click",dismissNeutralizerGateNotice);
 ui.remindersTutorial.addEventListener("click",()=>startGame(true));
 ui.remindersContinue.addEventListener("click",()=>startGame(false));
-ui.tutorialOkay.addEventListener("click",finishTutorial);
+ui.tutorialOkay.addEventListener("click",handleTutorialOkay);
 ui.tutorialRestart.addEventListener("click",restartTutorial);
 ui.confirmNo.addEventListener("click",cancelTrainSalvage);
 ui.confirmYes.addEventListener("click",confirmTrainSalvage);

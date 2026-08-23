@@ -11,6 +11,7 @@ const TUTORIAL_MESSAGES = [
   "Do two clicks to place the train: one for the head of the train, another for its tail",
   "Click 'Add schedule' in the train's pane on the right",
   "Add three stops, making sure there is a stop by the base building, C resource node, and E resource node. Click 'Done adding' when finished.",
+  "Tips\n\n- Trains will try to refuel another train when passing through if that other train is out of fuel\n- Trains will try to rebuild destroyed track and destroyed buildings",
   "Click 'Build mine'",
   "Click on the C and E nodes to add mines to them",
   "Click 'Build turret'",
@@ -27,8 +28,8 @@ function syncTutorialUI(){
   const active=Boolean(state.tutorial?.active);
   ui.tutorialPrompt.hidden=!active;ui.tutorialPrompt.classList.toggle("d-none",!active);
   if(active)ui.tutorialText.textContent=tutorialMessage();
-  const finalStep=active&&state.tutorial.step===14;
-  ui.tutorialOkay.hidden=!finalStep;ui.tutorialOkay.classList.toggle("d-none",!finalStep);
+  const okayStep=active&&[10,15].includes(state.tutorial.step);
+  ui.tutorialOkay.hidden=!okayStep;ui.tutorialOkay.classList.toggle("d-none",!okayStep);
   ui.pauseToggle.disabled=state.gameOver||tutorialLocksPause();
 }
 
@@ -96,7 +97,7 @@ function setTutorialStep(step){
 
 function tutorialEvent(type,detail={}){
   const tutorial=state.tutorial;
-  if(!tutorial?.active||tutorial.step===14)return false;
+  if(!tutorial?.active||tutorial.step===15)return false;
   let advanced=false,keepChecking=true;
   while(keepChecking){
     keepChecking=false;
@@ -117,10 +118,10 @@ function tutorialEvent(type,detail={}){
       const train=state.trains.find(candidate=>candidate.id===tutorial.trainId),targets=tutorialScheduleTargets(train);
       if(targets){tutorial.materialNodeKey=key(targets.material.q,targets.material.r);tutorial.energyNodeKey=key(targets.energy.q,targets.energy.r);keepChecking=true;}
     }
-    else if(tutorial.step===10&&type==="mode"&&detail.mode==="mine")keepChecking=true;
-    else if(tutorial.step===11&&type==="mine-built"&&tutorialTargetsHaveMines())keepChecking=true;
-    else if(tutorial.step===12&&type==="mode"&&detail.mode==="turret")keepChecking=true;
-    else if(tutorial.step===13&&type==="turret-built"){
+    else if(tutorial.step===11&&type==="mode"&&detail.mode==="mine")keepChecking=true;
+    else if(tutorial.step===12&&type==="mine-built"&&tutorialTargetsHaveMines())keepChecking=true;
+    else if(tutorial.step===13&&type==="mode"&&detail.mode==="turret")keepChecking=true;
+    else if(tutorial.step===14&&type==="turret-built"){
       const train=state.trains.find(candidate=>candidate.id===tutorial.trainId);
       if(tutorialTurretIsByStop(detail.turret,train))keepChecking=true;
     }
@@ -137,6 +138,11 @@ function startTutorial(){
 function finishTutorial(){
   state.tutorial=null;state.paused=false;simulationAccumulator=0;lastWallTime=Date.now();
   syncTutorialUI();updateUI(true);render();canvas.focus();
+}
+
+function handleTutorialOkay(){
+  if(state.tutorial?.active&&state.tutorial.step===10){setTutorialStep(11);return;}
+  finishTutorial();
 }
 
 function restartTutorial(){

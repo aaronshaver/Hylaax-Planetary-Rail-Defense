@@ -76,33 +76,37 @@ describe("guided tutorial",()=>{
     api.tutorialEvent("schedule-started",{trainId:train.id,train});
     assert.equal(api.state.tutorial.step,9);
     assert.equal(api.tutorialMessage(),"Step 9: Add three stops, making sure there is a stop by the base building, C resource node, and E resource node. Click 'Done adding' when finished.");
+    assert.equal(elements.get("tutorialOkay").hidden,true);
 
     train.schedule=[loop[0],loop[5],loop[14]];
     train.scheduleComplete=true;
     api.tutorialEvent("schedule-completed",{trainId:train.id,train});
     assert.equal(api.state.tutorial.step,10);
+    assert.equal(api.tutorialMessage(),"Step 10: Tips\n\n- Trains will try to refuel another train when passing through if that other train is out of fuel\n- Trains will try to rebuild destroyed track and destroyed buildings");
+    assert.equal(elements.get("tutorialOkay").hidden,false);
+    api.handleTutorialOkay();assert.equal(api.state.tutorial.step,11);assert.equal(elements.get("tutorialOkay").hidden,true);
     api.tutorialEvent("mode",{mode:"mine"});
-    assert.equal(api.state.tutorial.step,11);
+    assert.equal(api.state.tutorial.step,12);
 
     const materialKey=api.state.tutorial.materialNodeKey,energyKey=api.state.tutorial.energyNodeKey;
     const materialPosition=api.fromKey(materialKey),energyPosition=api.fromKey(energyKey);
     api.state.structures.set(materialKey,{id:"tutorial-material-mine",type:"mine",resource:"material",...materialPosition});
     api.tutorialEvent("mine-built");
-    assert.equal(api.state.tutorial.step,11);
+    assert.equal(api.state.tutorial.step,12);
     api.state.structures.set(energyKey,{id:"tutorial-energy-mine",type:"mine",resource:"energy",...energyPosition});
     api.tutorialEvent("mine-built");
     api.tutorialEvent("mode",{mode:"turret"});
-    assert.equal(api.state.tutorial.step,13);
-    assert.equal(api.tutorialMessage(),"Step 13: Place a turret one hex away from one of the train stops");
+    assert.equal(api.state.tutorial.step,14);
+    assert.equal(api.tutorialMessage(),"Step 14: Place a turret one hex away from one of the train stops");
 
     const turret={id:"tutorial-turret",type:"turret",q:3,r:0};
     api.state.structures.set(api.key(turret.q,turret.r),turret);
     api.tutorialEvent("turret-built",{turret});
-    assert.equal(api.state.tutorial.step,14);
+    assert.equal(api.state.tutorial.step,15);
     assert.equal(api.state.paused,true,"the final step must remain paused until Okay is clicked");
     assert.equal(elements.get("pauseToggle").disabled,true);
     assert.equal(elements.get("tutorialOkay").hidden,false);
-    assert.equal(elements.get("tutorialText").textContent,"Step 14: You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base building.\n\nClick the 'Playing' button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like walls and artillery and a research building to give you more tools to survive and improve efficiency.");
+    assert.equal(elements.get("tutorialText").textContent,"Step 15: You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base building.\n\nClick the 'Playing' button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like walls and artillery and a research building to give you more tools to survive and improve efficiency.");
 
     api.finishTutorial();
     assert.equal(api.state.tutorial,null);
