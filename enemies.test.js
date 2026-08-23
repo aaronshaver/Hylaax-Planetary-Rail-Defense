@@ -462,6 +462,12 @@ describe("enemy navigation", () => {
     assert.ok(Number.isInteger(next.slot)&&next.slot>=0&&next.slot<7);
   });
 
+  test("unit spatial indexes and reservation maps persist while units change hexes",()=>{
+    const state=api.state,enemy=makeEnemy("enemy-persistent-index",8,0,2);state.enemies=[enemy];const firstIndex=api.unitHexIndex(state.enemies),firstReservations=api.enemySpaceReservations();assert.equal(api.indexedUnitsAt(firstIndex,8,0)[0],enemy);assert.equal(firstReservations.get(api.key(8,0)).has(2),true);
+    const point=api.enemyWorldPosition(9,0,3);enemy.q=enemy.fromQ=enemy.toQ=9;enemy.r=enemy.fromR=enemy.toR=0;enemy.slot=enemy.fromSlot=enemy.toSlot=3;enemy.x=point.x;enemy.y=point.y;enemy.progress=1;
+    const nextIndex=api.unitHexIndex(state.enemies),nextReservations=api.enemySpaceReservations();assert.equal(nextIndex,firstIndex);assert.equal(nextReservations,firstReservations);assert.equal(api.indexedUnitsAt(nextIndex,8,0).length,0);assert.equal(api.indexedUnitsAt(nextIndex,9,0)[0],enemy);assert.equal(nextReservations.get(api.key(9,0)).has(3),true);
+  });
+
   test("600 Creeps share one navigation field and reserve distinct destination hexes", () => {
     const state = api.state;
     state.tracks.clear();

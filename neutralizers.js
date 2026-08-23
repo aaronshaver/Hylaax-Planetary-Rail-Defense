@@ -2,8 +2,8 @@
 
 const NEUTRALIZER_TARGET_REFRESH_SECONDS=.9;
 const NEUTRALIZER_PATH_SEARCHES_PER_TICK=2;
-const NEUTRALIZER_PATH_CACHE_SECONDS=.75;
-let neutralizerPathStepCache=new Map(),neutralizerPathCacheVersion=-1;
+const NEUTRALIZER_PATH_CACHE_SECONDS=4;
+let neutralizerRouteFields=new Map(),neutralizerPathCacheVersion=-1;
 
 function neutralizerFootprintCandidates(q,r){return DIRECTIONS.map(([dq,dr])=>[{q,r},{q:q+dq,r:r+dr}]);}
 
@@ -43,13 +43,7 @@ function buildNeutralizer(q,r){
 }
 
 function neutralizerSpaceReservations(excludeId=null){
-  const reservations=new Map();
-  for(const unit of state.neutralizers){
-    if(unit.id===excludeId)continue;
-    const slot=Number.isInteger(unit.slot)?unit.slot:0;reserveEnemySpace(reservations,unit.q,unit.r,slot);
-    if(unit.progress<1)reserveEnemySpace(reservations,unit.toQ,unit.toR,Number.isInteger(unit.toSlot)?unit.toSlot:slot);
-  }
-  return reservations;
+  return unitSpaceReservations(state.neutralizers,excludeId);
 }
 
 function neutralizerCanTraverse(q,r){
@@ -75,34 +69,38 @@ function neutralizerTargetLookup(){
 
 function neutralizerTargetPosition(target){return target.type==="enemy"?worldToAxial(target.x,target.y):target;}
 
-function neutralizerPathCacheKey(unit,targetPosition){return `${state.mapSeed}|${enemyNavigationVersion}|${unit.q},${unit.r}|${targetPosition.q},${targetPosition.r}`;}
+function neutralizerRouteFieldKey(targetPosition){return `${state.mapSeed}|${enemyNavigationVersion}|${targetPosition.q},${targetPosition.r}`;}
 
 function cachedNeutralizerPathStep(unit,targetPosition,passable,pathBudget){
-  if(neutralizerPathCacheVersion!==enemyNavigationVersion){neutralizerPathStepCache.clear();neutralizerPathCacheVersion=enemyNavigationVersion;}
-  const cacheKey=neutralizerPathCacheKey(unit,targetPosition),cached=neutralizerPathStepCache.get(cacheKey);
-  if(cached&&cached.until>=state.elapsed&&passable(cached.position.q,cached.position.r))return cached.position;
-  if(cached)neutralizerPathStepCache.delete(cacheKey);
+  if(neutralizerPathCacheVersion!==enemyNavigationVersion){neutralizerRouteFields.clear();neutralizerPathCacheVersion=enemyNavigationVersion;}
+  const fieldKey=neutralizerRouteFieldKey(targetPosition);let field=neutralizerRouteFields.get(fieldKey);
+  if(field&&field.until<state.elapsed){neutralizerRouteFields.delete(fieldKey);field=null;}
+  const startKey=key(unit.q,unit.r),cached=field?.steps.get(startKey);
+  if(cached&&passable(cached.q,cached.r))return cached;
+  if(cached){field.steps.delete(startKey);field.distances.delete(startKey);}
   if(pathBudget&&pathBudget.remaining<=0)return false;
   if(pathBudget)pathBudget.remaining--;
-  const position=findEnemyStep(unit,targetPosition,passable,1);
+  const path=findEnemyPath(unit,targetPosition,passable,1),position=path?.[0]||null;
   if(position){
-    if(neutralizerPathStepCache.size>=2048)neutralizerPathStepCache.clear();
-    neutralizerPathStepCache.set(cacheKey,{position,until:state.elapsed+NEUTRALIZER_PATH_CACHE_SECONDS});
+    if(!field){if(neutralizerRouteFields.size>=256)neutralizerRouteFields.clear();field={steps:new Map(),distances:new Map(),until:0};neutralizerRouteFields.set(fieldKey,field);}
+    const endpoint=path.at(-1);if(!field.distances.has(key(endpoint.q,endpoint.r)))field.distances.set(key(endpoint.q,endpoint.r),0);
+    for(let index=path.length-1;index>=0;index--){
+      const previous=index===0?{q:unit.q,r:unit.r}:path[index-1],next=path[index],nextDistance=field.distances.get(key(next.q,next.r))??path.length-1-index,candidateDistance=nextDistance+1,previousKey=key(previous.q,previous.r),knownDistance=field.distances.get(previousKey);
+      if(knownDistance===undefined||candidateDistance<knownDistance){field.distances.set(previousKey,candidateDistance);field.steps.set(previousKey,next);}
+    }
+    field.until=state.elapsed+NEUTRALIZER_PATH_CACHE_SECONDS;
   }
   return position;
 }
 
-function cachedNeutralizerTarget(unit,targetById=neutralizerTargetLookup()){
+function cachedNeutralizerTarget(unit,targetById=neutralizerTargetLookup(),enemyIndex=unitHexIndex(state.enemies)){
   const cached=targetById.get(unit.targetId),refreshAt=unit.targetRefreshAt||0;
   if(cached&&cached.hp>0&&state.elapsed<refreshAt)return cached;
   const origin=worldToAxial(unit.x,unit.y),failedTargets=unit.failedTargets||{};
   for(const [targetId,until] of Object.entries(failedTargets))if(state.elapsed>=until)delete failedTargets[targetId];
-  let best=null,bestDistance=Infinity,bestPriority=Infinity;
-  for(const target of targetById.values()){
-    if((failedTargets[target.id]||0)>state.elapsed||target.hp<=0)continue;
-    const distance=hexDistance(origin,neutralizerTargetPosition(target)),priority=target.type==="enemy"?0:1;
-    if(distance<bestDistance||(distance===bestDistance&&priority<bestPriority)){best=target;bestDistance=distance;bestPriority=priority;}
-  }
+  const eligible=target=>(failedTargets[target.id]||0)<=state.elapsed&&target.hp>0,enemy=nearestIndexedUnit(enemyIndex,origin.q,origin.r,eligible),enemyDistance=enemy?hexDistance(origin,neutralizerTargetPosition(enemy)):Infinity;
+  let hive=null,hiveDistance=Infinity;for(const candidate of state.hives.values()){if(!eligible(candidate))continue;const distance=hexDistance(origin,candidate);if(distance<hiveDistance||(distance===hiveDistance&&String(candidate.id)<String(hive?.id))){hive=candidate;hiveDistance=distance;}}
+  const best=enemyDistance<=hiveDistance?enemy:hive;
   const unitNumber=Number(unit.id?.replace(/\D/g,""))||0;
   unit.targetId=best?.id||null;unit.targetRefreshAt=state.elapsed+NEUTRALIZER_TARGET_REFRESH_SECONDS+hash(unit.q,unit.r,state.mapSeed+unitNumber)*.2;
   return best;
@@ -172,7 +170,7 @@ function updateNeutralizerProduction(dt){
 function neutralizerNextStep(unit,reservations,enemyIndex=null,targetById=null,pathBudget=null){
   const currentSlot=Number.isInteger(unit.slot)?unit.slot:0;
   releaseEnemySpace(reservations,unit.q,unit.r,currentSlot);
-  const target=cachedNeutralizerTarget(unit,targetById||neutralizerTargetLookup());
+  const target=cachedNeutralizerTarget(unit,targetById||neutralizerTargetLookup(),enemyIndex||unitHexIndex(state.enemies));
   if(!target){reserveEnemySpace(reservations,unit.q,unit.r,currentSlot);return null;}
   const passable=(q,r)=>neutralizerCanTraverse(q,r)&&!creepOccupiesHex(q,r,enemyIndex)&&enemyHexHasRoom(reservations,q,r);
   const position=cachedNeutralizerPathStep(unit,neutralizerTargetPosition(target),passable,pathBudget);
@@ -204,7 +202,7 @@ function damageNeutralizer(unit,amount){
 function updateNeutralizers(dt,initiativeRoll=Math.random){
   updateNeutralizerProduction(dt);
   if(!state.neutralizers.length)return;
-  const units=[...state.neutralizers],start=(state.neutralizerPathCursor||0)%units.length;
+  const units=state.neutralizers,start=(state.neutralizerPathCursor||0)%units.length;
   state.neutralizerPathCursor=(start+NEUTRALIZER_PATH_SEARCHES_PER_TICK)%units.length;
   const reservations=neutralizerSpaceReservations(),enemyIndex=unitHexIndex(state.enemies),neutralizerIndex=unitHexIndex(units),targetById=neutralizerTargetLookup(),pathBudget={remaining:NEUTRALIZER_PATH_SEARCHES_PER_TICK};
   deferEnemyRemoval=true;

@@ -150,9 +150,9 @@ describe("game bootstrap", () => {
     assert.equal((dialog.match(/Confirm salvage/g)||[]).length,1);assert.match(dialog,/id="confirmTitle" class="eyebrow text-danger">Confirm salvage/);assert.doesNotMatch(dialog,/<h2[^>]*>Confirm salvage<\/h2>/);
   });
 
-  test("the displayed and package versions are 4.4.1",()=>{
+  test("the displayed and package versions are 4.4.2",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 4\.4\.1/);assert.match(html,/DEFENSE 4\.4\.1/);assert.equal(packageJson.version,"4.4.1");
+    assert.match(html,/Planetary Rail Defense 4\.4\.2/);assert.match(html,/DEFENSE 4\.4\.2/);assert.equal(packageJson.version,"4.4.2");
   });
 });

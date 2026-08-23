@@ -109,16 +109,48 @@ const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const hexDistance = (a, b) => (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
 const neighbors = (q, r) => DIRECTIONS.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
+const unitHexIndexCaches=new WeakMap(),unitReservationCaches=new WeakMap();
+
+function removeIndexedUnit(index,positionKey,unit){
+  if(!positionKey)return;
+  const bucket=index.get(positionKey);if(!bucket)return;
+  const position=bucket.indexOf(unit);if(position>=0)bucket.splice(position,1);
+  if(!bucket.length)index.delete(positionKey);
+}
+
+function addIndexedUnit(index,positionKey,unit){
+  const bucket=index.get(positionKey)||[];bucket.push(unit);index.set(positionKey,bucket);
+}
+
 function unitHexIndex(units){
-  const index=new Map(),destinations=new Map();
-  const add=(target,unit,q,r)=>{const positionKey=key(q,r),bucket=target.get(positionKey)||[];bucket.push(unit);target.set(positionKey,bucket);};
+  let cache=unitHexIndexCaches.get(units);
+  if(!cache){const index=new Map(),destinations=new Map();index.destinations=destinations;cache={index,destinations,records:new Map(),generation:0};unitHexIndexCaches.set(units,cache);}
+  const {index,destinations,records}=cache,generation=++cache.generation;let minQ=Infinity,maxQ=-Infinity,minR=Infinity,maxR=-Infinity;
   for(const unit of units){
     if(unit.hp<=0)continue;
-    const position=worldToAxial(unit.x,unit.y);add(index,unit,position.q,position.r);
-    if(unit.progress<1&&Number.isFinite(unit.toQ)&&Number.isFinite(unit.toR)&&key(position.q,position.r)!==key(unit.toQ,unit.toR))add(destinations,unit,unit.toQ,unit.toR);
+    const position=worldToAxial(unit.x,unit.y),currentKey=key(position.q,position.r),destinationKey=unit.progress<1&&Number.isFinite(unit.toQ)&&Number.isFinite(unit.toR)&&currentKey!==key(unit.toQ,unit.toR)?key(unit.toQ,unit.toR):null;
+    let record=records.get(unit.id);
+    if(!record){record={unit,currentKey:null,destinationKey:null,generation};records.set(unit.id,record);}
+    const indexedUnit=record.unit,unitChanged=indexedUnit!==unit;
+    if(unitChanged||record.currentKey!==currentKey){removeIndexedUnit(index,record.currentKey,indexedUnit);addIndexedUnit(index,currentKey,unit);record.currentKey=currentKey;}
+    if(unitChanged||record.destinationKey!==destinationKey){removeIndexedUnit(destinations,record.destinationKey,indexedUnit);if(destinationKey)addIndexedUnit(destinations,destinationKey,unit);record.destinationKey=destinationKey;}
+    record.unit=unit;record.generation=generation;minQ=Math.min(minQ,position.q);maxQ=Math.max(maxQ,position.q);minR=Math.min(minR,position.r);maxR=Math.max(maxR,position.r);
   }
-  index.destinations=destinations;
-  return index;
+  for(const [id,record] of records)if(record.generation!==generation){removeIndexedUnit(index,record.currentKey,record.unit);removeIndexedUnit(destinations,record.destinationKey,record.unit);records.delete(id);}
+  index.bounds=Number.isFinite(minQ)?{minQ,maxQ,minR,maxR}:null;return index;
+}
+
+function unitSpaceReservations(units,excludeId=null){
+  let reservations=excludeId===null?unitReservationCaches.get(units):null;
+  if(!reservations){reservations=new Map();if(excludeId===null)unitReservationCaches.set(units,reservations);}
+  for(const slots of reservations.values())slots.clear();
+  for(const unit of units){
+    if(unit.hp<=0||unit.id===excludeId)continue;
+    const slot=Number.isInteger(unit.slot)?unit.slot:0;reserveEnemySpace(reservations,unit.q,unit.r,slot);
+    if(unit.progress<1)reserveEnemySpace(reservations,unit.toQ,unit.toR,Number.isInteger(unit.toSlot)?unit.toSlot:slot);
+  }
+  for(const [positionKey,slots] of reservations)if(!slots.size)reservations.delete(positionKey);
+  return reservations;
 }
 function indexedUnitsAt(index,q,r){return index?.get(key(q,r))||[];}
 function indexedUnitsInRange(index,q,r,range=1){
@@ -128,6 +160,23 @@ function indexedUnitsInRange(index,q,r,range=1){
     for(let dr=minDr;dr<=maxDr;dr++)for(const unit of indexedUnitsAt(index,q+dq,r+dr))if(unit.hp>0)units.push(unit);
   }
   return units;
+}
+function nearestIndexedUnit(index,q,r,predicate=unit=>unit.hp>0){
+  const bounds=index?.bounds;if(!bounds)return null;
+  const nearer=(best,unit,distance,bestDistance)=>!best||distance<bestDistance||(distance===bestDistance&&String(unit.id)<String(best.id));
+  const scanBuckets=()=>{let best=null,bestDistance=Infinity;for(const [positionKey,bucket] of index){const position=fromKey(positionKey),distance=hexDistance({q,r},position);for(const unit of bucket)if(predicate(unit)&&nearer(best,unit,distance,bestDistance)){best=unit;bestDistance=distance;}}return best;};
+  const maxRadius=Math.max(hexDistance({q,r},{q:bounds.minQ,r:bounds.minR}),hexDistance({q,r},{q:bounds.minQ,r:bounds.maxR}),hexDistance({q,r},{q:bounds.maxQ,r:bounds.minR}),hexDistance({q,r},{q:bounds.maxQ,r:bounds.maxR}));
+  let visitedCells=0;
+  for(let radius=0;radius<=maxRadius;radius++){
+    let best=null;
+    for(let dq=-radius;dq<=radius;dq++)for(let dr=Math.max(-radius,-dq-radius);dr<=Math.min(radius,-dq+radius);dr++){
+      if(hexDistance({q:0,r:0},{q:dq,r:dr})!==radius)continue;
+      if(++visitedCells>index.size*3+19)return scanBuckets();
+      for(const unit of indexedUnitsAt(index,q+dq,r+dr))if(predicate(unit)&&(!best||String(unit.id)<String(best.id)))best=unit;
+    }
+    if(best)return best;
+  }
+  return null;
 }
 function unitOccupiesHex(units,q,r){
   return units.some(unit=>{if(unit.hp<=0)return false;const position=worldToAxial(unit.x,unit.y);return position.q===q&&position.r===r;});

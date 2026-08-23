@@ -150,6 +150,13 @@ describe("Neutralizer buildings, gates, and ally units",()=>{
     const index=api.unitHexIndex([creep]);assert.equal(api.indexedUnitsAt(index,8,0).includes(creep),true);assert.equal(api.indexedUnitsAt(index,7,0).includes(creep),false,"pathfinding occupancy should contain only the current visible hex");assert.equal(api.indexedUnitsAt(index.destinations,7,0).includes(creep),true,"the local convergence check should retain the destination claim separately");
   });
 
+  test("Neutralizer target refresh uses the spatial index while preserving nearest-target behavior",()=>{
+    const state=api.state;state.hives.clear();const unit=makeNeutralizer("neutralizer-spatial-target",0,0),near=makeEnemy("enemy-near",4,0),far=makeEnemy("enemy-far",12,0);state.enemies=[far,near];const enemyIndex=api.unitHexIndex(state.enemies),targets=api.neutralizerTargetLookup();targets.values=()=>{throw new Error("target refresh should not scan the full target map");};
+    assert.equal(api.cachedNeutralizerTarget(unit,targets,enemyIndex),near);
+    unit.targetId=null;unit.targetRefreshAt=0;const hive={id:"hive-nearer",type:"hive",q:2,r:0,hp:2,maxHp:2};state.hives.set(api.key(hive.q,hive.r),hive);targets.set(hive.id,hive);
+    assert.equal(api.cachedNeutralizerTarget(unit,targets,enemyIndex),hive,"a closer Hive should still beat a farther Creep");
+  });
+
   test("simultaneously ready one-HP Creeps and Neutralizers resolve with a 50/50 initiative roll",()=>{
     const state=api.state;
     {
@@ -202,14 +209,13 @@ describe("Neutralizer buildings, gates, and ally units",()=>{
     assert.ok(next,"the full pathfinder should find the one-hex exit");assert.equal(api.key(next.q,next.r),api.key(exit.q,exit.r));
   });
 
-  test("neutralizers reuse identical path searches and defer excess unique searches without dropping them",()=>{
+  test("neutralizers share complete discovered routes and defer uncached searches beyond the per-tick budget",()=>{
     const state=api.state;state.hives.clear();state.structures.clear();const corridor=findOpenRun(8);assert.ok(corridor);const goal=corridor.at(-1),creep=makeEnemy("enemy-batch",goal.q,goal.r);state.enemies=[creep];state.neutralizers=[];
-    const enemyIndex=api.unitHexIndex(state.enemies),targets=api.neutralizerTargetLookup(),budget={remaining:2};
-    const first=makeNeutralizer("neutralizer-path-1",corridor[0].q,corridor[0].r),second=makeNeutralizer("neutralizer-path-2",corridor[1].q,corridor[1].r),third=makeNeutralizer("neutralizer-path-3",corridor[2].q,corridor[2].r);
-    assert.ok(api.neutralizerNextStep(first,new Map(),enemyIndex,targets,budget));assert.ok(api.neutralizerNextStep(second,new Map(),enemyIndex,targets,budget));assert.equal(budget.remaining,0);
-    assert.equal(api.neutralizerNextStep(third,new Map(),enemyIndex,targets,budget),false,"a third unique search should wait for another tick");
-    const sameStart=makeNeutralizer("neutralizer-path-cache",corridor[0].q,corridor[0].r,1);assert.ok(api.neutralizerNextStep(sameStart,new Map(),enemyIndex,targets,budget),"an identical cached search should not consume the exhausted budget");assert.equal(budget.remaining,0);
-    assert.ok(api.neutralizerNextStep(third,new Map(),enemyIndex,targets,{remaining:2}),"the deferred request should run when the next tick replenishes the budget");
+    const enemyIndex=api.unitHexIndex(state.enemies),targets=api.neutralizerTargetLookup(),budget={remaining:1};
+    const first=makeNeutralizer("neutralizer-path-1",corridor[0].q,corridor[0].r),second=makeNeutralizer("neutralizer-path-2",corridor[1].q,corridor[1].r);
+    assert.ok(api.neutralizerNextStep(first,new Map(),enemyIndex,targets,budget));assert.equal(budget.remaining,0);
+    assert.ok(api.neutralizerNextStep(second,new Map(),enemyIndex,targets,budget),"a unit farther along the discovered route should reuse it without another A* search");assert.equal(budget.remaining,0);
+    assert.equal(api.cachedNeutralizerPathStep(first,{q:goal.q+9,r:goal.r+4},api.neutralizerCanTraverse,budget),false,"a different uncached route should wait for the next tick");
     assert.equal(api.constants.NEUTRALIZER_PATH_SEARCHES_PER_TICK,2);
   });
 });

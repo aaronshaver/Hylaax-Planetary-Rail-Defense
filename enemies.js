@@ -206,14 +206,7 @@ function releaseEnemySpace(reservations,q,r,slot){
 }
 
 function enemySpaceReservations(excludeId=null){
-  const reservations=new Map();
-  for(const enemy of state.enemies){
-    if(enemy.id===excludeId)continue;
-    const slot=Number.isInteger(enemy.slot)?enemy.slot:0;
-    reserveEnemySpace(reservations,enemy.q,enemy.r,slot);
-    if(enemy.progress<1)reserveEnemySpace(reservations,enemy.toQ,enemy.toR,Number.isInteger(enemy.toSlot)?enemy.toSlot:slot);
-  }
-  return reservations;
+  return unitSpaceReservations(state.enemies,excludeId);
 }
 
 function enemyHexHasRoom(reservations,q,r){return (reservations.get(key(q,r))?.size||0)<CREEP_HEX_CAPACITY;}
@@ -323,9 +316,9 @@ function addUnitDeathFlash(kind,x,y,color){
 
 function enemyNavigationStats(){return {builds:enemyNavigationCache.builds,cells:enemyNavigationCache.distances.size};}
 
-function findEnemyStep(start,goal,passable=isPassable,stopRange=0){
+function findEnemyPath(start,goal,passable=isPassable,stopRange=0){
   const startKey=key(start.q,start.r),goalKey=key(goal.q,goal.r);
-  if(hexDistance(start,goal)<=stopRange)return null;
+  if(hexDistance(start,goal)<=stopRange)return [];
   const distance=hexDistance(start,goal);
   const maxNodes=Math.min(60000,Math.max(20000,Math.ceil((distance+40)*(distance+40)*12)));
   const open=[],cameFrom=new Map(),gScore=new Map([[startKey,0]]),closed=new Set();
@@ -339,9 +332,9 @@ function findEnemyStep(start,goal,passable=isPassable,stopRange=0){
     if(closed.has(currentKey))continue;
     closed.add(currentKey);explored++;
     if(currentKey===goalKey||hexDistance(current,goal)<=stopRange){
-      let stepKey=currentKey,parentKey=cameFrom.get(stepKey);
-      while(parentKey&&parentKey!==startKey){stepKey=parentKey;parentKey=cameFrom.get(stepKey);}
-      return parentKey===startKey?fromKey(stepKey):null;
+      const reversed=[];let pathKey=currentKey;
+      while(pathKey!==startKey){reversed.push(fromKey(pathKey));pathKey=cameFrom.get(pathKey);if(!pathKey)return null;}
+      return reversed.reverse();
     }
     for(const next of neighbors(current.q,current.r)){
       const nextKey=key(next.q,next.r);
@@ -354,6 +347,8 @@ function findEnemyStep(start,goal,passable=isPassable,stopRange=0){
   }
   return null;
 }
+
+function findEnemyStep(start,goal,passable=isPassable,stopRange=0){return findEnemyPath(start,goal,passable,stopRange)?.[0]||null;}
 
 function leaveGhost(target,objectType){
   const ghost={id:key(target.q,target.r),type:"ghost",objectType,q:target.q,r:target.r};
