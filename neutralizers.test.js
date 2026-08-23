@@ -28,7 +28,7 @@ describe("Neutralizer buildings, gates, and ally units",()=>{
   test("a two-hex orange Neutralizer building costs 50 C and 50 E, immediately produces its first ally, and shows the one-time Gate note",()=>{
     const state=api.state,train=addTestTrain(),site=findNeutralizerSite();assert.ok(site);installLiveStop(train,site.stop);state.baseMaterial=200;state.baseEnergy=200;
     const building=api.buildNeutralizer(site.q,site.r);assert.ok(building);
-    assert.equal(building.footprint.length,2);assert.equal(building.hp,200);assert.equal(building.maxHp,200);assert.equal(building.material,15);assert.equal(building.energy,15);assert.equal(building.maxMaterial,20);assert.equal(building.maxEnergy,20);assert.equal(state.neutralizers.length,1,"the initial 20 C and 20 E should immediately fund the first ally");assert.match(api.selectionHtml(),/Each produced neutralizer consumes 5 of each resource/);
+    assert.equal(building.footprint.length,2);assert.equal(building.hp,200);assert.equal(building.maxHp,200);assert.equal(building.material,10);assert.equal(building.energy,10);assert.equal(building.maxMaterial,20);assert.equal(building.maxEnergy,20);assert.equal(state.neutralizers.length,1,"the initial 20 C and 20 E should immediately fund the first ally");assert.match(api.selectionHtml(),/Each produced neutralizer consumes 10 of each resource/);
     assert.equal(state.baseMaterial,150);assert.equal(state.baseEnergy,150);assert.equal(state.paused,true);assert.equal(elements.get("neutralizerGateDialog").hidden,false);
     const html=require("node:fs").readFileSync(require("node:path").join(__dirname,"index.html"),"utf8");assert.match(html,/Note: if you build walls surrounding your base building,[\s\S]*Creeps cannot pass through gates\./i);
     assert.equal(api.dismissNeutralizerGateNotice(),true);assert.equal(state.paused,false);assert.equal(api.showNeutralizerGateNotice(),false,"the note must appear only once per game");
@@ -36,13 +36,13 @@ describe("Neutralizer buildings, gates, and ally units",()=>{
     const context=elements.get("gameCanvas").context;context.textCalls.length=0;api.drawStructures();const letters=context.textCalls.filter(call=>call.text==="N");assert.equal(letters.length,2);assert.ok(letters.every(call=>call.fillStyle==="#f3f7f8"&&call.font==="900 16.5px ui-monospace, monospace"));
   });
 
-  test("a stopped build/mine train fills both stores and the building spends 5 C and 5 E per ally",()=>{
+  test("a stopped build/mine train fills both stores and the building spends 10 C and 10 E per ally",()=>{
     const state=api.state,train=addTestTrain(),site=findNeutralizerSite();assert.ok(site);installLiveStop(train,site.stop);state.baseMaterial=200;state.baseEnergy=200;const building=api.buildNeutralizer(site.q,site.r);api.dismissNeutralizerGateNotice();
     state.neutralizers=[];building.material=0;building.energy=0;train.wagons[0].amount=10;train.wagons[1].amount=10;api.updateAutomaticLogistics();
     assert.equal(building.material,10);assert.equal(building.energy,10);assert.ok(state.worldMessages.some(message=>message.message==="Train A: Supplied neutralizer building"));
-    api.updateNeutralizerProduction(6.99);assert.equal(state.neutralizers.length,0,"subsequent base production should take seven seconds");
+    api.updateNeutralizerProduction(8.99);assert.equal(state.neutralizers.length,0,"subsequent base production should take nine seconds");
     api.updateNeutralizerProduction(.01);
-    assert.equal(state.neutralizers.length,1);assert.equal(building.material,5);assert.equal(building.energy,5);assert.equal(state.neutralizers[0].hp,1);assert.equal(Object.hasOwn(building,"productionPulseUntil"),false);
+    assert.equal(state.neutralizers.length,1);assert.equal(building.material,0);assert.equal(building.energy,0);assert.equal(state.neutralizers[0].hp,1);assert.equal(Object.hasOwn(building,"productionPulseUntil"),false);
   });
 
   test("salvaging returns 50 construction material plus stored C, and stored E but not construction-cost E",()=>{

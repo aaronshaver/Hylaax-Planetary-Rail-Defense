@@ -60,9 +60,9 @@ function selectionHtml(){
   if(selected.type==="neutralizer-building")return `<div class="selection-title"><h2>Neutralizer building</h2></div><div class="selection-subtitle">Produces 1 neutralizer ally every ${displayStat(neutralizerProductionInterval())} second(s) while at least ${NEUTRALIZER_UNIT_MATERIAL_COST} construction material and ${NEUTRALIZER_UNIT_ENERGY_COST} energy are stored · Each produced neutralizer consumes ${NEUTRALIZER_UNIT_MATERIAL_COST} of each resource · Supplied by a build/mine train stopped at an adjacent non-destroyed train stop</div>${hpBlock(selected)}${neutralizerStorageHtml(selected)}`;
   if(selected.type==="research"){
     let currentGroup="";
-    const upgrades=RESEARCH_UPGRADES.map(upgrade=>{const heading=upgrade.group!==currentGroup?(currentGroup=upgrade.group,`<h3 class="research-group-heading">${upgrade.group}</h3>`):"";return `${heading}${button(`research-${upgrade.key}`,`${upgrade.label} (${researchUpgradeCount(upgrade.key)+1})`,"btn-quiet","",state.researchPoints+1e-9<RESEARCH_UPGRADE_COST)}`;}).join("");
+    const upgrades=RESEARCH_UPGRADES.map(upgrade=>{const heading=upgrade.group!==currentGroup?(currentGroup=upgrade.group,`<h3 class="research-group-heading">${upgrade.group}</h3>`):"";return `${heading}${button(`research-${upgrade.key}`,researchUpgradeButtonLabel(upgrade),"btn-quiet","",researchUpgradeIsMaxed(upgrade)||state.researchPoints+1e-9<RESEARCH_UPGRADE_COST)}`;}).join("");
     const actions=state.gameOver?"":`<div class="panel-actions research-actions">${upgrades}</div>`;
-    return `<div class="selection-title"><h2>Research building</h2></div><div class="selection-subtitle">${displayStat(researchRate())} research point(s) gained for each second of survival · All research items cost 30 research points · Upgrades apply instantly and can be researched indefinitely</div>${hpBlock(selected)}<div class="research-points-summary">Research points <strong>${Math.floor(state.researchPoints)}</strong></div>${actions}`;
+    return `<div class="selection-title"><h2>Research building</h2></div><div class="selection-subtitle">${displayStat(researchRate())} research point(s) gained for each second of survival · All research items cost 30 research points</div>${hpBlock(selected)}<div class="research-points-summary">Research points <strong>${Math.floor(state.researchPoints)}</strong></div>${actions}`;
   }
   if(selected.type==="node")return `<div class="selection-title"><h2>${capitalize(resourceLabel(selected.resource))} node</h2></div>${resourceBlock(selected)}<div class="selection-subtitle">Build a mine here to extract its resources</div>`;
   if(selected.type==="hive"){const rate=selected.level;return `<div class="selection-title"><h2>Level ${rate} hive</h2></div><div class="selection-subtitle">Periodically produces either ${rate} more creeps or a new hive · 1 in ${rate} chance of a hive spawn</div>${hpBlock(selected)}`;}
@@ -140,7 +140,7 @@ function currentSelectionCacheKey(){
   return `${baseKey}:${selected.hp<=0}:${state.mode}:${Boolean(state.deploymentHead)}:${Boolean(trainFabricationDisabledReason("builder"))}:${Boolean(trainFabricationDisabledReason("combat"))}`;
 }
 
-function researchSelectionDescription(){return `${displayStat(researchRate())} research point(s) gained for each second of survival · All research items cost 30 research points · Upgrades apply instantly and can be researched indefinitely`;}
+function researchSelectionDescription(){return `${displayStat(researchRate())} research point(s) gained for each second of survival · All research items cost 30 research points`;}
 
 function updateResearchSelectionContent(research){
   const query=selector=>selectionContent.querySelector?.(selector)||null;
@@ -150,8 +150,8 @@ function updateResearchSelectionContent(research){
   const points=query(".research-points-summary strong");if(points)points.textContent=Math.floor(state.researchPoints);
   for(const upgrade of RESEARCH_UPGRADES){
     const upgradeButton=query(`[data-action="research-${upgrade.key}"]`);if(!upgradeButton)continue;
-    upgradeButton.textContent=`${upgrade.label} (${researchUpgradeCount(upgrade.key)+1})`;
-    const disabled=state.researchPoints+1e-9<RESEARCH_UPGRADE_COST;upgradeButton.disabled=disabled;upgradeButton.setAttribute("aria-disabled",String(disabled));
+    upgradeButton.textContent=researchUpgradeButtonLabel(upgrade);
+    const disabled=researchUpgradeIsMaxed(upgrade)||state.researchPoints+1e-9<RESEARCH_UPGRADE_COST;upgradeButton.disabled=disabled;upgradeButton.setAttribute("aria-disabled",String(disabled));
   }
 }
 

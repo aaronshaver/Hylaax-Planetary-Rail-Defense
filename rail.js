@@ -58,7 +58,7 @@ function curveIsExtreme(start, end) {
 
 function resupplyTrainStops(){return state.trains.filter(train=>train.scheduleComplete).flatMap(train=>(train.schedule||[]).filter(stop=>isScheduleTrackHex(stop.q,stop.r)));}
 function trainStopWithinRange(target,range){return resupplyTrainStops().some(stop=>distanceToStructure(stop,target)<=range);}
-function constructionStopRequirement(range){return `Must be built within ${range} ${range===1?"hex":"hexes"} of a train stop so that it can be resupplied and/or repaired.`;}
+function constructionStopRequirement(range){return `Must be built within ${range} ${range===1?"hex":"hexes"} of a train stop so that it can be resupplied, repaired, and/or mined.`;}
 function requireNearbyTrainStop(target,range){if(trainStopWithinRange(target,range))return true;fail(constructionStopRequirement(range));return false;}
 function requireNoCreep(q,r){if(!creepOccupiesHex(q,r))return true;fail("Cannot build in a hex occupied by a creep.");return false;}
 function requireNoUnit(q,r){if(!requireNoCreep(q,r))return false;if(!neutralizerOccupiesHex(q,r))return true;fail("Cannot build in a hex occupied by a neutralizer.");return false;}

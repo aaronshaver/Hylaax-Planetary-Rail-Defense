@@ -230,7 +230,7 @@ describe("rendering caches", () => {
     const glyphs=context.textCalls.filter(call=>["B","T","A","W","R","C","E"].includes(call.text));
     assert.equal(glyphs.length,12);assert.ok(glyphs.every(call=>call.fillStyle==="#f3f7f8"&&call.font==="900 16.5px ui-monospace, monospace"));
     assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#ef9b54"&&call.path.some(item=>item.command==="arc"&&item.r===20)),"turret circle should use the larger radius and offensive orange");
-    for(const color of ["#e6b94a","#60d5db"])assert.ok(context.strokeCalls.some(call=>call.strokeStyle===color&&call.path.some(item=>item.command==="arc"&&item.r===20)),`${color} resource-node circle should use the larger radius`);
+    for(const color of ["#a28d5e","#568f92"])assert.ok(context.strokeCalls.some(call=>call.strokeStyle===color&&call.path.some(item=>item.command==="arc"&&item.r===20)),`${color} resource-node circle should use the larger radius`);
     const artilleryPoint=api.axialToWorld(12,10),artilleryOutline=context.strokeCalls.find(call=>call.strokeStyle==="#ef9b54"&&call.path.every(item=>item.command!=="arc"));
     assert.ok(artilleryOutline.path.some(item=>item.command==="lineTo"&&Math.hypot(item.x-artilleryPoint.x,item.y-artilleryPoint.y)>21),"artillery outline should sit closer to the hex edge");
   });

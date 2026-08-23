@@ -3,11 +3,11 @@
 const RESEARCH_UPGRADES = [
   {key:"turretFireRate",group:"Turrets (fixed and train)",label:"+50% turret firing rate",multiplier:1.5,description:"Applies to both fixed turrets and turret trains."},
   {key:"turretDamage",group:"Turrets (fixed and train)",label:"+50% turret damage",multiplier:1.5,description:"Applies to both fixed turrets and turret trains."},
-  {key:"turretRange",group:"Turrets (fixed and train)",label:"+20% turret range",multiplier:1.2,description:"Applies to both fixed turrets and turret trains."},
+  {key:"turretRange",group:"Turrets (fixed and train)",label:"+20% turret range",multiplier:1.2,maxLevel:4,description:"Applies to both fixed turrets and turret trains."},
   {key:"turretEnergyStorage",group:"Turrets (fixed and train)",label:"+25% turret energy storage",multiplier:1.25,description:"Fixed turrets store 25% more energy."},
   {key:"artilleryFireRate",group:"Artillery",label:"+50% artillery firing rate",multiplier:1.5,description:"Artillery fires 50% more frequently."},
   {key:"artilleryDamage",group:"Artillery",label:"+50% artillery damage",multiplier:1.5,description:"Artillery center and splash damage increase by 50%."},
-  {key:"artilleryRange",group:"Artillery",label:"+20% artillery range",multiplier:1.2,description:"Artillery range increases by 20%."},
+  {key:"artilleryRange",group:"Artillery",label:"+20% artillery range",multiplier:1.2,maxLevel:4,description:"Artillery range increases by 20%."},
   {key:"artilleryEnergyStorage",group:"Artillery",label:"+25% artillery energy storage",multiplier:1.25,description:"Artillery stores 25% more energy."},
   {key:"neutralizerHitPoints",group:"Neutralizers",label:"+50% neutralizer hit points",multiplier:1.5,description:"All existing and future neutralizer ally units have 50% more hit points."},
   {key:"neutralizerFireRate",group:"Neutralizers",label:"+50% neutralizer firing rate",multiplier:1.5,description:"Neutralizer ally units fire 50% more frequently."},
@@ -20,12 +20,17 @@ const RESEARCH_UPGRADES = [
   {key:"loadUnloadEfficiency",group:"Trains and mining",label:"+25% load/unload efficiency",multiplier:.75,description:"Trains spend 25% less time stopped at each train stop."},
   {key:"wallStrength",group:"Infrastructure",label:"+50% wall hit points",multiplier:1.5,description:"Walls have 50% more hit points."},
   {key:"trackStrength",group:"Infrastructure",label:"+100% track hit points",multiplier:2,description:"Tracks have 100% more hit points."},
-  {key:"researchSpeed",group:"Other",label:"+25% research rate",multiplier:1.25,description:"Research points are acquired 25% faster."}
+  {key:"researchSpeed",group:"Other",label:"+25% research rate",levelMultipliers:[1.25,1.2,1.15,1.1,1.05],maxLevel:5,description:"Research rate improves by a diminishing percentage: 25%, 20%, 15%, 10%, then 5%."}
 ];
 
 function researchUpgrade(keyName){return RESEARCH_UPGRADES.find(upgrade=>upgrade.key===keyName)||null;}
-function researchUpgradeCount(keyName){return state.researchUpgrades?.[keyName]||0;}
-function researchMultiplier(keyName){const upgrade=researchUpgrade(keyName);return upgrade?Math.pow(upgrade.multiplier,researchUpgradeCount(keyName)):1;}
+function researchUpgradeMaxLevel(upgrade){return upgrade?.maxLevel||10;}
+function researchUpgradeCount(keyName){const count=state.researchUpgrades?.[keyName]||0,upgrade=researchUpgrade(keyName);return upgrade?Math.min(count,researchUpgradeMaxLevel(upgrade)):count;}
+function researchMultiplierAtCount(keyName,count){const upgrade=researchUpgrade(keyName);if(!upgrade)return 1;if(upgrade.levelMultipliers)return upgrade.levelMultipliers.slice(0,count).reduce((total,multiplier)=>total*multiplier,1);return Math.pow(upgrade.multiplier,count);}
+function researchMultiplier(keyName){return researchMultiplierAtCount(keyName,researchUpgradeCount(keyName));}
+function researchUpgradeIsMaxed(upgrade){return Boolean(upgrade&&researchUpgradeCount(upgrade.key)>=researchUpgradeMaxLevel(upgrade));}
+function researchUpgradeEffectLabel(upgrade){return upgrade.label.replace(/^\+\d+%\s+/,"");}
+function researchUpgradeButtonLabel(upgrade){const count=researchUpgradeCount(upgrade.key),effect=researchUpgradeEffectLabel(upgrade);if(researchUpgradeIsMaxed(upgrade))return `${effect.charAt(0).toUpperCase()+effect.slice(1)} maxed (${count})`;const multiplier=upgrade.levelMultipliers?.[count],label=multiplier?`+${Math.round((multiplier-1)*100)}% ${effect}`:upgrade.label;return `${label} (${count+1})`;}
 function researchedWholeValue(base,keyName){const upgrade=researchUpgrade(keyName);let value=base;for(let level=0;level<researchUpgradeCount(keyName);level++)value=Math.ceil(value*upgrade.multiplier);return value;}
 
 function turretFireInterval(){return 1/researchMultiplier("turretFireRate");}
@@ -83,7 +88,7 @@ function buildResearch(q,r){
 }
 
 function applyResearchUpgrade(keyName){
-  const upgrade=researchUpgrade(keyName),newMultiplier=researchMultiplier(keyName),oldMultiplier=newMultiplier/(upgrade?.multiplier||1);
+  const upgrade=researchUpgrade(keyName),count=researchUpgradeCount(keyName),newMultiplier=researchMultiplierAtCount(keyName,count),oldMultiplier=researchMultiplierAtCount(keyName,Math.max(0,count-1));
   if(keyName==="turretFireRate"){
     for(const structure of state.structures.values())if(structure.type==="turret")structure.cooldown=Math.max(0,structure.cooldown/(upgrade.multiplier));
     for(const train of state.trains)if(train.trainType==="combat")train.combatCooldown=Math.max(0,(train.combatCooldown||0)/(upgrade.multiplier));
@@ -106,10 +111,12 @@ function applyResearchUpgrade(keyName){
 function purchaseResearchUpgrade(keyName){
   const selected=getSelected(),upgrade=researchUpgrade(keyName);
   if(!upgrade||selected?.type!=="research")return false;
+  if(researchUpgradeIsMaxed(upgrade))return fail(`${researchUpgradeEffectLabel(upgrade)} is already maxed.`);
   if(state.researchPoints+1e-9<RESEARCH_UPGRADE_COST)return fail(`Needs ${RESEARCH_UPGRADE_COST} research points.`);
+  const purchasedLabel=researchUpgradeButtonLabel(upgrade).replace(/ \(\d+\)$/,'');
   state.researchPoints-=RESEARCH_UPGRADE_COST;
   state.researchUpgrades[keyName]=researchUpgradeCount(keyName)+1;
-  applyResearchUpgrade(keyName);sounds.place();toast(`${upgrade.label} (${researchUpgradeCount(keyName)}) researched.`,"info");return true;
+  applyResearchUpgrade(keyName);sounds.place();toast(`${purchasedLabel} (${researchUpgradeCount(keyName)}) researched.`,"info");return true;
 }
 
 function updateResearch(dt){if(state.researchUnlocked)state.researchPoints+=dt*researchRate();}

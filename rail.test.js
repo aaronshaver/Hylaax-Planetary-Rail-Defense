@@ -23,8 +23,8 @@ function installCompletedStop(position,train=api.state.trains[0]||addTestTrain()
 describe("repairs, ghosts, and schedules", () => {
   test("a fixed Turret requires a completed Train Stop within one hex",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
-    assert.equal(api.constructionStopRequirement(1),"Must be built within 1 hex of a train stop so that it can be resupplied and/or repaired.");
-    assert.equal(api.constructionStopRequirement(5),"Must be built within 5 hexes of a train stop so that it can be resupplied and/or repaired.");
+    assert.equal(api.constructionStopRequirement(1),"Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined.");
+    assert.equal(api.constructionStopRequirement(5),"Must be built within 5 hexes of a train stop so that it can be resupplied, repaired, and/or mined.");
     let target=null;
     for(let q=-10;q<=10&&!target;q++)for(let r=-10;r<=10&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>4)target={q,r};
     assert.ok(target);

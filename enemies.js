@@ -18,7 +18,7 @@ function hiveSpawnCandidates(hive,spawnNumber=hive.spawnCount){
   return candidates.sort((a,b)=>b.score-a.score);
 }
 
-function hiveSpawnDelay(q,r,spawnNumber=0,spawnTime=state.elapsed){return Math.min(30,1+Math.floor(hash(q,r,(state.mapSeed+spawnNumber*2377+Math.floor(spawnTime*1000))|0)*30));}
+function hiveSpawnDelay(q,r,spawnNumber=0,spawnTime=state.elapsed){return Math.min(15,1+Math.floor(hash(q,r,(state.mapSeed+spawnNumber*2377+Math.floor(spawnTime*1000))|0)*15));}
 
 function queueHiveSpawn(location,{kind="replication",level=2,spawnNumber=0,spawnTime=state.elapsed,sourceHiveId=null,forceFirstCreepBatch=false,encroachmentMinute=null}={}){
   if(!location)return null;
@@ -62,7 +62,7 @@ function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
   const location=options[0];return location?spawnEnemyAt(location.q,location.r,spawnNumber):null;
 }
 
-function creepSpawnDelay(q,r,spawnNumber=0,spawnTime=state.elapsed){return Math.min(30,1+Math.floor(hash(q,r,(state.mapSeed+spawnNumber*4211+Math.floor(spawnTime*1000))|0)*30));}
+function creepSpawnDelay(q,r,spawnNumber=0,spawnTime=state.elapsed){return Math.min(15,1+Math.floor(hash(q,r,(state.mapSeed+spawnNumber*4211+Math.floor(spawnTime*1000))|0)*15));}
 
 function queueCreepBatch(hive,count,spawnNumber,spawnTime=state.elapsed){
   const delay=creepSpawnDelay(hive.q,hive.r,spawnNumber,spawnTime),operation={kind:"creep-batch",hiveId:hive.id,q:hive.q,r:hive.r,count,spawnNumber,spawnTime,delay,executeAt:state.elapsed+delay};
