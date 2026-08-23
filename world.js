@@ -33,20 +33,24 @@ function makeInitialState() {
     worldMessages: [],
     trains: [],
     enemies: [],
+    neutralizers: [],
     projectiles: [],
     particles: [],
     screenShakeUntil: 0,
     screenShakeUntilWallTime: 0,
     turretEnergyWarningShown: false,
     turretEnergyWarningWasPaused: false,
-    baseMaterial: 150,
-    baseEnergy: 75,
+    neutralizerGateNoticeShown: false,
+    neutralizerGateNoticeWasPaused: false,
+    baseMaterial: 200,
+    baseEnergy: 125,
     researchPoints: 0,
     researchUnlocked: false,
     researchUpgrades: {},
     selected: { type: "base", id: "base" },
     trackStart: null,
     scheduleTrainId: null,
+    scheduleDraft: null,
     deploymentPaid: false,
     deploymentTrainType: null,
     deploymentHead: null,
@@ -135,7 +139,7 @@ function hiveHexOpen(q,r,constructionAnchors=playerConstructionAnchors(),require
   if(structureAt(q,r)||state.tracks.has(key(q,r))||ghostAt(q,r)||trainClaimsHex(q,r))return false;
   if([...state.hives.values()].some(hive=>hexDistance(hive,{q,r})<=1))return false;
   if((state.hiveSpawnQueue||[]).some(operation=>hexDistance(operation,{q,r})<=1))return false;
-  return !state.enemies.some(enemy=>enemy.q===q&&enemy.r===r);
+  return !state.enemies.some(enemy=>enemy.q===q&&enemy.r===r)&&!neutralizerOccupiesHex(q,r);
 }
 
 function seedInitialHives(){
@@ -311,6 +315,7 @@ function getSelected() {
   if (state.selected.type === "structure") return [...state.structures.values()].find(s => s.id === state.selected.id) || null;
   if (state.selected.type === "hive") return [...state.hives.values()].find(hive => hive.id === state.selected.id) || null;
   if (state.selected.type === "enemy") return state.enemies.find(enemy => enemy.id === state.selected.id) || null;
+  if (state.selected.type === "neutralizer") return state.neutralizers.find(unit => unit.id === state.selected.id) || null;
   if (state.selected.type === "track") return state.tracks.get(state.selected.id) || null;
   if (state.selected.type === "ghost") return state.ghosts.get(state.selected.id) || null;
   if (state.selected.type === "node") { const position=fromKey(state.selected.id); return resourceNodeAt(position.q,position.r); }

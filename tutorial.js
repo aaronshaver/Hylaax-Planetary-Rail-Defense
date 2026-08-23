@@ -5,17 +5,17 @@ const TUTORIAL_MESSAGES = [
   "Click 'Build track' in the actions panel",
   "Click the existing track (a light gray circle inside a purple outline)",
   "Click nearby hexes to add one more track segment.",
-  "Keep adding track until you have a complete loop that passes by the base, an energy node, and a construction material node; it must be a fully closed loop",
-  "Click the base",
+  "Keep adding track until you have a complete loop that passes by the base building, an energy node, and a construction material node; it must be a fully closed loop",
+  "Click the base building",
   "Click 'Fabricate and place build/mine train'",
   "Do two clicks to place the train: one for the head of the train, another for its tail",
   "Click 'Add schedule' in the train's pane on the right",
-  "Add three stops, making sure there is a stop by the base, C resource node, and E resource node. Click 'Done adding' when finished.",
+  "Add three stops, making sure there is a stop by the base building, C resource node, and E resource node. Click 'Done adding' when finished.",
   "Click 'Build mine'",
   "Click on the C and E nodes to add mines to them",
   "Click 'Build turret'",
   "Place a turret one hex away from one of the train stops",
-  "You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base.\n\nClick the 'Playing' button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like walls and artillery and a research building to give you more tools to survive and improve efficiency."
+  "You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base building.\n\nClick the 'Playing' button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like walls and artillery and a research building to give you more tools to survive and improve efficiency."
 ];
 const TUTORIAL_INTRO="This is a tower defense game where automating train networks is the key to successful survival.";
 

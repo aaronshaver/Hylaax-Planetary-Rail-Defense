@@ -73,7 +73,7 @@ describe("game bootstrap", () => {
 
   test("Center Map on Base is a small button below the upper-left HUD instead of an Action",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),css=fs.readFileSync(path.join(__dirname,"styles.css"),"utf8"),actions=html.match(/<div class="tool-grid"[^>]*>[\s\S]*?<\/div>/)?.[0]||"",topLeft=html.match(/<div class="top-left-stack">[\s\S]*?<\/button>\s*<\/div>/)?.[0]||"";
-    assert.equal((actions.match(/<button /g)||[]).length,8);assert.doesNotMatch(actions,/centerBaseButton/);assert.match(topLeft,/<\/div>\s*<button id="centerBaseButton" class="btn center-base-button" type="button">Center map on base<\/button>/);
+    assert.equal((actions.match(/<button /g)||[]).length,10);assert.doesNotMatch(actions,/centerBaseButton/);assert.match(topLeft,/<\/div>\s*<button id="centerBaseButton" class="btn center-base-button" type="button">Center map on base building<\/button>/);
     assert.match(css,/\.center-base-button \{[^}]*padding: 7\.5px 13\.5px;[^}]*font: 700 18px\/1\.2/);
     const game=fs.readFileSync(path.join(__dirname,"game.js"),"utf8");assert.doesNotMatch(game,/e\.key==="9"/);
   });
@@ -89,7 +89,7 @@ describe("game bootstrap", () => {
     assert.match(html,/title="• Select units and structures\."/);
     assert.doesNotMatch(html,/Select a Train to create or clear its automatic schedule/);
     const oneStop="• Must be built within 1 hex of a train stop so that it can be resupplied and/or repaired",fiveStops="• Must be built within 5 hexes of a train stop so that it can be resupplied and/or repaired";
-    const expected={trackTool:"• Costs 1 C, 0 E",turretTool:"• Costs 10 C, 10 E&#10;"+oneStop,mineTool:"• Costs 10 C, 0 E&#10;"+oneStop,wallTool:"• Costs 30 C, 0 E&#10;"+fiveStops,artilleryTool:"• Costs 50 C, 50 E&#10;"+oneStop,researchTool:"• Costs 50 C, 50 E"};
+    const expected={trackTool:"• Costs 1 C, 0 E",turretTool:"• Costs 10 C, 10 E&#10;"+oneStop,mineTool:"• Costs 10 C, 0 E&#10;"+oneStop,wallTool:"• Costs 30 C, 0 E&#10;"+fiveStops,artilleryTool:"• Costs 50 C, 50 E&#10;"+oneStop,researchTool:"• Costs 50 C, 50 E",gateTool:"• Costs 30 C, 0 E&#10;"+fiveStops,neutralizerTool:"• Costs 50 C, 50 E&#10;"+oneStop};
     for(const [id,cost] of Object.entries(expected)){const title=html.match(new RegExp(`id="${id}"[^>]*title="([^"]+)"`))?.[1];assert.equal(title,cost,id);}
     for(const title of [...html.matchAll(/class="btn tool-button[^"]*"[^>]*title="([^"]+)"/g)].map(match=>match[1]))for(const clause of title.split("&#10;"))assert.match(clause,/^• /);
   });
@@ -105,6 +105,8 @@ describe("game bootstrap", () => {
     assert.match(html,/data-mode="artillery"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">6<\/span>Build artillery/);
     assert.match(html,/data-mode="salvage"[^>]*Salvages for resources: train track, most buildings, and trains&#10;• Clears destroyed objects&#10;• Salvaging or clearing a mine leaves the underlying resource node untouched[^>]*><span class="keycap">7<\/span>Salvage\/clear object/);
     assert.match(html,/data-mode="research"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">8<\/span>Build research/);
+    assert.match(html,/data-mode="gate"[^>]*Costs 30 C, 0 E[^>]*><span class="keycap">9<\/span>Build gate/);
+    assert.match(html,/data-mode="neutralizer"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">0<\/span>Build neutralizer/);
   });
 
   test("Base Train fabrication tooltips put standardized costs first and bullet every item",()=>{
@@ -113,8 +115,8 @@ describe("game bootstrap", () => {
     assert.equal(tips.length,2);
     assert.match(tips[0],/^• Costs 30 C, 0 E/);
     assert.match(tips[1],/^• Costs 30 C, 10 E/);
-    assert.match(tips[0],/• Mines resources, repairs buildings, rebuilds destroyed track, supplies turrets and artillery with shot energy$/);
-    assert.match(tips[1],/• Must normally be refueled and have shot energy resupplied from the base \(cannot be supplied by mines\); another train can provide emergency fuel when it has no fuel energy remaining$/);
+    assert.match(tips[0],/• Mines resources, repairs buildings, rebuilds destroyed track, supplies turrets and artillery with shot energy, and supplies neutralizer buildings with construction material and energy$/);
+    assert.match(tips[1],/• Must normally be refueled and have shot energy resupplied from the base building \(cannot be supplied by mines\); another train can provide emergency fuel when it has no fuel energy remaining$/);
     assert.ok(tips.every(tip=>!tip.includes("Placement uses two clicks")));
     for(const tip of tips)for(const clause of tip.split("&#10;"))assert.match(clause,/^• /);
   });
@@ -123,10 +125,12 @@ describe("game bootstrap", () => {
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     assert.match(html,/id="debugToggle"[^>]*>D<\/button>/);
     assert.match(html,/id="debugMenu"[^>]*hidden/);
+    assert.match(html,/class="debug-menu-title">Debug<\/div>\s*<div class="debug-menu-warning">This is a debug menu intended for development\. It's &quot;cheating&quot; if you use this during your game\. But it's a single player game, so do whatever is fun for you\.<\/div>/);
     assert.match(html,/id="debugDestroyObject"[^>]*data-mode="debug-destroy"[^>]*>Destroy object<\/button>/);
     assert.match(html,/id="debugAddCreep"[^>]*data-mode="debug-add-creep"[^>]*>Add creep<\/button>/);
-    assert.match(html,/id="debugAddBaseResources"[^>]*>Add base resources<\/button>/);
+    assert.match(html,/id="debugAddBaseResources"[^>]*>Add base building resources<\/button>/);
     assert.match(html,/id="debugAddResearchPoints"[^>]*>Add research points<\/button>/);
+    assert.doesNotMatch(html,/debug-menu-note|Click a destructible object|Click an open passable hex|Adds 1,000/);
   });
 
   test("the unified Turret and Artillery Energy warning uses OK",()=>{
@@ -142,9 +146,9 @@ describe("game bootstrap", () => {
     assert.equal((dialog.match(/Confirm salvage/g)||[]).length,1);assert.match(dialog,/id="confirmTitle" class="eyebrow text-danger">Confirm salvage/);assert.doesNotMatch(dialog,/<h2[^>]*>Confirm salvage<\/h2>/);
   });
 
-  test("the displayed and package versions are 3.9.2",()=>{
+  test("the displayed and package versions are 4.0.0",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 3\.9\.2/);assert.match(html,/DEFENSE 3\.9\.2/);assert.equal(packageJson.version,"3.9.2");
+    assert.match(html,/Planetary Rail Defense 4\.0\.0/);assert.match(html,/DEFENSE 4\.0\.0/);assert.equal(packageJson.version,"4.0.0");
   });
 });

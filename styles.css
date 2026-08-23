@@ -83,12 +83,12 @@ button { touch-action: manipulation; }
   box-shadow: 0 14px 42px rgba(0,0,0,.55);
 }
 .debug-menu-title { margin-bottom: 11px; color: #aebabe; font: 900 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .18em; }
+.debug-menu-warning { margin: 0 1px 13px; color: #89979c; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .debug-action { width: 100%; border-color: #3a484e; background: #121b1f; color: #c5d0d3; font-size: 15px; font-weight: 800; text-align: left; }
+.debug-action + .debug-action { margin-top: 8px; }
 .debug-action:hover { border-color: #66777e; background: #1c292e; color: #fff; }
 .debug-action.active { border-color: #df6868; background: #59282b; color: #ffe7e7; }
 .debug-action:disabled { opacity: .35; cursor: not-allowed; }
-.debug-action + .debug-menu-note { margin: 6px 2px 13px; }
-.debug-menu-note { color: #718187; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .bottom-debug-row { position: absolute; z-index: 12; left: 5px; bottom: 5px; display: flex; align-items: center; }
 .bottom-debug-row .debug-toggle { flex: none; }

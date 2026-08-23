@@ -33,7 +33,7 @@ function spawnHiveNear(hive,spawnNumber=hive.spawnCount,level=hiveExpansionLevel
 
 function spawnEnemyAt(q,r,spawnNumber=state.nextId){
   const reservations=enemySpaceReservations(),enemyId=`enemy-${state.nextId}`;
-  if(!isPassable(q,r)||hiveAt(q,r)||(state.hiveSpawnQueue||[]).some(operation=>operation.q===q&&operation.r===r)||structureAt(q,r)||state.tracks.has(key(q,r))||trainAt(q,r)||ghostAt(q,r)||!enemyHexHasRoom(reservations,q,r))return null;
+  if(!isPassable(q,r)||hiveAt(q,r)||(state.hiveSpawnQueue||[]).some(operation=>operation.q===q&&operation.r===r)||structureAt(q,r)||trainAt(q,r)||neutralizerOccupiesHex(q,r)||!enemyHexHasRoom(reservations,q,r))return null;
   const slot=chooseEnemySpaceSlot(reservations,q,r,{id:enemyId,moveCount:spawnNumber});
   if(slot===null)return null;
   const p=enemyWorldPosition(q,r,slot),enemy={id:`enemy-${state.nextId++}`,type:"enemy",q,r,slot,x:p.x,y:p.y,fromQ:q,fromR:r,fromSlot:slot,toQ:q,toR:r,toSlot:slot,progress:1,moveCount:0,speed:ENEMY_SPEED,hp:1,maxHp:1,attackClock:0,nextPathAt:0,phase:hash(q,r,spawnNumber)*Math.PI*2};
@@ -55,7 +55,7 @@ function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
       const distance=hexDistance({q:0,r:0},{q:dq,r:dr});
       if(distance<1||distance>4)continue;
       const position={q:hive.q+dq,r:hive.r+dr};
-      if(isPassable(position.q,position.r)&&terrainCanReachBase(position.q,position.r)&&outsidePlayerConstructionBuffer(position.q,position.r,ENEMY_SPAWN_BUFFER,constructionAnchors)&&!hiveAt(position.q,position.r)&&!(state.hiveSpawnQueue||[]).some(operation=>operation.q===position.q&&operation.r===position.r)&&!structureAt(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r))options.push(position);
+      if(isPassable(position.q,position.r)&&terrainCanReachBase(position.q,position.r)&&outsidePlayerConstructionBuffer(position.q,position.r,ENEMY_SPAWN_BUFFER,constructionAnchors)&&!hiveAt(position.q,position.r)&&!(state.hiveSpawnQueue||[]).some(operation=>operation.q===position.q&&operation.r===position.r)&&!structureAt(position.q,position.r)&&!neutralizerOccupiesHex(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r))options.push(position);
     }
   }
   options.sort((a,b)=>hash(b.q,b.r,(state.mapSeed+spawnNumber)|0)-hash(a.q,a.r,(state.mapSeed+spawnNumber)|0));
@@ -228,10 +228,10 @@ function resetEnemyNavigation(){
   enemyNavigationCache={signature:"",distances:new Map(),targetKeys:new Set(),bounds:null,builds:0};
 }
 
-function enemyNavigationSignature(){return `${enemyNavigationVersion}|${state.base.q},${state.base.r}|${state.structures.size}|${state.tracks.size}`;}
+function enemyNavigationSignature(){return `${enemyNavigationVersion}|${state.base.q},${state.base.r}|${state.structures.size}`;}
 
 function rebuildEnemyNavigation(){
-  const targets=[state.base,...state.structures.values(),...state.tracks.values()],targetCells=targets.flatMap(target=>structureFootprint(target)),targetKeys=new Set(targetCells.map(target=>key(target.q,target.r)));
+  const targets=[state.base,...state.structures.values()],targetCells=targets.flatMap(target=>structureFootprint(target)),targetKeys=new Set(targetCells.map(target=>key(target.q,target.r)));
   const points=[...targetCells,...state.enemies];
   if(!points.length){enemyNavigationCache={signature:enemyNavigationSignature(),distances:new Map(),targetKeys,bounds:null,builds:enemyNavigationCache.builds+1};return enemyNavigationCache;}
   let baseMinQ=Infinity,baseMaxQ=-Infinity,baseMinR=Infinity,baseMaxR=-Infinity;
@@ -275,7 +275,7 @@ function nextEnemyNavigationStep(enemy,reservations){
   const enemyNumber=Number(enemy.id.replace(/\D/g,""))||0;
   const options=neighbors(enemy.q,enemy.r).filter(position=>{
     const positionKey=key(position.q,position.r);
-    return enemyHexHasRoom(reservations,position.q,position.r)&&!navigation.targetKeys.has(positionKey)&&navigation.distances.has(positionKey);
+    return enemyHexHasRoom(reservations,position.q,position.r)&&!neutralizerOccupiesHex(position.q,position.r)&&!navigation.targetKeys.has(positionKey)&&navigation.distances.has(positionKey);
   }).map(position=>({...position,slot:chooseEnemySpaceSlot(reservations,position.q,position.r,enemy),distance:navigation.distances.get(key(position.q,position.r)),score:hash(position.q,position.r,(state.mapSeed+enemyNumber*7919)|0)}));
   options.sort((a,b)=>a.distance-b.distance||a.score-b.score);
   const forward=options.find(option=>option.distance<currentDistance);
@@ -285,6 +285,8 @@ function nextEnemyNavigationStep(enemy,reservations){
 }
 
 function adjacentEnemyTarget(enemy){
+  const neutralizer=state.neutralizers.filter(unit=>hexDistance(enemy,worldToAxial(unit.x,unit.y))<=1).sort((a,b)=>hexDistance(enemy,worldToAxial(a.x,a.y))-hexDistance(enemy,worldToAxial(b.x,b.y)))[0];
+  if(neutralizer)return neutralizer;
   if(distanceToStructure(enemy,state.base)<=1)return state.base;
   const positions=[{q:enemy.q,r:enemy.r},...neighbors(enemy.q,enemy.r)];
   for(const position of positions){const structure=structureAt(position.q,position.r);if(structure&&structure.type!=="base")return structure;}
@@ -345,7 +347,9 @@ function rebuiltLabel(ghost){
   if(ghost.objectType==="turret")return "turret";
   if(ghost.objectType==="artillery")return "artillery";
   if(ghost.objectType==="wall")return "wall";
+  if(ghost.objectType==="gate")return "gate";
   if(ghost.objectType==="research")return "research";
+  if(ghost.objectType==="neutralizer-building")return "neutralizer building";
   return `${resourceLabel(ghost.resource)} mine`;
 }
 
@@ -367,12 +371,18 @@ function rebuildGhost(ghost,train){
   }else if(ghost.objectType==="wall"){
     const maxHp=wallHitPoints();rebuilt={id:`wall-${state.nextId++}`,type:"wall",q:ghost.q,r:ghost.r,hp:maxHp,maxHp,baseMaxHp:WALL_HIT_POINTS};
     state.structures.set(ghost.id,rebuilt);
+  }else if(ghost.objectType==="gate"){
+    const maxHp=wallHitPoints();rebuilt={id:`gate-${state.nextId++}`,type:"gate",q:ghost.q,r:ghost.r,hp:maxHp,maxHp,baseMaxHp:WALL_HIT_POINTS};
+    state.structures.set(ghost.id,rebuilt);
   }else if(ghost.objectType==="artillery"){
     rebuilt={id:`artillery-${state.nextId++}`,type:"artillery",q:ghost.q,r:ghost.r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:0,maxEnergy:artilleryEnergyStorage(),baseMaxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
     state.structures.set(ghost.id,rebuilt);
   }else if(ghost.objectType==="research"){
     rebuilt={id:`research-${state.nextId++}`,type:"research",q:ghost.q,r:ghost.r,footprint:structureFootprint(ghost).map(cell=>({...cell})),hp:RESEARCH_HIT_POINTS,maxHp:RESEARCH_HIT_POINTS};
     state.structures.set(ghost.id,rebuilt);state.researchUnlocked=true;
+  }else if(ghost.objectType==="neutralizer-building"){
+    const maxStorage=neutralizerStorage();rebuilt={id:`neutralizer-building-${state.nextId++}`,type:"neutralizer-building",q:ghost.q,r:ghost.r,footprint:structureFootprint(ghost).map(cell=>({...cell})),hp:NEUTRALIZER_BUILDING_HIT_POINTS,maxHp:NEUTRALIZER_BUILDING_HIT_POINTS,material:0,energy:0,maxMaterial:maxStorage,maxEnergy:maxStorage,productionClock:0};
+    state.structures.set(ghost.id,rebuilt);
   }else{
     rebuilt={id:`mine-${state.nextId++}`,type:"mine",resource:ghost.resource,q:ghost.q,r:ghost.r,hp:22,maxHp:22};
     state.structures.set(ghost.id,rebuilt);
@@ -431,6 +441,7 @@ function trainPartDestroyed(train,partLabel){
 function supplyLabel(supply){return `${resourceLabel(supply.role||supply.type)} supply`;}
 
 function damageTarget(target, amount) {
+  if(target.type==="neutralizer")return damageNeutralizer(target,amount);
   const targetIsTrack=state.tracks.get(key(target.q,target.r))===target;
   target.hp=targetIsTrack&&target.maxHp<=TRACK_HIT_POINTS&&amount>0?0:target.hp-amount;
   const fatalTrainPart=target.hp<=0&&(target.kind==="wagon"||Boolean(target.wagons));
@@ -458,16 +469,18 @@ function damageTarget(target, amount) {
   if (target.wagons) {
     state.trains = state.trains.filter(t => t.id !== target.id);
     if (state.selected?.id === target.id) state.selected = null;
-    if(state.scheduleTrainId===target.id){state.scheduleTrainId=null;state.mode="select";canvas.style.cursor="default";document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));}
+    if(state.scheduleTrainId===target.id){state.scheduleTrainId=null;state.scheduleDraft=null;state.mode="select";canvas.style.cursor="default";document.querySelectorAll("[data-mode]").forEach(button=>button.classList.toggle("active",button.dataset.mode==="select"));}
     trainPartDestroyed(target,"locomotive");
-  } else if (["turret","artillery","mine","wall","research"].includes(target.type)) {
+  } else if (["turret","artillery","mine","wall","gate","research","neutralizer-building"].includes(target.type)) {
     leaveGhost(target,target.type);
+    salvageBurst(target);
     state.structures.delete(key(target.q,target.r));
     invalidateEnemyNavigation();
     if (state.selected?.id === target.id) state.selected = null;
-    toast(`${capitalize(target.type)} destroyed.`, "danger");
+    toast(`${target.type==="neutralizer-building"?"Neutralizer building":capitalize(target.type)} destroyed.`, "danger");
   } else {
     leaveGhost(target,"track");
+    salvageBurst(target);
     deleteTrack(target.q,target.r);
     if (state.selected?.type === "track" && state.selected.id === key(target.q,target.r)) state.selected = null;
   }
@@ -488,7 +501,7 @@ function updateEnemies(dt) {
       const shots=Math.floor((enemy.attackClock+1e-9)/CREEP_ATTACK_INTERVAL);
       if(shots>0){
         enemy.attackClock-=shots*CREEP_ATTACK_INTERVAL;
-        const targetPoint=axialToWorld(target.q,target.r);
+        const targetPoint=target.type==="neutralizer"?{x:target.x,y:target.y}:axialToWorld(target.q,target.r);
         for(let shot=0;shot<shots;shot++)state.projectiles.push({x1:enemy.x,y1:enemy.y,x2:targetPoint.x,y2:targetPoint.y,life:.09,maxLife:.09,color:"#ff3348",width:1.7,impactColor:"#ff8790"});
         damageTarget(target,shots*CREEP_ATTACK_DAMAGE);
       }
@@ -551,6 +564,8 @@ function debugDestroyAt(q,r){
   if(hive){damageTarget(hive,Math.max(1,hive.hp));render();return true;}
   const enemy=state.enemies.find(candidate=>{const visible=worldToAxial(candidate.x,candidate.y);return visible.q===q&&visible.r===r;});
   if(enemy){sounds.hit();damageEnemy(enemy,Math.max(1,enemy.hp));updateUI(true);render();return true;}
+  const neutralizer=state.neutralizers.find(candidate=>{const visible=worldToAxial(candidate.x,candidate.y);return visible.q===q&&visible.r===r;});
+  if(neutralizer){damageNeutralizer(neutralizer,Math.max(1,neutralizer.hp));updateUI(true);render();return true;}
   const track=state.tracks.get(key(q,r));
   if(track){damageTarget(track,Math.max(1,track.hp));render();return true;}
   if(ghostAt(q,r))return fail("That object is already destroyed.");

@@ -60,8 +60,9 @@ describe("Debug menu",()=>{
     const enemy=makeEnemy("debug-creep",7,0);state.enemies.push(enemy);
     api.setMode("debug-destroy");
 
-    assert.equal(api.handleHexClick({q:wall.q,r:wall.r}),true);assert.equal(state.ghosts.get("4,0").objectType,"wall");assert.equal(state.particles.length,0,"wreckage should use its small X instead of frozen center particles");
-    assert.equal(api.handleHexClick({q:track.q,r:track.r}),true);assert.equal(state.ghosts.get("5,0").objectType,"track");assert.equal(state.particles.length,0);
+    assert.equal(api.handleHexClick({q:wall.q,r:wall.r}),true);assert.equal(state.ghosts.get("4,0").objectType,"wall");assert.equal(state.particles.length,8,"destroyed structures should emit the standard gray-square effect");
+    state.particles=[];
+    assert.equal(api.handleHexClick({q:track.q,r:track.r}),true);assert.equal(state.ghosts.get("5,0").objectType,"track");assert.equal(state.particles.length,8,"destroyed track should emit the standard gray-square effect");
     assert.equal(api.handleHexClick({q:hive.q,r:hive.r}),true);assert.equal(state.hives.has("6,0"),false);assert.equal(state.hivesNeutralized,1);
     assert.equal(api.handleHexClick({q:7,r:0}),true);assert.equal(state.enemies.length,0);assert.equal(state.creepsNeutralized,1);
   });

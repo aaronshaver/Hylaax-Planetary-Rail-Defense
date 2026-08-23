@@ -9,6 +9,11 @@ const RESEARCH_UPGRADES = [
   {key:"artilleryDamage",group:"Artillery",label:"+50% artillery damage",multiplier:1.5,description:"Artillery center and splash damage increase by 50%."},
   {key:"artilleryRange",group:"Artillery",label:"+20% artillery range",multiplier:1.2,description:"Artillery range increases by 20%."},
   {key:"artilleryEnergyStorage",group:"Artillery",label:"+25% artillery energy storage",multiplier:1.25,description:"Artillery stores 25% more energy."},
+  {key:"neutralizerHitPoints",group:"Neutralizers",label:"+50% neutralizer hit points",multiplier:1.5,description:"All existing and future neutralizer ally units have 50% more hit points."},
+  {key:"neutralizerFireRate",group:"Neutralizers",label:"+50% neutralizer firing rate",multiplier:1.5,description:"Neutralizer ally units fire 50% more frequently."},
+  {key:"neutralizerDamage",group:"Neutralizers",label:"+50% neutralizer damage",multiplier:1.5,description:"Neutralizer ally units deal 50% more damage per shot."},
+  {key:"neutralizerProduction",group:"Neutralizers",label:"+25% neutralizer production speed",multiplier:1.25,description:"Neutralizer buildings produce ally units 25% faster."},
+  {key:"neutralizerStorage",group:"Neutralizers",label:"+50% neutralizer building storage",multiplier:1.5,description:"Neutralizer buildings store 50% more construction material and energy."},
   {key:"trainCapacity",group:"Trains and mining",label:"+50% train capacity",multiplier:1.5,description:"All train supply wagons hold 50% more resources."},
   {key:"trainSpeed",group:"Trains and mining",label:"+25% train speed",multiplier:1.25,description:"All trains move 25% faster."},
   {key:"mineEfficiency",group:"Trains and mining",label:"+20% mining efficiency",multiplier:1.2,description:"Mining uses fewer resources, extending the life of the resource node under the mine."},
@@ -41,6 +46,11 @@ function artilleryEnergyStorage(){return Math.ceil(ARTILLERY_MAX_ENERGY*research
 function wallHitPoints(){return Math.ceil(WALL_HIT_POINTS*researchMultiplier("wallStrength"));}
 function trackHitPoints(){return TRACK_HIT_POINTS*researchMultiplier("trackStrength");}
 function researchRate(){return researchMultiplier("researchSpeed");}
+function neutralizerHitPoints(){return researchedWholeValue(NEUTRALIZER_BASE_HIT_POINTS,"neutralizerHitPoints");}
+function neutralizerFireInterval(){return NEUTRALIZER_ATTACK_INTERVAL/researchMultiplier("neutralizerFireRate");}
+function neutralizerDamage(){return researchedWholeValue(NEUTRALIZER_BASE_DAMAGE,"neutralizerDamage");}
+function neutralizerProductionInterval(){return NEUTRALIZER_PRODUCTION_INTERVAL/researchMultiplier("neutralizerProduction");}
+function neutralizerStorage(){return Math.ceil(NEUTRALIZER_BASE_STORAGE*researchMultiplier("neutralizerStorage"));}
 
 function researchFootprintCandidates(q,r){
   return DIRECTIONS.map(([dq,dr],index)=>{
@@ -51,14 +61,14 @@ function researchFootprintCandidates(q,r){
 
 function researchCellAvailable(cell){
   const site=nonMineConstructionSite(cell.q,cell.r);
-  return isPassable(cell.q,cell.r)&&site.terrain.type==="ground"&&!structureAt(cell.q,cell.r)&&!hiveAt(cell.q,cell.r)&&!state.tracks.has(key(cell.q,cell.r))&&!trainClaimsHex(cell.q,cell.r)&&!creepOccupiesHex(cell.q,cell.r);
+  return isPassable(cell.q,cell.r)&&site.terrain.type==="ground"&&!structureAt(cell.q,cell.r)&&!hiveAt(cell.q,cell.r)&&!state.tracks.has(key(cell.q,cell.r))&&!trainClaimsHex(cell.q,cell.r)&&!creepOccupiesHex(cell.q,cell.r)&&!neutralizerOccupiesHex(cell.q,cell.r);
 }
 
 function researchPlacementFootprint(q,r){return researchFootprintCandidates(q,r).find(footprint=>footprint.every(researchCellAvailable))||null;}
 function researchPreviewFootprint(q,r){return researchPlacementFootprint(q,r)||researchFootprintCandidates(q,r)[0];}
 
 function buildResearch(q,r){
-  if(!requireNoCreep(q,r))return;
+  if(!requireNoUnit(q,r))return;
   const footprint=researchPlacementFootprint(q,r);
   if(!footprint)return fail("Research needs three connected clear ground hexes in a triangle.");
   if(!payBase(COSTS.research,"research"))return null;
@@ -84,8 +94,12 @@ function applyResearchUpgrade(keyName){
   if(keyName==="trainCapacity")for(const train of state.trains)for(const wagon of train.wagons){wagon.baseCapacity??=wagon.capacity/oldMultiplier;wagon.capacity=Math.ceil(wagon.baseCapacity*newMultiplier);}
   if(keyName==="trainSpeed")for(const train of state.trains){train.baseSpeed??=train.speed/oldMultiplier;train.speed=train.baseSpeed*newMultiplier;}
   if(keyName==="loadUnloadEfficiency")for(const train of state.trains)if(train.servicingStop){const remaining=Math.max(0,(train.stopHoldUntil||state.elapsed)-state.elapsed);train.stopHoldUntil=state.elapsed+remaining*upgrade.multiplier;}
-  if(keyName==="wallStrength")for(const wall of [...state.structures.values()].filter(structure=>structure.type==="wall")){const ratio=wall.maxHp?wall.hp/wall.maxHp:1;wall.baseMaxHp??=wall.maxHp/oldMultiplier;wall.maxHp=Math.ceil(wall.baseMaxHp*newMultiplier);wall.hp=Math.ceil(wall.maxHp*ratio);}
+  if(keyName==="wallStrength")for(const wall of [...state.structures.values()].filter(structure=>["wall","gate"].includes(structure.type))){const ratio=wall.maxHp?wall.hp/wall.maxHp:1;wall.baseMaxHp??=wall.maxHp/oldMultiplier;wall.maxHp=Math.ceil(wall.baseMaxHp*newMultiplier);wall.hp=Math.ceil(wall.maxHp*ratio);}
   if(keyName==="trackStrength")for(const track of state.tracks.values()){const ratio=track.maxHp?track.hp/track.maxHp:1;track.baseMaxHp??=track.maxHp/oldMultiplier;track.maxHp=track.baseMaxHp*newMultiplier;track.hp=track.maxHp*ratio;}
+  if(keyName==="neutralizerHitPoints")for(const unit of state.neutralizers){const ratio=unit.maxHp?unit.hp/unit.maxHp:1;unit.maxHp=neutralizerHitPoints();unit.hp=Math.ceil(unit.maxHp*ratio);}
+  if(keyName==="neutralizerFireRate")for(const unit of state.neutralizers)unit.attackClock=Math.max(0,(unit.attackClock||0)/upgrade.multiplier);
+  if(keyName==="neutralizerProduction")for(const building of [...state.structures.values()].filter(structure=>structure.type==="neutralizer-building"))building.productionClock=Math.max(0,(building.productionClock||0)/upgrade.multiplier);
+  if(keyName==="neutralizerStorage")for(const building of [...state.structures.values()].filter(structure=>structure.type==="neutralizer-building")){building.maxMaterial=neutralizerStorage();building.maxEnergy=neutralizerStorage();building.material=Math.min(building.material,building.maxMaterial);building.energy=Math.min(building.energy,building.maxEnergy);}
   updateUI(true);render();
 }
 

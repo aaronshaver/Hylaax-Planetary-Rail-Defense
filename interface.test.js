@@ -15,7 +15,9 @@ describe("interface formatting", () => {
       ["mineTool",api.constants.COSTS.mine],
       ["wallTool",api.constants.COSTS.wall],
       ["artilleryTool",api.constants.COSTS.artillery],
-      ["researchTool",api.constants.COSTS.research]
+      ["researchTool",api.constants.COSTS.research],
+      ["gateTool",api.constants.COSTS.gate],
+      ["neutralizerTool",api.constants.COSTS.neutralizer]
     ];
     for(const [id,cost] of cases){
       state.baseMaterial=cost.material;state.baseEnergy=cost.energy;api.updateUI(true);
@@ -26,12 +28,12 @@ describe("interface formatting", () => {
     }
 
     state.baseMaterial=0;state.baseEnergy=0;api.updateUI(true);
-    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"true",id);assert.equal(elements.get(id).classList.contains("unavailable"),true,id);}
+    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool","researchTool","gateTool","neutralizerTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"true",id);assert.equal(elements.get(id).classList.contains("unavailable"),true,id);}
     assert.equal(elements.get("selectTool").disabled,false);
     assert.equal(elements.get("salvageTool").disabled,false);
 
     state.baseMaterial=75;state.baseEnergy=75;api.updateUI(true);
-    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"false",id);assert.equal(elements.get(id).classList.contains("unavailable"),false,id);}
+    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool","researchTool","gateTool","neutralizerTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"false",id);assert.equal(elements.get(id).classList.contains("unavailable"),false,id);}
   });
 
   test("unaffordable construction modes cannot be entered and an active one exits when funds fall short",()=>{
@@ -54,8 +56,8 @@ describe("interface formatting", () => {
     assert.ok(html.indexOf('id="baseMaterialHud"')<html.indexOf('id="baseEnergyHud"'),"Construction should appear before Energy in the HUD");
     assert.ok(html.indexOf('id="baseEnergyHud"')<html.indexOf('id="unminedMaterialHud"')&&html.indexOf('id="unminedMaterialHud"')<html.indexOf('id="unminedEnergyHud"'));
     assert.equal(elements.get("researchPointsHud").textContent,0);
-    assert.match(html,/Base construction:/);assert.match(html,/Base energy:/);assert.match(html,/Unmined construction:/);assert.match(html,/Unmined energy:/);assert.match(html,/Research points:/);assert.match(html,/Time survived:/);
-    assert.doesNotMatch(html,/Base Construction:|Base Energy:|Unmined Construction:|Unmined Energy:|Research Points:|Time Survived:/);
+    assert.match(html,/Base building construction:/);assert.match(html,/Base building energy:/);assert.match(html,/Unmined construction:/);assert.match(html,/Unmined energy:/);assert.match(html,/Research points:/);assert.match(html,/Time survived:/);
+    assert.doesNotMatch(html,/Base Building Construction:|Base Building Energy:|Unmined Construction:|Unmined Energy:|Research Points:|Time Survived:/);
   });
 
   test("the HUD totals resources only in active Mines connected to completed live Stops",()=>{
@@ -101,12 +103,12 @@ describe("interface formatting", () => {
     const ghostHtml=api.selectionHtml();assert.match(ghostHtml,/Destroyed wall/);assert.match(ghostHtml,/Any construction normally allowed on this terrain can replace this wreckage directly/);assert.match(ghostHtml,/stopped at an adjacent non-destroyed train stop/);assert.match(ghostHtml,/Salvage\/clear object/);
     const trackGhost={id:"4,2",type:"ghost",objectType:"track",q:4,r:2};state.ghosts.set(trackGhost.id,trackGhost);state.selected={type:"ghost",id:trackGhost.id};
     assert.match(api.selectionHtml(),/can rebuild destroyed track even when the train is not at a stop/);
-    state.base.hp=0;state.selected={type:"base",id:"base"};const baseHtml=api.selectionHtml();assert.match(baseHtml,/Destroyed base/);assert.match(baseHtml,/cannot be rebuilt or salvaged/);
+    state.base.hp=0;state.selected={type:"base",id:"base"};const baseHtml=api.selectionHtml();assert.match(baseHtml,/Destroyed base building/);assert.match(baseHtml,/cannot be rebuilt or salvaged/);
   });
 
   test("the live Base pane explains its 110-unit unloading reserve",()=>{
     api.state.selected={type:"base",id:"base"};
-    assert.match(api.selectionHtml(),/Trains will only fill resources to 110 units so that they don't endlessly dump resources into the base and starve buildings that need those resources/);
+    assert.match(api.selectionHtml(),/Trains will only fill resources to 110 units so that they don't endlessly dump resources into the base building and starve buildings that need those resources/);
   });
 
   test("Mine selection describes Train service at an adjacent Stop",()=>{
@@ -246,7 +248,7 @@ describe("interface formatting", () => {
 
   test("Turret Train selection uses the mobile defense description",()=>{
     const train=addTestTrain("combat");api.state.selected={type:"train",id:train.id};
-    assert.match(api.selectionHtml(),/A mobile turret train · Shot range 6 hexes · 1 damage every 1 second\(s\) · Restocks its fuel energy and shot energy at base · Another train can provide emergency fuel when it has no fuel energy remaining/);
+    assert.match(api.selectionHtml(),/A mobile turret train · Shot range 6 hexes · 1 damage every 1 second\(s\) · Restocks its fuel energy and shot energy at the base building · Another train can provide emergency fuel when it has no fuel energy remaining/);
   });
 
   test("Turret Train fabrication costs 30 Construction Material and 10 Energy and cancellation refunds both",()=>{

@@ -192,6 +192,27 @@ describe("rendering caches", () => {
     assert.equal(context.fillRectCalls.some(call=>call.width===34&&call.height===28),false,"Base cells should not use rectangular center panels");
   });
 
+  test("Base, Turret, Artillery, Mine, Research, and Neutralizer buildings keep static glows in every resource state",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state,node=api.resourceNodeAt(7,-2);api.setNodeAmount(node,0);state.structures.clear();
+    const structures=[
+      {id:"glow-turret",type:"turret",q:10,r:10,hp:20,maxHp:20,energy:0,maxEnergy:20},
+      {id:"glow-artillery",type:"artillery",q:12,r:10,hp:36,maxHp:36,energy:0,maxEnergy:50},
+      {id:"glow-mine",type:"mine",resource:"material",q:node.q,r:node.r,hp:22,maxHp:22},
+      {id:"glow-research",type:"research",q:16,r:10,hp:300,maxHp:300,footprint:[{q:16,r:10},{q:17,r:10},{q:16,r:11}]},
+      {id:"glow-neutralizer",type:"neutralizer-building",q:20,r:10,hp:200,maxHp:200,material:15,energy:15,maxMaterial:20,maxEnergy:20,footprint:[{q:20,r:10},{q:21,r:10}]}
+    ];
+    for(const structure of structures)state.structures.set(api.key(structure.q,structure.r),structure);
+    context.fillCalls.length=0;context.strokeCalls.length=0;api.drawBase();api.drawStructures();
+    assert.ok(context.fillCalls.some(call=>call.fillStyle==="#24352c"&&call.shadowBlur===12&&call.shadowColor==="rgba(105,196,127,.28)"),"Base building should retain its green static glow");
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#69c47f"),"Base building outlines should use the green palette");
+    assert.ok(context.fillCalls.some(call=>call.fillStyle==="#4b3028"&&call.shadowBlur===12&&call.shadowColor==="#ef9b54"&&call.path.some(item=>item.command==="arc"&&item.r===20)),"an empty Turret should retain its orange static glow");
+    assert.ok(context.fillCalls.some(call=>call.fillStyle==="#4b3028"&&call.shadowBlur===12&&call.shadowColor==="#ef9b54"&&call.path.every(item=>item.command!=="arc")),"empty Artillery should retain its orange static glow");
+    assert.ok(context.fillCalls.some(call=>call.fillStyle==="#34393c"&&call.shadowBlur===10&&call.shadowColor==="#70787c"),"an exhausted Mine should retain a static gray glow");
+    assert.ok(context.fillCalls.some(call=>call.fillStyle==="#29233a"&&call.shadowBlur===12&&call.shadowColor==="rgba(184,121,255,.35)"),"Research should retain its purple static glow");
+    assert.ok(context.fillCalls.some(call=>call.fillStyle==="#8b552f"&&call.shadowBlur===10&&call.shadowColor==="rgba(239,155,84,.35)"),"Neutralizer buildings should retain their orange static glow");
+    assert.ok(context.strokeCalls.filter(call=>call.shadowColor==="#ff3848"&&call.shadowBlur>0).length>=2,"existing low-energy red warning pulses should remain");
+  });
+
   test("building and resource-node letters share one medium very-light-gray style and larger circles",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
     const structures=[
@@ -208,9 +229,9 @@ describe("rendering caches", () => {
 
     const glyphs=context.textCalls.filter(call=>["B","T","A","W","R","C","E"].includes(call.text));
     assert.equal(glyphs.length,12);assert.ok(glyphs.every(call=>call.fillStyle==="#f3f7f8"&&call.font==="900 16.5px ui-monospace, monospace"));
-    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#b879ff"&&call.path.some(item=>item.command==="arc"&&item.r===20)),"turret circle should use the larger radius");
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#ef9b54"&&call.path.some(item=>item.command==="arc"&&item.r===20)),"turret circle should use the larger radius and offensive orange");
     for(const color of ["#e6b94a","#60d5db"])assert.ok(context.strokeCalls.some(call=>call.strokeStyle===color&&call.path.some(item=>item.command==="arc"&&item.r===20)),`${color} resource-node circle should use the larger radius`);
-    const artilleryPoint=api.axialToWorld(12,10),artilleryOutline=context.strokeCalls.find(call=>call.strokeStyle==="#ef9b54");
+    const artilleryPoint=api.axialToWorld(12,10),artilleryOutline=context.strokeCalls.find(call=>call.strokeStyle==="#ef9b54"&&call.path.every(item=>item.command!=="arc"));
     assert.ok(artilleryOutline.path.some(item=>item.command==="lineTo"&&Math.hypot(item.x-artilleryPoint.x,item.y-artilleryPoint.y)>21),"artillery outline should sit closer to the hex edge");
   });
 
@@ -222,7 +243,7 @@ describe("rendering caches", () => {
     context.strokeCalls.length=0;context.fillCalls.length=0;context.fillRectCalls.length=0;context.textCalls.length=0;
     api.drawStructures();
     assert.equal(context.strokeCalls.some(call=>call.strokeStyle==="#b7c6c9"&&call.lineWidth===4),false);
-    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#b879ff"&&call.path.some(item=>item.command==="arc"&&item.r===20)),"fixed Turret outline should be purple and enlarged");
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#ef9b54"&&call.path.some(item=>item.command==="arc"&&item.r===20)),"fixed Turret outline should be orange and enlarged");
     assert.ok(context.fillCalls.some(call=>call.path.filter(item=>item.command==="lineTo").length===2&&call.path.some(item=>item.command==="closePath")),"Mine should render a filled triangular roof");
     const mineLabel=context.textCalls.find(call=>call.text==="M:C");assert.equal(mineLabel.font,"900 11px ui-monospace, monospace");assert.equal(mineLabel.fillStyle,"#f3f7f8","mine lettering should remain unchanged");
     assert.equal(context.fillCalls.some(call=>call.path.some(item=>item.command==="arc"&&item.r===7)),false,"Turret must not have a center circle");
@@ -280,12 +301,14 @@ describe("rendering caches", () => {
     assert.deepEqual(context.fillRectCalls.filter(call=>call.width===28&&call.height===18).map(call=>call.fillStyle),firstColors,"car shades should remain stable across renders");
   });
 
-  test("Turret Trains have a purple locomotive with no visible weapon or center mount",()=>{
+  test("Turret Trains have a three-shade orange locomotive with no visible weapon or center mount",()=>{
     const context=elements.get("gameCanvas").context;
-    const { addTestTrain }=require("./harness.js");addTestTrain("combat");
-    context.strokeCalls.length=0;context.fillRectCalls.length=0;api.drawTrains();
+    const { addTestTrain }=require("./harness.js"),train=addTestTrain("combat");
+    context.strokeCalls.length=0;context.fillRectCalls.length=0;
+    for(let shade=0;shade<3;shade++){train.colorShade=shade;api.drawTrains();}
     assert.equal(context.strokeCalls.some(call=>call.strokeStyle==="#83edf2"&&call.lineWidth===4),false);
-    assert.ok(context.fillRectCalls.some(call=>call.fillStyle==="#684079"&&call.width===28&&call.height===18));
+    const locomotiveColors=context.fillRectCalls.filter(call=>call.width===28&&call.height===18&&api.constants.TRAIN_CAR_COLORS.combat.includes(call.fillStyle)).map(call=>call.fillStyle);
+    assert.deepEqual(locomotiveColors,["#7c4a28","#9b5d32","#ba703c"]);assert.ok(context.fillRectCalls.filter(call=>api.constants.TRAIN_CAR_COLORS.combat.includes(call.fillStyle)).every(call=>call.shadowColor==="#ef9b54"&&call.shadowBlur===12));
   });
 
   test("Walls render as dark gray brickwork with a centered W",()=>{

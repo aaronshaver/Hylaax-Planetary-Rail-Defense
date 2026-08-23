@@ -4,25 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 3.9.2</title>
+  <title>Planetary Rail Defense 4.0.0</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 3.9.2 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 4.0.0 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
       <div class="top-left-stack">
         <div class="hud top-left">
-          <div class="hud-stat">Base construction: <strong id="baseMaterialHud">0</strong></div>
-          <div class="hud-stat">Base energy: <strong id="baseEnergyHud">0</strong></div>
+          <div class="hud-stat">Base building construction: <strong id="baseMaterialHud">0</strong></div>
+          <div class="hud-stat">Base building energy: <strong id="baseEnergyHud">0</strong></div>
           <div class="hud-stat">Unmined construction: <strong id="unminedMaterialHud">0</strong></div>
           <div class="hud-stat">Unmined energy: <strong id="unminedEnergyHud">0</strong></div>
           <div class="hud-stat">Research points: <strong id="researchPointsHud">0</strong></div>
           <div class="hud-stat">Time survived: <strong id="timeSurvived">00h 00m 00s</strong></div>
         </div>
-        <button id="centerBaseButton" class="btn center-base-button" type="button">Center map on base</button>
+        <button id="centerBaseButton" class="btn center-base-button" type="button">Center map on base building</button>
       </div>
 
       <div class="bottom-debug-row">
@@ -39,7 +39,7 @@
       </div>
       <div id="gameOver" class="game-over d-none" hidden>
         <div class="game-over-card">
-          <div class="eyebrow text-danger">Base lost</div>
+          <div class="eyebrow text-danger">Base building lost</div>
           <h1>The creeps broke through</h1>
           <div class="defeat-stats">
             <div><span>Survival time</span><strong id="survivalTime">00h 00m 00s</strong></div>
@@ -65,7 +65,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 3.9.2</span></h1>
+          <h1>RAIL<br><span>DEFENSE 4.0.0</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -84,6 +84,8 @@
           <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E&#10;• Must be built within 1 hex of a train stop so that it can be resupplied and/or repaired"><span class="keycap">6</span>Build artillery</button>
           <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="• Salvages for resources: train track, most buildings, and trains&#10;• Clears destroyed objects&#10;• Salvaging or clearing a mine leaves the underlying resource node untouched"><span class="keycap">7</span>Salvage/clear object</button>
           <button id="researchTool" class="btn tool-button" data-mode="research" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E"><span class="keycap">8</span>Build research</button>
+          <button id="gateTool" class="btn tool-button" data-mode="gate" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 30 C, 0 E&#10;• Must be built within 5 hexes of a train stop so that it can be resupplied and/or repaired"><span class="keycap">9</span>Build gate</button>
+          <button id="neutralizerTool" class="btn tool-button" data-mode="neutralizer" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E&#10;• Must be built within 1 hex of a train stop so that it can be resupplied and/or repaired"><span class="keycap">0</span>Build neutralizer</button>
         </div>
       </section>
 
@@ -97,14 +99,11 @@
 
   <aside id="debugMenu" class="debug-menu d-none" hidden aria-label="Debug menu">
     <div class="debug-menu-title">Debug</div>
+    <div class="debug-menu-warning">This is a debug menu intended for development. It's &quot;cheating&quot; if you use this during your game. But it's a single player game, so do whatever is fun for you.</div>
     <button id="debugDestroyObject" class="btn debug-action" data-mode="debug-destroy">Destroy object</button>
-    <div class="debug-menu-note">Click a destructible object on the map to apply its normal destruction behavior instantly.</div>
     <button id="debugAddCreep" class="btn debug-action" data-mode="debug-add-creep">Add creep</button>
-    <div class="debug-menu-note">Click an open passable hex to spawn one normal creep instantly.</div>
-    <button id="debugAddBaseResources" class="btn debug-action">Add base resources</button>
-    <div class="debug-menu-note">Adds 1,000 of every base resource.</div>
+    <button id="debugAddBaseResources" class="btn debug-action">Add base building resources</button>
     <button id="debugAddResearchPoints" class="btn debug-action">Add research points</button>
-    <div class="debug-menu-note">Adds 1,000 research points.</div>
   </aside>
   <div id="remindersDialog" class="reminders-overlay" role="dialog" aria-modal="true" aria-label="Before starting" aria-describedby="remindersNotice">
     <div class="reminders-card">
@@ -139,6 +138,15 @@
     </div>
   </div>
 
+  <div id="neutralizerGateDialog" class="confirm-overlay d-none" hidden role="dialog" aria-modal="true" aria-labelledby="neutralizerGateTitle" aria-describedby="neutralizerGateMessage">
+    <div class="confirm-card">
+      <div class="eyebrow">Neutralizer note</div>
+      <h2 id="neutralizerGateTitle">Use gates with walls</h2>
+      <p id="neutralizerGateMessage">Note: if you build walls surrounding your base building, note that gates can be used to let neutralizer (ally units) pass through so that you can keep a solid defense of walls while allowing neutralizer units to leave the base building. Creeps cannot pass through gates.</p>
+      <button id="neutralizerGateOkay" class="btn btn-command">OK</button>
+    </div>
+  </div>
+
   <script src="bootstrap.bundle.min.js"></script>
   <script src="core.js"></script>
   <script src="terrain.js"></script>
@@ -147,6 +155,7 @@
   <script src="rail.js"></script>
   <script src="trains.js"></script>
   <script src="enemies.js"></script>
+  <script src="neutralizers.js"></script>
   <script src="simulation.js"></script>
   <script src="rendering.js"></script>
   <script src="interface.js"></script>

@@ -436,6 +436,24 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(calls.filter(call=>call[2]==="sine"&&call[3]<=.012).length,8,"each of four Stop placements should use two soft sine sweeps");
   });
 
+  test("Add schedule appends to a completed schedule and Undo affects only newly added Stops",()=>{
+    const state=api.state,train=state.trains[0];installScheduleRing(train);const originalStops=[{q:1,r:0},{q:0,r:-1}];train.schedule=originalStops.map(stop=>({...stop}));train.scheduleComplete=true;train.scheduleTargetIndex=1;state.selected={type:"train",id:train.id};
+    let html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="add-schedule"[^>]*>Add schedule<\/button>/);assert.doesNotMatch(html,/data-action="add-schedule"[^>]*disabled/);
+
+    api.handleAction("add-schedule");
+    assert.equal(state.mode,"schedule");assert.equal(train.scheduleComplete,false);assert.equal(state.scheduleDraft.originalSchedule.length,2);assert.equal(api.undoLastScheduleStop(train),false,"Undo must not remove a stop from the completed schedule");assert.deepEqual(train.schedule,originalStops);
+    html=api.selectionHtml();assert.match(html,/data-action="undo-last-stop"[^>]*disabled/);
+
+    api.addScheduleStop(train,-1,1);assert.equal(train.schedule.length,3);assert.equal(api.undoLastScheduleStop(train),true);assert.deepEqual(train.schedule,originalStops);assert.equal(api.undoLastScheduleStop(train),false,"Undo must stop at the append-session boundary");
+    api.addScheduleStop(train,-1,1);assert.equal(api.finishSchedule(train),true);assert.equal(train.scheduleComplete,true);assert.deepEqual(train.schedule.map(stop=>`${stop.q},${stop.r}`),["1,0","0,-1","-1,1"]);assert.equal(state.scheduleDraft,null);
+  });
+
+  test("abandoning an append session restores the previously completed schedule",()=>{
+    const state=api.state,train=state.trains[0];installScheduleRing(train);const originalStops=[{q:1,r:0},{q:0,r:-1}];train.schedule=originalStops.map(stop=>({...stop}));train.scheduleComplete=true;train.scheduleTargetIndex=1;train.status="At stop A1";state.selected={type:"train",id:train.id};
+    api.handleAction("add-schedule");api.addScheduleStop(train,-1,1);assert.equal(train.schedule.length,3);
+    assert.equal(api.setMode("turret"),true);assert.deepEqual(train.schedule.map(stop=>`${stop.q},${stop.r}`),["1,0","0,-1"]);assert.equal(train.scheduleComplete,true);assert.equal(train.scheduleTargetIndex,1);assert.equal(train.status,"At stop A1");assert.equal(state.scheduleDraft,null);
+  });
+
   test("normal schedules allow two Stops while tutorial schedules still require three",()=>{
     const state=api.state,train=state.trains[0];installScheduleRing(train);
     state.mode="schedule";state.scheduleTrainId=train.id;state.selected={type:"train",id:train.id};train.schedule=[{q:1,r:0},{q:-1,r:1}];

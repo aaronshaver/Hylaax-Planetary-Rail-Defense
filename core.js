@@ -43,6 +43,15 @@ const ARTILLERY_OUTER_SPLASH_DAMAGE = 1;
 const TURRET_HIT_POINTS = 20;
 const RESEARCH_HIT_POINTS = 300;
 const RESEARCH_UPGRADE_COST = 30;
+const NEUTRALIZER_BUILDING_HIT_POINTS = 200;
+const NEUTRALIZER_BASE_HIT_POINTS = 1;
+const NEUTRALIZER_BASE_DAMAGE = 1;
+const NEUTRALIZER_ATTACK_INTERVAL = 1;
+const NEUTRALIZER_SPEED = ENEMY_SPEED;
+const NEUTRALIZER_BASE_STORAGE = 20;
+const NEUTRALIZER_PRODUCTION_INTERVAL = 7;
+const NEUTRALIZER_UNIT_MATERIAL_COST = 5;
+const NEUTRALIZER_UNIT_ENERGY_COST = 5;
 const CREEP_HEX_CAPACITY = 7;
 const CREEP_SLOT_RADIUS = 17;
 const CREEP_RENDER_SCALE = .64;
@@ -57,10 +66,12 @@ const COSTS = {
   turret: { material: 10, energy: 10 },
   mine: { material: 10, energy: 0 },
   wall: { material: 30, energy: 0 },
+  gate: { material: 30, energy: 0 },
   artillery: { material: 50, energy: 50 },
-  research: { material: 50, energy: 50 }
+  research: { material: 50, energy: 50 },
+  neutralizer: { material: 50, energy: 50 }
 };
-const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, artillery: 30, research: 30 };
+const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, gate: 12, artillery: 30, research: 30, "neutralizer-building": 30 };
 const BASE_RESOURCE_TYPES = [
   { key: "material", stateKey: "baseMaterial", label: "construction material" },
   { key: "energy", stateKey: "baseEnergy", label: "energy" }
@@ -69,19 +80,20 @@ const TRAIN_CAR_COLORS = {
   material:["#705c2c","#8c7337","#a88a42"],
   energy:["#2a666c","#347f87","#3e98a2"],
   builder:["#872a32","#a9343e","#cb3e4a"],
-  combat:["#533361","#684079","#7d4d91"]
+  combat:["#7c4a28","#9b5d32","#ba703c"]
 };
 const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*(60*index-30);return {x:Math.cos(angle),y:Math.sin(angle)};});
 
 const ui = Object.fromEntries([
   "baseEnergyHud", "baseMaterialHud", "unminedMaterialHud", "unminedEnergyHud", "researchPointsHud", "timeSurvived",
   "pauseToggle", "soundToggle", "centerBaseButton", "selectionLabel",
-  "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool",
+  "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool", "gateTool", "neutralizerTool",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart",
   "debugToggle", "debugMenu", "debugDestroyObject", "debugAddCreep", "debugAddBaseResources", "debugAddResearchPoints",
   "turretEnergyDialog", "turretEnergyMessage", "turretEnergyOkay",
+  "neutralizerGateDialog", "neutralizerGateOkay",
   "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt", "defeatEnergyMined", "defeatMaterialMined"
 ].map(id => [id, document.getElementById(id)]));
 
@@ -92,6 +104,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 const hexDistance = (a, b) => (Math.abs(a.q - b.q) + Math.abs(a.q + a.r - b.q - b.r) + Math.abs(a.r - b.r)) / 2;
 const neighbors = (q, r) => DIRECTIONS.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
 function creepOccupiesHex(q,r){return state.enemies.some(creep=>{const position=worldToAxial(creep.x,creep.y);return position.q===q&&position.r===r;});}
+function neutralizerOccupiesHex(q,r){return state.neutralizers.some(unit=>{const position=worldToAxial(unit.x,unit.y);return position.q===q&&position.r===r;});}
 function footprintPerimeter(cells){
   const occupied=new Set(cells.map(cell=>key(cell.q,cell.r))),perimeter=new Map();
   for(const cell of cells)for(const position of neighbors(cell.q,cell.r))if(!occupied.has(key(position.q,position.r)))perimeter.set(key(position.q,position.r),position);

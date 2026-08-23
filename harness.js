@@ -6,7 +6,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { performance } = require("node:perf_hooks");
 
-const GAME_SCRIPTS = ["core.js", "terrain.js", "world.js", "research.js", "rail.js", "trains.js", "enemies.js", "simulation.js", "rendering.js", "interface.js", "tutorial.js", "game.js"];
+const GAME_SCRIPTS = ["core.js", "terrain.js", "world.js", "research.js", "rail.js", "trains.js", "enemies.js", "neutralizers.js", "simulation.js", "rendering.js", "interface.js", "tutorial.js", "game.js"];
 
 class ClassListMock {
   constructor() { this.values = new Set(); }
@@ -36,9 +36,9 @@ function makeCanvasContext() {
     translate:(x,y)=>values.translateCalls.push({x,y}),
     scale:(x,y)=>values.scaleCalls.push({x,y}),
     closePath:()=>values.currentPath.push({command:"closePath"}),
-    fill:()=>{const call={path:[...values.currentPath],fillStyle:values.fillStyle};values.fillCalls.push(call);values.paintCalls.push({kind:"fill",...call});},
-    stroke:()=>{const call={path:[...values.currentPath],strokeStyle:values.strokeStyle,lineWidth:values.lineWidth};values.strokeCalls.push(call);values.paintCalls.push({kind:"stroke",...call});},
-    fillRect:(x,y,width,height)=>values.fillRectCalls.push({x,y,width,height,fillStyle:values.fillStyle}),
+    fill:()=>{const call={path:[...values.currentPath],fillStyle:values.fillStyle,shadowBlur:values.shadowBlur||0,shadowColor:values.shadowColor};values.fillCalls.push(call);values.paintCalls.push({kind:"fill",...call});},
+    stroke:()=>{const call={path:[...values.currentPath],strokeStyle:values.strokeStyle,lineWidth:values.lineWidth,shadowBlur:values.shadowBlur||0,shadowColor:values.shadowColor};values.strokeCalls.push(call);values.paintCalls.push({kind:"stroke",...call});},
+    fillRect:(x,y,width,height)=>values.fillRectCalls.push({x,y,width,height,fillStyle:values.fillStyle,shadowBlur:values.shadowBlur||0,shadowColor:values.shadowColor}),
     drawImage:(...args)=>values.drawImageCalls.push({args})
   };
   values.textCalls=[];values.fillCalls=[];values.strokeCalls=[];values.fillRectCalls=[];values.drawImageCalls=[];values.translateCalls=[];values.scaleCalls=[];values.paintCalls=[];values.currentPath=[];
