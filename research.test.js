@@ -54,15 +54,15 @@ describe("Research building and upgrades",()=>{
     const state=api.state;addResearchBuilding();state.researchPoints=29;
     const html=api.selectionHtml();
     assert.match(html,/<h2>Research building<\/h2>/);
-    assert.equal((html.match(/data-action="research-/g)||[]).length,20);
-    assert.equal((html.match(/disabled aria-disabled="true"/g)||[]).length,20);
+    assert.equal((html.match(/data-action="research-/g)||[]).length,21);
+    assert.equal((html.match(/disabled aria-disabled="true"/g)||[]).length,21);
     assert.doesNotMatch(html,/data-bs-toggle="tooltip"|title="/);
     for(const heading of ["Turrets (fixed and train)","Artillery","Neutralizers","Trains and mining","Infrastructure","Other"])assert.match(html,new RegExp(heading.replace(/[()]/g,"\\$&")));
     assert.match(html,/\+20% turret range \(1\)/);assert.match(html,/\+20% artillery range \(1\)/);
     assert.match(html,/\+25% turret energy storage \(1\)/);assert.match(html,/\+25% artillery energy storage \(1\)/);
     assert.match(html,/\+20% mining efficiency \(1\)/);
     assert.match(html,/\+25% load\/unload efficiency \(1\)/);
-    assert.match(html,/\+50% neutralizer hit points \(1\)/);assert.match(html,/\+25% neutralizer production speed \(1\)/);
+    assert.match(html,/\+50% neutralizer hit points \(1\)/);assert.match(html,/\+10% neutralizer movement speed \(1\)/);assert.match(html,/\+25% neutralizer production speed \(1\)/);
     assert.match(html,/1 research point\(s\) gained for each second of survival/);
     assert.match(html,/All research items cost 30 research points/);
     assert.doesNotMatch(html,/infinite/i);
@@ -89,7 +89,7 @@ describe("Research building and upgrades",()=>{
     assert.match(api.selectionHtml(),/Turret range maxed \(4\)/);assert.match(api.selectionHtml(),/Artillery range maxed \(4\)/);
   });
 
-  test("all twenty upgrades immediately update existing units and expose upgraded future values",()=>{
+  test("all twenty-one upgrades immediately update existing units and expose upgraded future values",()=>{
     const state=api.state,research=addResearchBuilding();state.researchPoints=1000;
     const train=addTestTrain(),wall={id:"wall-existing",type:"wall",q:6,r:6,hp:80,maxHp:100},track=makeTrack(7,7);
     const turret={id:"turret-existing",type:"turret",q:5,r:5,hp:18,maxHp:18,energy:20,maxEnergy:20,cooldown:1};
@@ -106,7 +106,7 @@ describe("Research building and upgrades",()=>{
     assert.equal(wall.maxHp,150);assert.equal(wall.hp,120);assert.equal(track.maxHp,2);assert.equal(track.hp,2);assert.equal(api.researchRate(),1.25);
     assert.ok(Math.abs(turret.cooldown-2/3)<1e-9);assert.equal(artillery.cooldown,2);
     assert.equal(api.wallHitPoints(),150);assert.equal(api.trackHitPoints(),2);assert.equal(api.trainCapacity(),45);assert.equal(api.trainSpeed(),2.8125);assert.equal(api.loadUnloadDuration(),1.5);
-    assert.equal(gate.maxHp,150);assert.equal(gate.hp,150);assert.equal(api.neutralizerHitPoints(),2);assert.equal(neutralizer.maxHp,2);assert.equal(neutralizer.hp,2);assert.equal(api.neutralizerDamage(),2);assert.ok(Math.abs(api.neutralizerFireInterval()-2/3)<1e-9);assert.equal(api.neutralizerProductionInterval(),7.2);assert.equal(api.neutralizerStorage(),30);assert.equal(neutralizerBuilding.maxMaterial,30);assert.equal(neutralizerBuilding.maxEnergy,30);assert.equal(neutralizerBuilding.productionClock,.4);
+    assert.equal(gate.maxHp,150);assert.equal(gate.hp,150);assert.equal(api.neutralizerHitPoints(),2);assert.equal(neutralizer.maxHp,2);assert.equal(neutralizer.hp,2);assert.equal(api.neutralizerDamage(),2);assert.ok(Math.abs(api.neutralizerFireInterval()-2/3)<1e-9);assert.ok(Math.abs(api.neutralizerSpeed()-api.constants.NEUTRALIZER_SPEED*1.1)<1e-12);assert.equal(neutralizer.speed,api.neutralizerSpeed());const futureNeutralizer=api.spawnNeutralizer(neutralizerBuilding);assert.ok(futureNeutralizer);assert.equal(futureNeutralizer.speed,api.neutralizerSpeed());assert.equal(api.neutralizerProductionInterval(),7.2);assert.equal(api.neutralizerStorage(),30);assert.equal(neutralizerBuilding.maxMaterial,30);assert.equal(neutralizerBuilding.maxEnergy,30);assert.equal(neutralizerBuilding.productionClock,.4);
   });
 
   test("repeated Wall Hit Points research keeps live and future hit points whole",()=>{

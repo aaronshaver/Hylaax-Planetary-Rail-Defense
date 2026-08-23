@@ -12,6 +12,7 @@ const RESEARCH_UPGRADES = [
   {key:"neutralizerHitPoints",group:"Neutralizers",label:"+50% neutralizer hit points",multiplier:1.5,description:"All existing and future neutralizer ally units have 50% more hit points."},
   {key:"neutralizerFireRate",group:"Neutralizers",label:"+50% neutralizer firing rate",multiplier:1.5,description:"Neutralizer ally units fire 50% more frequently."},
   {key:"neutralizerDamage",group:"Neutralizers",label:"+50% neutralizer damage",multiplier:1.5,description:"Neutralizer ally units deal 50% more damage per shot."},
+  {key:"neutralizerSpeed",group:"Neutralizers",label:"+10% neutralizer movement speed",multiplier:1.1,description:"Neutralizer ally units move 10% faster."},
   {key:"neutralizerProduction",group:"Neutralizers",label:"+25% neutralizer production speed",multiplier:1.25,description:"Neutralizer buildings produce ally units 25% faster."},
   {key:"neutralizerStorage",group:"Neutralizers",label:"+50% neutralizer building storage",multiplier:1.5,description:"Neutralizer buildings store 50% more construction material and energy."},
   {key:"trainCapacity",group:"Trains and mining",label:"+50% train capacity",multiplier:1.5,description:"All train supply wagons hold 50% more resources."},
@@ -54,6 +55,7 @@ function researchRate(){return researchMultiplier("researchSpeed");}
 function neutralizerHitPoints(){return researchedWholeValue(NEUTRALIZER_BASE_HIT_POINTS,"neutralizerHitPoints");}
 function neutralizerFireInterval(){return NEUTRALIZER_ATTACK_INTERVAL/researchMultiplier("neutralizerFireRate");}
 function neutralizerDamage(){return researchedWholeValue(NEUTRALIZER_BASE_DAMAGE,"neutralizerDamage");}
+function neutralizerSpeed(){return NEUTRALIZER_SPEED*researchMultiplier("neutralizerSpeed");}
 function neutralizerProductionInterval(){return NEUTRALIZER_PRODUCTION_INTERVAL/researchMultiplier("neutralizerProduction");}
 function neutralizerStorage(){return Math.ceil(NEUTRALIZER_BASE_STORAGE*researchMultiplier("neutralizerStorage"));}
 
@@ -103,6 +105,7 @@ function applyResearchUpgrade(keyName){
   if(keyName==="trackStrength")for(const track of state.tracks.values()){const ratio=track.maxHp?track.hp/track.maxHp:1;track.baseMaxHp??=track.maxHp/oldMultiplier;track.maxHp=track.baseMaxHp*newMultiplier;track.hp=track.maxHp*ratio;}
   if(keyName==="neutralizerHitPoints")for(const unit of state.neutralizers){const ratio=unit.maxHp?unit.hp/unit.maxHp:1;unit.maxHp=neutralizerHitPoints();unit.hp=Math.ceil(unit.maxHp*ratio);}
   if(keyName==="neutralizerFireRate")for(const unit of state.neutralizers)unit.attackClock=Math.max(0,(unit.attackClock||0)/upgrade.multiplier);
+  if(keyName==="neutralizerSpeed")for(const unit of state.neutralizers)unit.speed=neutralizerSpeed();
   if(keyName==="neutralizerProduction")for(const building of [...state.structures.values()].filter(structure=>structure.type==="neutralizer-building"))building.productionClock=Math.max(0,(building.productionClock||0)/upgrade.multiplier);
   if(keyName==="neutralizerStorage")for(const building of [...state.structures.values()].filter(structure=>structure.type==="neutralizer-building")){building.maxMaterial=neutralizerStorage();building.maxEnergy=neutralizerStorage();building.material=Math.min(building.material,building.maxMaterial);building.energy=Math.min(building.energy,building.maxEnergy);}
   updateUI(true);render();

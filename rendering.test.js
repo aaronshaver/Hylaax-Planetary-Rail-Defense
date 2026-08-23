@@ -251,6 +251,13 @@ describe("rendering caches", () => {
     assert.equal(context.fillRectCalls.some(call=>call.x===minePoint.x-13&&call.y===minePoint.y-7&&call.width===26&&call.height===14),false,"Mine must not have a center rectangle");
   });
 
+  test("a destroyed Mine suppresses its Resource Node's low-resource red pulse",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state,node=api.resourceNodeAt(7,-2);api.setNodeAmount(node,1);const point=api.axialToWorld(node.q,node.r);
+    context.strokeCalls.length=0;api.drawResourceNode(node.q,node.r,point,node.type);assert.ok(context.strokeCalls.some(call=>call.shadowColor==="#ff3848"&&call.shadowBlur>0));
+    state.ghosts.set(api.key(node.q,node.r),{id:api.key(node.q,node.r),type:"ghost",objectType:"mine",resource:node.type,q:node.q,r:node.r});context.strokeCalls.length=0;api.drawResourceNode(node.q,node.r,point,node.type);
+    assert.equal(context.strokeCalls.some(call=>call.shadowColor==="#ff3848"&&call.shadowBlur>0),false);
+  });
+
   test("destroyed graphics mirror live silhouettes and use a tiny lower X marker",()=>{
     const context=elements.get("gameCanvas").context,state=api.state;
     const turret={id:"2,1",type:"ghost",objectType:"turret",q:2,r:1},artillery={id:"4,1",type:"ghost",objectType:"artillery",q:4,r:1},track={id:"6,1",type:"ghost",objectType:"track",q:6,r:1,links:["7,1"]};

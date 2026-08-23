@@ -83,8 +83,8 @@ function processCreepSpawnQueue(){
 function encroachingHiveLocation(spawnTime=state.nextEncroachmentAt){
   const minute=Math.floor(spawnTime/60),anchors=playerConstructionAnchors().sort((a,b)=>hash(b.q,b.r,state.mapSeed+minute*1223)-hash(a.q,a.r,state.mapSeed+minute*1223));
   for(const anchor of anchors){
-    const preferred=4+Math.floor(hash(anchor.q,anchor.r,state.mapSeed+minute*2371)*7);
-    const distances=Array.from({length:7},(_,index)=>4+index).sort((a,b)=>Math.abs(a-preferred)-Math.abs(b-preferred)||hash(anchor.q,a,state.mapSeed+minute)-hash(anchor.q,b,state.mapSeed+minute));
+    const preferred=6+Math.floor(hash(anchor.q,anchor.r,state.mapSeed+minute*2371)*9);
+    const distances=Array.from({length:9},(_,index)=>6+index).sort((a,b)=>Math.abs(a-preferred)-Math.abs(b-preferred)||hash(anchor.q,a,state.mapSeed+minute)-hash(anchor.q,b,state.mapSeed+minute));
     for(const distance of distances){
       const candidates=[];
       for(let dq=-distance;dq<=distance;dq++)for(let dr=Math.max(-distance,-dq-distance);dr<=Math.min(distance,-dq+distance);dr++){

@@ -76,7 +76,7 @@ function spawnNeutralizer(building){
   if(!location)return null;
   const unitId=`neutralizer-${state.nextId}`,prototype={id:unitId,moveCount:0},slot=chooseEnemySpaceSlot(reservations,location.q,location.r,prototype);
   if(slot===null)return null;
-  const point=enemyWorldPosition(location.q,location.r,slot),maxHp=neutralizerHitPoints(),unit={id:`neutralizer-${state.nextId++}`,type:"neutralizer",q:location.q,r:location.r,slot,x:point.x,y:point.y,fromQ:location.q,fromR:location.r,fromSlot:slot,toQ:location.q,toR:location.r,toSlot:slot,progress:1,moveCount:0,speed:NEUTRALIZER_SPEED,hp:maxHp,maxHp,attackClock:0,nextPathAt:0,phase:hash(location.q,location.r,state.nextId)*Math.PI*2};
+  const point=enemyWorldPosition(location.q,location.r,slot),maxHp=neutralizerHitPoints(),unit={id:`neutralizer-${state.nextId++}`,type:"neutralizer",q:location.q,r:location.r,slot,x:point.x,y:point.y,fromQ:location.q,fromR:location.r,fromSlot:slot,toQ:location.q,toR:location.r,toSlot:slot,progress:1,moveCount:0,speed:neutralizerSpeed(),hp:maxHp,maxHp,attackClock:0,nextPathAt:0,phase:hash(location.q,location.r,state.nextId)*Math.PI*2};
   state.neutralizers.push(unit);return unit;
 }
 

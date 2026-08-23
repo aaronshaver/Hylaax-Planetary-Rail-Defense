@@ -91,7 +91,7 @@ function createHive(q,r,requestedLevel=2,spawnImmediately=false,forceFirstCreepB
 
 function playerConstructionAnchors(){
   const anchors=[state.base,...state.tracks.values(),...state.structures.values()].flatMap(item=>structureFootprint(item)),unique=new Map();
-  anchors.push(...[...state.ghosts.values()].flatMap(item=>structureFootprint(item)),...state.trains.flatMap(train=>trainSegments(train)));
+  anchors.push(...state.trains.flatMap(train=>trainSegments(train)));
   for(const anchor of anchors)unique.set(key(anchor.q,anchor.r),{q:anchor.q,r:anchor.r});
   return [...unique.values()];
 }

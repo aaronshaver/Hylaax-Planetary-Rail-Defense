@@ -208,7 +208,7 @@ describe("Hive and defense behavior", () => {
     assert.equal(state.creepSpawnQueue.length,1);assert.equal(state.creepSpawnQueue[0].count,5);
     assert.ok(state.creepSpawnQueue.every(operation=>Number.isInteger(operation.delay)&&operation.delay>=1&&operation.delay<=15));
     assert.equal(hive.nextSpawnAt,360,"future production stays synchronized to minute boundaries");
-    assert.ok(anchors.some(anchor=>{const distance=api.hexDistance(anchor,hive);return distance>=4&&distance<=10;}));
+    assert.ok(anchors.some(anchor=>{const distance=api.hexDistance(anchor,hive);return distance>=6&&distance<=14;}));
     assert.ok(anchors.every(anchor=>api.hexDistance(anchor,hive)>=api.constants.ENEMY_SPAWN_BUFFER),"a new Hive must respect every construction's safety buffer");
     state.elapsed=state.creepSpawnQueue[0].executeAt;assert.equal(api.processCreepSpawnQueue(),1);assert.equal(state.enemies.length,5);
     assert.ok(state.enemies.every(enemy=>anchors.every(anchor=>api.hexDistance(anchor,enemy)>=api.constants.ENEMY_SPAWN_BUFFER)),"new Creeps must respect every construction's safety buffer");
@@ -238,16 +238,18 @@ describe("Hive and defense behavior", () => {
     for(const time of [300,360,420]){const outcomes=Array.from({length:1000},(_,seed)=>api.encroachmentOccurs(time,seed)),successes=outcomes.filter(Boolean).length;assert.ok(successes>=400&&successes<=600,`${time/60}-minute success count was ${successes}`);for(let seed=0;seed<100;seed++)assert.equal(api.encroachmentOccurs(time,seed),outcomes[seed]);}
   });
 
-  test("Hive and Creep spawn buffers include live and destroyed player constructions",()=>{
+  test("Hive and Creep spawn buffers include live constructions but ignore destroyed objects",()=>{
     const state=api.state;state.tracks.clear();state.structures.clear();state.trains=[];state.ghosts.clear();
     state.tracks.set("8,0",{q:8,r:0,hp:1,maxHp:1,links:new Set()});
     state.structures.set("0,8",{id:"mine-buffer",type:"mine",q:0,r:8,hp:22,maxHp:22});
     state.ghosts.set("-8,0",{id:"-8,0",type:"ghost",objectType:"track",q:-8,r:0,links:[]});
 
-    for(const anchor of [{q:8,r:0},{q:0,r:8},{q:-8,r:0}]){
+    for(const anchor of [{q:8,r:0},{q:0,r:8}]){
       assert.equal(api.outsidePlayerConstructionBuffer(anchor.q+3,anchor.r),false);
       assert.equal(api.outsidePlayerConstructionBuffer(anchor.q+4,anchor.r),true);
     }
+    assert.equal(api.playerConstructionAnchors().some(anchor=>anchor.q===-8&&anchor.r===0),false);
+    assert.equal(api.outsidePlayerConstructionBuffer(-8,0),true);
     for(const cell of api.structureFootprint(state.base))assert.equal(api.outsidePlayerConstructionBuffer(cell.q+3,cell.r),false);
     assert.equal(api.outsidePlayerConstructionBuffer(-4,0),true);
   });

@@ -132,7 +132,7 @@ function terrainLayerStats(){return {builds:terrainLayerBuilds,cells:terrainLaye
 }
 
 function drawResourceNode(q,r,p,type){
-  const node=resourceNodeAt(q,r),exhausted=node.amount<=0,low=!exhausted&&node.amount<=node.maxAmount*.2;
+  const node=resourceNodeAt(q,r),exhausted=node.amount<=0,destroyedMine=ghostAt(q,r)?.objectType==="mine",low=!destroyedMine&&!exhausted&&node.amount<=node.maxAmount*.2;
   const color=exhausted?"#697276":type==="energy"?"#568f92":"#a28d5e";
   ctx.save();
   if(low){const pulse=.5+.5*Math.sin(state.elapsed*5);ctx.shadowBlur=18+pulse*10;ctx.shadowColor="#ff3848";ctx.strokeStyle=`rgba(255,56,72,${.65+pulse*.3})`;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(p.x,p.y,23+pulse*2,0,Math.PI*2);ctx.stroke();}
