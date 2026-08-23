@@ -36,7 +36,7 @@ describe("Neutralizer buildings, gates, and ally units",()=>{
   test("a two-hex orange Neutralizer building costs 50 C and 50 E, immediately produces its first ally, and shows the one-time Gate note",()=>{
     const state=api.state,train=addTestTrain(),site=findNeutralizerSite();assert.ok(site);installLiveStop(train,site.stop);state.baseMaterial=200;state.baseEnergy=200;
     const building=api.buildNeutralizer(site.q,site.r);assert.ok(building);
-    assert.equal(building.footprint.length,2);assert.equal(building.hp,200);assert.equal(building.maxHp,200);assert.equal(building.material,10);assert.equal(building.energy,10);assert.equal(building.maxMaterial,20);assert.equal(building.maxEnergy,20);assert.equal(state.neutralizers.length,1,"the initial 20 C and 20 E should immediately fund the first ally");assert.match(api.selectionHtml(),/Each produced neutralizer consumes 10 of each resource/);
+    assert.equal(building.footprint.length,2);assert.equal(building.hp,200);assert.equal(building.maxHp,200);assert.equal(building.material,10);assert.equal(building.energy,10);assert.equal(building.maxMaterial,20);assert.equal(building.maxEnergy,20);assert.equal(state.neutralizers.length,1,"the initial 20 C and 20 E should immediately fund the first ally");assert.equal(state.neutralizers[0].sourceBuildingId,building.id);assert.match(api.selectionHtml(),/Each produced neutralizer consumes 10 of each resource/);
     assert.equal(state.baseMaterial,150);assert.equal(state.baseEnergy,150);assert.equal(state.paused,true);assert.equal(elements.get("neutralizerGateDialog").hidden,false);
     const html=require("node:fs").readFileSync(require("node:path").join(__dirname,"index.html"),"utf8");assert.match(html,/If you build walls surrounding your base, note that gates can be used to let neutralizers \(blue ally units\) pass through[\s\S]*Creeps cannot pass through gates\./i);
     assert.equal(api.dismissNeutralizerGateNotice(),true);assert.equal(state.paused,false);assert.equal(api.showNeutralizerGateNotice(),false,"the note must appear only once per game");
@@ -51,6 +51,15 @@ describe("Neutralizer buildings, gates, and ally units",()=>{
     api.updateNeutralizerProduction(8.99);assert.equal(state.neutralizers.length,0,"subsequent base production should take nine seconds");
     api.updateNeutralizerProduction(.01);
     assert.equal(state.neutralizers.length,1);assert.equal(building.material,0);assert.equal(building.energy,0);assert.equal(state.neutralizers[0].hp,1);assert.equal(Object.hasOwn(building,"productionPulseUntil"),false);
+  });
+
+  test("each Neutralizer building pauses at 50 living units from that building and resumes after a loss",()=>{
+    const state=api.state,train=addTestTrain(),site=findNeutralizerSite();assert.ok(site);installLiveStop(train,site.stop);state.baseMaterial=200;state.baseEnergy=200;const building=api.buildNeutralizer(site.q,site.r);api.dismissNeutralizerGateNotice();
+    const sourced=Array.from({length:50},(_,index)=>({...makeNeutralizer(`neutralizer-cap-${index}`,18,18,index%7),sourceBuildingId:building.id})),unsourced=makeNeutralizer("neutralizer-debug",17,18);state.neutralizers=[...sourced,unsourced];building.material=100;building.energy=100;building.productionClock=8;
+    api.updateNeutralizerProduction(100);assert.equal(api.livingNeutralizersFrom(building),api.constants.NEUTRALIZER_LIVING_CAP);assert.equal(state.neutralizers.length,51,"an unsourced debug unit should not count against this building");assert.equal(building.material,100);assert.equal(building.energy,100);assert.equal(building.productionClock,0);
+    state.neutralizers.shift();api.updateNeutralizerProduction(8.99);assert.equal(api.livingNeutralizersFrom(building),49);api.updateNeutralizerProduction(.01);
+    assert.equal(api.livingNeutralizersFrom(building),50);assert.equal(state.neutralizers.at(-1).sourceBuildingId,building.id);assert.equal(building.material,90);assert.equal(building.energy,90);assert.equal(building.productionClock,0);
+    api.updateNeutralizerProduction(100);assert.equal(api.livingNeutralizersFrom(building),50);assert.equal(building.material,90);assert.equal(building.energy,90);
   });
 
   test("salvaging returns 50 construction material plus stored C, and stored E but not construction-cost E",()=>{

@@ -128,17 +128,22 @@ function neutralizerSpawnLocation(building,reservations=neutralizerSpaceReservat
   return footprintPerimeter(structureFootprint(building)).filter(position=>neutralizerCanTraverse(position.q,position.r)&&!creepOccupiesHex(position.q,position.r)&&!trainClaimsHex(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r)).sort((a,b)=>(targetPosition?hexDistance(a,targetPosition)-hexDistance(b,targetPosition):0)||hash(b.q,b.r,state.mapSeed+state.nextId)-hash(a.q,a.r,state.mapSeed+state.nextId))[0]||null;
 }
 
-function spawnNeutralizerAt(q,r,spawnNumber=state.nextId,reservations=neutralizerSpaceReservations()){
+function spawnNeutralizerAt(q,r,spawnNumber=state.nextId,reservations=neutralizerSpaceReservations(),sourceBuildingId=null){
   if(!neutralizerCanTraverse(q,r)||creepOccupiesHex(q,r)||trainClaimsHex(q,r)||!enemyHexHasRoom(reservations,q,r))return null;
   const unitId=`neutralizer-${state.nextId}`,prototype={id:unitId,moveCount:0},slot=chooseEnemySpaceSlot(reservations,q,r,prototype);
   if(slot===null)return null;
-  const point=enemyWorldPosition(q,r,slot),maxHp=neutralizerHitPoints(),unit={id:`neutralizer-${state.nextId++}`,type:"neutralizer",q,r,slot,x:point.x,y:point.y,fromQ:q,fromR:r,fromSlot:slot,toQ:q,toR:r,toSlot:slot,progress:1,moveCount:0,speed:neutralizerSpeed(),hp:maxHp,maxHp,attackClock:0,nextPathAt:0,phase:hash(q,r,spawnNumber)*Math.PI*2};
+  const point=enemyWorldPosition(q,r,slot),maxHp=neutralizerHitPoints(),unit={id:`neutralizer-${state.nextId++}`,type:"neutralizer",sourceBuildingId,q,r,slot,x:point.x,y:point.y,fromQ:q,fromR:r,fromSlot:slot,toQ:q,toR:r,toSlot:slot,progress:1,moveCount:0,speed:neutralizerSpeed(),hp:maxHp,maxHp,attackClock:0,nextPathAt:0,phase:hash(q,r,spawnNumber)*Math.PI*2};
   state.neutralizers.push(unit);return unit;
 }
 
 function spawnNeutralizer(building){
   const reservations=neutralizerSpaceReservations(),location=neutralizerSpawnLocation(building,reservations);
-  return location?spawnNeutralizerAt(location.q,location.r,state.nextId,reservations):null;
+  return location?spawnNeutralizerAt(location.q,location.r,state.nextId,reservations,building.id):null;
+}
+
+function livingNeutralizersFrom(buildingOrId){
+  const sourceBuildingId=typeof buildingOrId==="string"?buildingOrId:buildingOrId?.id;
+  return state.neutralizers.reduce((count,unit)=>count+(unit.hp>0&&unit.sourceBuildingId===sourceBuildingId?1:0),0);
 }
 
 function debugAddMaxNeutralizersAt(q,r){
@@ -151,12 +156,15 @@ function debugAddMaxNeutralizersAt(q,r){
 function updateNeutralizerProduction(dt){
   for(const building of state.structures.values()){
     if(building.type!=="neutralizer-building")continue;
+    let living=livingNeutralizersFrom(building);
+    if(living>=NEUTRALIZER_LIVING_CAP){building.productionClock=0;continue;}
     if(building.material<NEUTRALIZER_UNIT_MATERIAL_COST||building.energy<NEUTRALIZER_UNIT_ENERGY_COST){building.productionClock=0;continue;}
     building.productionClock+=dt;
     const interval=neutralizerProductionInterval();
-    for(let produced=0;building.productionClock+1e-9>=interval&&produced<16;produced++){
+    for(let produced=0;living<NEUTRALIZER_LIVING_CAP&&building.productionClock+1e-9>=interval&&produced<16;produced++){
       const unit=spawnNeutralizer(building);if(!unit){building.productionClock=Math.min(building.productionClock,interval);break;}
-      building.productionClock-=interval;building.material-=NEUTRALIZER_UNIT_MATERIAL_COST;building.energy-=NEUTRALIZER_UNIT_ENERGY_COST;
+      living++;building.productionClock-=interval;building.material-=NEUTRALIZER_UNIT_MATERIAL_COST;building.energy-=NEUTRALIZER_UNIT_ENERGY_COST;
+      if(living>=NEUTRALIZER_LIVING_CAP)building.productionClock=0;
     }
   }
 }
