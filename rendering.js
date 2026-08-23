@@ -485,6 +485,9 @@ function drawNeutralizers(){
 
 function drawEffects(){
   for(const p of state.projectiles){
+    if(p.kind==="creep-death-x"||p.kind==="neutralizer-death-x"){
+      const size=8,alpha=clamp(p.life/p.maxLife,0,1);ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle=p.color;ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(p.x-size,p.y-size);ctx.lineTo(p.x+size,p.y+size);ctx.moveTo(p.x+size,p.y-size);ctx.lineTo(p.x-size,p.y+size);ctx.stroke();ctx.restore();continue;
+    }
     if(p.kind==="artillery-shell"){
       const progress=clamp(1-p.life/p.maxLife,0,1),x=lerp(p.x1,p.x2,progress),groundY=lerp(p.y1,p.y2,progress),y=groundY-Math.sin(progress*Math.PI)*52;
       ctx.save();ctx.globalAlpha=.25+.75*Math.sin(Math.min(1,progress+.15)*Math.PI/2);ctx.shadowBlur=12;ctx.shadowColor="#ff8d3d";ctx.fillStyle="#ffd2a6";ctx.beginPath();ctx.arc(x,y,4.5,0,Math.PI*2);ctx.fill();ctx.restore();

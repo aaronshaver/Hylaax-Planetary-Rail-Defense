@@ -190,7 +190,7 @@ function damageNeutralizer(unit,amount){
   neutralizerRemovalPending=true;
   if(!deferNeutralizerRemoval)compactDeadNeutralizers();
   if(state.selected?.type==="neutralizer"&&state.selected.id===unit.id)state.selected=null;
-  burstAt(unit.x,unit.y,"#4aaee8",7);return true;
+  addUnitDeathFlash("neutralizer-death-x",unit.x,unit.y,"#4bbcff");return true;
 }
 
 function updateNeutralizers(dt,initiativeRoll=Math.random){
@@ -209,7 +209,7 @@ function updateNeutralizers(dt,initiativeRoll=Math.random){
         const simultaneousCreepShot=target.type==="enemy"&&target.progress>=1&&(target.attackClock||0)+dt+1e-9>=CREEP_ATTACK_INTERVAL&&adjacentEnemyTarget(target,neutralizerIndex)?.id===unit.id;
         if(simultaneousCreepShot&&initiativeRoll()>=.5){unit.attackClock=Math.min(unit.attackClock,interval);continue;}
         unit.attackClock-=shots*interval;const targetPoint=target.type==="enemy"?{x:target.x,y:target.y}:axialToWorld(target.q,target.r);
-        state.projectiles.push({x1:unit.x,y1:unit.y,x2:targetPoint.x,y2:targetPoint.y,life:.09,maxLife:.09,color:"#48baff",width:1.7,impactColor:"#a8e5ff"});
+        addCombatBeam("neutralizer-beam",{x1:unit.x,y1:unit.y,x2:targetPoint.x,y2:targetPoint.y,life:.09,maxLife:.09,color:"#48baff",width:1.7,impactColor:"#a8e5ff"});
         if(target.type==="enemy")damageEnemy(target,shots*neutralizerDamage());else damageTarget(target,shots*neutralizerDamage(),{silent:true});
       }
       continue;

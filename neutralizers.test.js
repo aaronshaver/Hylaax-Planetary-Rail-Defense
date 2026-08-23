@@ -64,7 +64,7 @@ describe("Neutralizer buildings, gates, and ally units",()=>{
     try{api.updateNeutralizers(1,()=>0);}finally{api.sounds.shot=originalShot;}assert.equal(state.enemies.length,0);assert.equal(state.creepsNeutralized,1);assert.ok(state.projectiles.some(projectile=>projectile.color==="#48baff"));assert.equal(shotCalls.length,0,"neutralizer attacks should be silent");
 
     const nextAlly=makeNeutralizer("neutralizer-target",10,10),nextCreep=makeEnemy("enemy-attacker",11,10),hitCalls=[],originalHit=api.sounds.hit;state.neutralizers=[nextAlly];state.enemies=[nextCreep];api.sounds.hit=()=>hitCalls.push(true);
-    try{api.updateEnemies(1);}finally{api.sounds.hit=originalHit;}assert.equal(state.neutralizers.length,0,"an adjacent creep should kill a base one-HP neutralizer");assert.equal(hitCalls.length,0,"Creep shots against Neutralizer allies should not use the building-impact sound");
+    try{api.updateEnemies(1);}finally{api.sounds.hit=originalHit;}assert.equal(state.neutralizers.length,0,"an adjacent creep should kill a base one-HP neutralizer");assert.equal(hitCalls.length,0,"Creep shots against Neutralizer allies should not use the building-impact sound");const allyDeath=state.projectiles.find(projectile=>projectile.kind==="neutralizer-death-x");assert.ok(allyDeath);assert.equal(allyDeath.color,"#4bbcff");
 
     const hiveAlly=makeNeutralizer("neutralizer-hive-silent",10,10),hive=api.createHive(11,10,2),hiveShotCalls=[],hiveHitCalls=[],savedShot=api.sounds.shot,savedHit=api.sounds.hit;state.neutralizers=[hiveAlly];state.enemies=[];api.sounds.shot=()=>hiveShotCalls.push(true);api.sounds.hit=()=>hiveHitCalls.push(true);
     try{api.updateNeutralizers(1,()=>0);}finally{api.sounds.shot=savedShot;api.sounds.hit=savedHit;}assert.equal(hive.hp,1);assert.equal(hiveShotCalls.length,0);assert.equal(hiveHitCalls.length,0,"neutralizer attacks against Hives should not use the building-impact sound");
@@ -94,7 +94,7 @@ describe("Neutralizer buildings, gates, and ally units",()=>{
     api.updateNeutralizers(api.constants.SIMULATION_STEP);assert.deepEqual({q:ally.toQ,r:ally.toR},{q:3,r:0});
     api.updateEnemies(api.constants.SIMULATION_STEP);assert.equal(creep.progress,1,"the Creep should wait instead of entering or routing around the claimed middle hex");assert.deepEqual({q:creep.q,r:creep.r},{q:4,r:0});
     api.updateNeutralizers(3);assert.deepEqual({q:ally.q,r:ally.r},{q:3,r:0});assert.equal(api.hexDistance(ally,creep),1);
-    state.projectiles=[];api.updateEnemies(1);const beam=state.projectiles.at(-1);assert.ok(beam);assert.ok(Math.hypot(beam.x2-beam.x1,beam.y2-beam.y1)>1,"adjacent combat should draw a visibly long beam");
+    state.projectiles=[];api.updateEnemies(1);const beam=state.projectiles.find(projectile=>projectile.kind==="creep-beam");assert.ok(beam);assert.ok(Math.hypot(beam.x2-beam.x1,beam.y2-beam.y1)>1,"adjacent combat should draw a visibly long beam");
   });
 
   test("neutralizers seek both Hives and Creeps without any Neutralizer building",()=>{

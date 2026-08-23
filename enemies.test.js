@@ -344,8 +344,8 @@ describe("Hive and defense behavior", () => {
     api.updateStructures(0);
 
     assert.equal(state.enemies.length,0);
-    assert.equal(state.particles.length,7);
-    assert.ok(state.particles.every(particle=>particle.x===visible.x&&particle.y===visible.y));
+    assert.equal(state.particles.length,0);
+    const deathFlash=state.projectiles.find(projectile=>projectile.kind==="creep-death-x");assert.ok(deathFlash);assert.equal(deathFlash.x,visible.x);assert.equal(deathFlash.y,visible.y);assert.equal(deathFlash.color,"#ff4354");
     assert.notDeepEqual(visible,api.axialToWorld(enemy.q,enemy.r));
   });
 });
@@ -415,6 +415,20 @@ describe("enemy navigation", () => {
     const hitCalls=[],originalHit=api.sounds.hit;api.sounds.hit=()=>hitCalls.push(true);
     try{api.updateEnemies(1);}finally{api.sounds.hit=originalHit;}
     assert.equal(wall.hp,99);assert.equal(hitCalls.length,1);
+  });
+
+  test("combat beam rendering is capped independently at 25 per side",()=>{
+    const state=api.state;state.projectiles=[];const beam={x1:0,y1:0,x2:10,y2:10,life:.09,maxLife:.09};
+    for(let index=0;index<40;index++){api.addCombatBeam("creep-beam",{...beam,color:"#ff3348"});api.addCombatBeam("neutralizer-beam",{...beam,color:"#48baff"});}
+    assert.equal(state.projectiles.filter(projectile=>projectile.kind==="creep-beam").length,25);assert.equal(state.projectiles.filter(projectile=>projectile.kind==="neutralizer-beam").length,25);assert.equal(api.constants.COMBAT_BEAM_RENDER_CAP,25);
+    api.addUnitDeathFlash("creep-death-x",5,5,"#ff4354");assert.equal(state.projectiles.length,51,"death markers should not consume either beam allowance");
+  });
+
+  test("unit death X rendering is capped independently at 25 per side",()=>{
+    const state=api.state;state.projectiles=[];
+    for(let index=0;index<40;index++){api.addUnitDeathFlash("creep-death-x",index,0,"#ff4354");api.addUnitDeathFlash("neutralizer-death-x",index,10,"#4bbcff");}
+    assert.equal(state.projectiles.filter(projectile=>projectile.kind==="creep-death-x").length,25);assert.equal(state.projectiles.filter(projectile=>projectile.kind==="neutralizer-death-x").length,25);assert.equal(api.constants.COMBAT_DEATH_FLASH_RENDER_CAP,25);
+    api.addCombatBeam("creep-beam",{x1:0,y1:0,x2:10,y2:10,life:.09,maxLife:.09,color:"#ff3348"});assert.equal(state.projectiles.length,51,"death markers should not consume either beam allowance");
   });
 
   test("pathfinding can route around an impassable hex", () => {

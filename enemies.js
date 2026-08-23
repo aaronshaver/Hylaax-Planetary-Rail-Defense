@@ -309,6 +309,18 @@ function adjacentEnemyTarget(enemy,neutralizerIndex=null,proximity=null){
   return null;
 }
 
+function addCombatBeam(kind,projectile){
+  let visible=0;for(const active of state.projectiles)if(active.kind===kind)visible++;
+  if(visible>=COMBAT_BEAM_RENDER_CAP)return false;
+  state.projectiles.push({kind,...projectile});return true;
+}
+
+function addUnitDeathFlash(kind,x,y,color){
+  let visible=0;for(const active of state.projectiles)if(active.kind===kind)visible++;
+  if(visible>=COMBAT_DEATH_FLASH_RENDER_CAP)return false;
+  state.projectiles.push({kind,x,y,color,life:UNIT_DEATH_FLASH_SECONDS,maxLife:UNIT_DEATH_FLASH_SECONDS});return true;
+}
+
 function enemyNavigationStats(){return {builds:enemyNavigationCache.builds,cells:enemyNavigationCache.distances.size};}
 
 function findEnemyStep(start,goal,passable=isPassable,stopRange=0){
@@ -521,7 +533,7 @@ function updateEnemies(dt) {
       if(shots>0){
         enemy.attackClock-=shots*CREEP_ATTACK_INTERVAL;
         const targetPoint=target.type==="neutralizer"?{x:target.x,y:target.y}:axialToWorld(target.q,target.r);
-        for(let shot=0;shot<shots;shot++)state.projectiles.push({x1:enemy.x,y1:enemy.y,x2:targetPoint.x,y2:targetPoint.y,life:.09,maxLife:.09,color:"#ff3348",width:1.7,impactColor:"#ff8790"});
+        for(let shot=0;shot<shots;shot++)addCombatBeam("creep-beam",{x1:enemy.x,y1:enemy.y,x2:targetPoint.x,y2:targetPoint.y,life:.09,maxLife:.09,color:"#ff3348",width:1.7,impactColor:"#ff8790"});
         damageTarget(target,shots*CREEP_ATTACK_DAMAGE);
       }
       continue;
@@ -576,7 +588,7 @@ function damageEnemy(enemy,amount){
   enemyRemovalPending=true;
   if(!deferEnemyRemoval)compactDeadEnemies();
   if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;
-  state.creepsNeutralized++;burstAt(enemy.x,enemy.y,"#e35050",7);return true;
+  state.creepsNeutralized++;addUnitDeathFlash("creep-death-x",enemy.x,enemy.y,"#ff4354");return true;
 }
 
 function debugDestroyAt(q,r){

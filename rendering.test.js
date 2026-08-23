@@ -424,6 +424,12 @@ describe("rendering caches", () => {
     assert.equal(context.fillCalls.length,19);
   });
 
+  test("unit deaths draw one thin medium X in the defeated side's color",()=>{
+    const context=elements.get("gameCanvas").context,state=api.state;state.projectiles=[{kind:"creep-death-x",x:20,y:30,color:"#ff4354",life:.28,maxLife:.28},{kind:"neutralizer-death-x",x:50,y:60,color:"#4bbcff",life:.28,maxLife:.28}];context.strokeCalls.length=0;
+    api.drawEffects();const red=context.strokeCalls.find(call=>call.strokeStyle==="#ff4354"),blue=context.strokeCalls.find(call=>call.strokeStyle==="#4bbcff");
+    for(const marker of [red,blue]){assert.ok(marker);assert.equal(marker.lineWidth,1.4);assert.deepEqual(marker.path.map(step=>step.command),["moveTo","lineTo","moveTo","lineTo"]);const xs=marker.path.map(step=>step.x),ys=marker.path.map(step=>step.y);assert.equal(Math.max(...xs)-Math.min(...xs),16);assert.equal(Math.max(...ys)-Math.min(...ys),16);}
+  });
+
   test("particles and projectile effects render beneath unit bodies and labels",()=>{
     const source=api.render.toString(),effects=source.indexOf("drawEffects()"),hives=source.indexOf("drawHives()"),structures=source.indexOf("drawStructures()"),trains=source.indexOf("drawTrains()"),enemies=source.indexOf("drawEnemies()");
     assert.ok(effects>=0);
