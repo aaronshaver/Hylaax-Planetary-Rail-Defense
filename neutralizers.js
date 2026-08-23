@@ -143,8 +143,8 @@ function spawnNeutralizer(building){
 
 function debugAddMaxNeutralizersAt(q,r){
   let added=0;
-  while(added<CREEP_HEX_CAPACITY&&spawnNeutralizerAt(q,r,state.nextId))added++;
-  if(!added)return fail("Cannot add neutralizers on that hex.");
+  for(const position of [{q,r},...neighbors(q,r)])for(let count=0;count<CREEP_HEX_CAPACITY&&spawnNeutralizerAt(position.q,position.r,state.nextId);count++)added++;
+  if(!added)return fail("Cannot add neutralizers on that big hex.");
   updateUI(true);render();toast(`Debug: Added ${added} neutralizer${added===1?"":"s"}.`,"info");return added;
 }
 
@@ -180,10 +180,15 @@ function neutralizerNextStep(unit,reservations,enemyIndex=null,targetById=null,p
   reserveEnemySpace(reservations,unit.q,unit.r,currentSlot);return step;
 }
 
+let deferNeutralizerRemoval=false,neutralizerRemovalPending=false;
+function compactDeadNeutralizers(){if(!neutralizerRemovalPending)return;state.neutralizers=state.neutralizers.filter(unit=>unit.hp>0);neutralizerRemovalPending=false;}
+
 function damageNeutralizer(unit,amount){
+  if(unit.hp<=0)return false;
   unit.hp-=amount;
   if(unit.hp>0)return false;
-  state.neutralizers=state.neutralizers.filter(candidate=>candidate.id!==unit.id);
+  neutralizerRemovalPending=true;
+  if(!deferNeutralizerRemoval)compactDeadNeutralizers();
   if(state.selected?.type==="neutralizer"&&state.selected.id===unit.id)state.selected=null;
   burstAt(unit.x,unit.y,"#4aaee8",7);return true;
 }
@@ -193,19 +198,19 @@ function updateNeutralizers(dt,initiativeRoll=Math.random){
   if(!state.neutralizers.length)return;
   const units=[...state.neutralizers],start=(state.neutralizerPathCursor||0)%units.length;
   state.neutralizerPathCursor=(start+NEUTRALIZER_PATH_SEARCHES_PER_TICK)%units.length;
-  const reservations=neutralizerSpaceReservations(),enemyIndex=unitHexIndex(state.enemies),targetById=neutralizerTargetLookup(),pathBudget={remaining:NEUTRALIZER_PATH_SEARCHES_PER_TICK};
-  for(let offset=0;offset<units.length;offset++){
+  const reservations=neutralizerSpaceReservations(),enemyIndex=unitHexIndex(state.enemies),neutralizerIndex=unitHexIndex(units),targetById=neutralizerTargetLookup(),pathBudget={remaining:NEUTRALIZER_PATH_SEARCHES_PER_TICK};
+  deferEnemyRemoval=true;
+  try{for(let offset=0;offset<units.length;offset++){
     const unit=units[(start+offset)%units.length];
     const proximity={},target=unit.progress>=1?adjacentNeutralizerTarget(unit,enemyIndex,proximity):null;
     if(target){
       unit.attackClock+=dt;const interval=neutralizerFireInterval(),shots=Math.floor((unit.attackClock+1e-9)/interval);
       if(shots>0){
-        const simultaneousCreepShot=target.type==="enemy"&&target.progress>=1&&(target.attackClock||0)+dt+1e-9>=CREEP_ATTACK_INTERVAL&&adjacentEnemyTarget(target)?.id===unit.id;
+        const simultaneousCreepShot=target.type==="enemy"&&target.progress>=1&&(target.attackClock||0)+dt+1e-9>=CREEP_ATTACK_INTERVAL&&adjacentEnemyTarget(target,neutralizerIndex)?.id===unit.id;
         if(simultaneousCreepShot&&initiativeRoll()>=.5){unit.attackClock=Math.min(unit.attackClock,interval);continue;}
         unit.attackClock-=shots*interval;const targetPoint=target.type==="enemy"?{x:target.x,y:target.y}:axialToWorld(target.q,target.r);
         state.projectiles.push({x1:unit.x,y1:unit.y,x2:targetPoint.x,y2:targetPoint.y,life:.09,maxLife:.09,color:"#48baff",width:1.7,impactColor:"#a8e5ff"});
-        for(let shot=0;shot<shots;shot++)sounds.shot();
-        if(target.type==="enemy")damageEnemy(target,shots*neutralizerDamage());else damageTarget(target,shots*neutralizerDamage());
+        if(target.type==="enemy")damageEnemy(target,shots*neutralizerDamage());else damageTarget(target,shots*neutralizerDamage(),{silent:true});
       }
       continue;
     }
@@ -219,5 +224,5 @@ function updateNeutralizers(dt,initiativeRoll=Math.random){
       unit.progress=Math.min(1,unit.progress+dt*unit.speed);const a=enemyWorldPosition(unit.fromQ,unit.fromR,unit.fromSlot),b=enemyWorldPosition(unit.toQ,unit.toR,unit.toSlot),eased=unit.progress*unit.progress*(3-2*unit.progress);unit.x=lerp(a.x,b.x,eased);unit.y=lerp(a.y,b.y,eased);
       if(unit.progress>=1){unit.q=unit.toQ;unit.r=unit.toR;unit.slot=unit.toSlot;}
     }
-  }
+  }}finally{deferEnemyRemoval=false;compactDeadEnemies();}
 }

@@ -128,8 +128,8 @@ describe("game bootstrap", () => {
     assert.match(html,/class="debug-menu-title">Debug<\/div>\s*<div class="debug-menu-warning">This is a debug menu intended for development\. It's &quot;cheating&quot; if you use this during your game\. But it's a single player game, so do whatever is fun for you\.<\/div>/);
     assert.match(html,/id="debugDestroyObject"[^>]*data-mode="debug-destroy"[^>]*>Destroy object<\/button>/);
     assert.doesNotMatch(html,/id="debugAddCreep"|data-mode="debug-add-creep"|>Add creep<\/button>/);
-    assert.match(html,/id="debugAddMaxCreeps"[^>]*data-mode="debug-add-max-creeps"[^>]*>Add max creeps to hex<\/button>/);
-    assert.match(html,/id="debugAddMaxNeutralizers"[^>]*data-mode="debug-add-max-neutralizers"[^>]*>Add max neutralizers to hex<\/button>/);
+    assert.match(html,/id="debugAddMaxCreeps"[^>]*data-mode="debug-add-max-creeps"[^>]*>Add big hex of creeps<\/button>/);
+    assert.match(html,/id="debugAddMaxNeutralizers"[^>]*data-mode="debug-add-max-neutralizers"[^>]*>Add big hex of neutralizers<\/button>/);
     assert.match(html,/id="debugAddBaseResources"[^>]*>Add base building resources<\/button>/);
     assert.match(html,/id="debugAddResearchPoints"[^>]*>Add research points<\/button>/);
     assert.doesNotMatch(html,/debug-menu-note|Click a destructible object|Click an open passable hex|Adds 1,000/);
@@ -148,9 +148,9 @@ describe("game bootstrap", () => {
     assert.equal((dialog.match(/Confirm salvage/g)||[]).length,1);assert.match(dialog,/id="confirmTitle" class="eyebrow text-danger">Confirm salvage/);assert.doesNotMatch(dialog,/<h2[^>]*>Confirm salvage<\/h2>/);
   });
 
-  test("the displayed and package versions are 4.1.0",()=>{
+  test("the displayed and package versions are 4.2.0",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 4\.1\.0/);assert.match(html,/DEFENSE 4\.1\.0/);assert.equal(packageJson.version,"4.1.0");
+    assert.match(html,/Planetary Rail Defense 4\.2\.0/);assert.match(html,/DEFENSE 4\.2\.0/);assert.equal(packageJson.version,"4.2.0");
   });
 });

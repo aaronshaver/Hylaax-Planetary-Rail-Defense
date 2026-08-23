@@ -61,10 +61,31 @@ describe("Neutralizer buildings, gates, and ally units",()=>{
 
   test("Neutralizers and Creeps shoot each other for one damage per second",()=>{
     const state=api.state,ally=makeNeutralizer("neutralizer-combat",10,10),creep=makeEnemy("enemy-combat",11,10),shotCalls=[],originalShot=api.sounds.shot;state.neutralizers=[ally];state.enemies=[creep];state.hives.clear();api.sounds.shot=()=>shotCalls.push(true);
-    try{api.updateNeutralizers(1,()=>0);}finally{api.sounds.shot=originalShot;}assert.equal(state.enemies.length,0);assert.equal(state.creepsNeutralized,1);assert.ok(state.projectiles.some(projectile=>projectile.color==="#48baff"));assert.equal(shotCalls.length,1,"a neutralizer should use the shared fixed-turret firing sound for each shot");
+    try{api.updateNeutralizers(1,()=>0);}finally{api.sounds.shot=originalShot;}assert.equal(state.enemies.length,0);assert.equal(state.creepsNeutralized,1);assert.ok(state.projectiles.some(projectile=>projectile.color==="#48baff"));assert.equal(shotCalls.length,0,"neutralizer attacks should be silent");
 
     const nextAlly=makeNeutralizer("neutralizer-target",10,10),nextCreep=makeEnemy("enemy-attacker",11,10),hitCalls=[],originalHit=api.sounds.hit;state.neutralizers=[nextAlly];state.enemies=[nextCreep];api.sounds.hit=()=>hitCalls.push(true);
     try{api.updateEnemies(1);}finally{api.sounds.hit=originalHit;}assert.equal(state.neutralizers.length,0,"an adjacent creep should kill a base one-HP neutralizer");assert.equal(hitCalls.length,0,"Creep shots against Neutralizer allies should not use the building-impact sound");
+
+    const hiveAlly=makeNeutralizer("neutralizer-hive-silent",10,10),hive=api.createHive(11,10,2),hiveShotCalls=[],hiveHitCalls=[],savedShot=api.sounds.shot,savedHit=api.sounds.hit;state.neutralizers=[hiveAlly];state.enemies=[];api.sounds.shot=()=>hiveShotCalls.push(true);api.sounds.hit=()=>hiveHitCalls.push(true);
+    try{api.updateNeutralizers(1,()=>0);}finally{api.sounds.shot=savedShot;api.sounds.hit=savedHit;}assert.equal(hive.hp,1);assert.equal(hiveShotCalls.length,0);assert.equal(hiveHitCalls.length,0,"neutralizer attacks against Hives should not use the building-impact sound");
+  });
+
+  test("mass combat compacts each dead-unit array only once per combat phase",()=>{
+    const state=api.state;state.hives.clear();state.structures.clear();state.tracks.clear();state.trains=[];
+    state.neutralizers=Array.from({length:12},(_,index)=>makeNeutralizer(`neutralizer-batch-${index}`,8,0,index%7));state.enemies=Array.from({length:12},(_,index)=>makeEnemy(`enemy-batch-${index}`,9,0,index%7));
+    let enemyFilterCalls=0;state.enemies.filter=function(...args){enemyFilterCalls++;return Array.prototype.filter.apply(this,args);};
+    api.updateNeutralizers(1,()=>0);assert.equal(state.enemies.length,0);assert.equal(enemyFilterCalls,1,"all defeated Creeps should be removed in one compaction");
+
+    state.neutralizers=Array.from({length:12},(_,index)=>makeNeutralizer(`neutralizer-batch-target-${index}`,8,0,index%7));state.enemies=Array.from({length:12},(_,index)=>makeEnemy(`enemy-batch-attacker-${index}`,9,0,index%7));
+    let neutralizerFilterCalls=0;state.neutralizers.filter=function(...args){neutralizerFilterCalls++;return Array.prototype.filter.apply(this,args);};
+    api.resetEnemyNavigation();api.updateEnemies(1);assert.equal(state.neutralizers.length,0);assert.equal(neutralizerFilterCalls,1,"all defeated Neutralizers should be removed in one compaction");
+  });
+
+  test("simultaneous-fire initiative uses the per-hex Neutralizer index instead of full-army scans",()=>{
+    const state=api.state;state.hives.clear();state.structures.clear();state.tracks.clear();state.trains=[];const count=20;
+    const units=Array.from({length:count},(_,index)=>makeNeutralizer(`neutralizer-indexed-${index}`,10+index*3,0)),enemies=Array.from({length:count},(_,index)=>makeEnemy(`enemy-indexed-${index}`,11+index*3,0));for(const enemy of enemies){enemy.hp=100;enemy.maxHp=100;enemy.attackClock=.99;}
+    let yielded=0;units[Symbol.iterator]=function*(){for(let index=0;index<this.length;index++){yielded++;yield this[index];}};state.neutralizers=units;state.enemies=enemies;
+    api.updateNeutralizers(.01,()=>1);assert.ok(yielded<=count*3,`expected linear Neutralizer iteration, got ${yielded} yields for ${count} units`);
   });
 
   test("approaching Creeps and Neutralizers stop in adjacent hexes and fight with a visible beam",()=>{

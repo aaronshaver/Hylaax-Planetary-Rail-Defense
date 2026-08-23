@@ -42,8 +42,8 @@ function spawnEnemyAt(q,r,spawnNumber=state.nextId){
 
 function debugAddMaxCreepsAt(q,r){
   let added=0;
-  while(added<CREEP_HEX_CAPACITY&&spawnEnemyAt(q,r,state.nextId))added++;
-  if(!added)return fail("Cannot add creeps on that hex.");
+  for(const position of [{q,r},...neighbors(q,r)])for(let count=0;count<CREEP_HEX_CAPACITY&&spawnEnemyAt(position.q,position.r,state.nextId);count++)added++;
+  if(!added)return fail("Cannot add creeps on that big hex.");
   updateUI(true);render();toast(`Debug: Added ${added} creep${added===1?"":"s"}.`,"info");return added;
 }
 
@@ -454,12 +454,12 @@ function trainPartDestroyed(train,partLabel){
 
 function supplyLabel(supply){return `${resourceLabel(supply.role||supply.type)} supply`;}
 
-function damageTarget(target, amount) {
+function damageTarget(target, amount,{silent=false}={}) {
   if(target.type==="neutralizer")return damageNeutralizer(target,amount);
   const targetIsTrack=state.tracks.get(key(target.q,target.r))===target;
   target.hp=targetIsTrack&&target.maxHp<=TRACK_HIT_POINTS&&amount>0?0:target.hp-amount;
   const fatalTrainPart=target.hp<=0&&(target.kind==="wagon"||Boolean(target.wagons));
-  if(!fatalTrainPart)sounds.hit();
+  if(!fatalTrainPart&&!silent)sounds.hit();
   if (target.hp > 0) return;
   if(target.type==="hive"){
     state.hives.delete(key(target.q,target.r));
@@ -510,7 +510,8 @@ function updateEnemies(dt) {
   if(state.gameOver||!state.enemies.length)return;
   ensureEnemyNavigation();
   const reservations=enemySpaceReservations(),neutralizerIndex=unitHexIndex(state.neutralizers);
-  for (const enemy of state.enemies) {
+  deferNeutralizerRemoval=true;
+  try{for (const enemy of state.enemies) {
     if(state.gameOver)break;
     enemy.phase += dt*2.2;
     const proximity={},target=enemy.progress>=1?adjacentEnemyTarget(enemy,neutralizerIndex,proximity):null;
@@ -544,7 +545,7 @@ function updateEnemies(dt) {
       enemy.x=lerp(a.x,b.x,eased); enemy.y=lerp(a.y,b.y,eased);
       if (enemy.progress>=1) { enemy.q=enemy.toQ;enemy.r=enemy.toR;enemy.slot=enemy.toSlot; }
     }
-  }
+  }}finally{deferNeutralizerRemoval=false;compactDeadNeutralizers();}
 }
 
 function updateCombatTrains(dt){
@@ -565,10 +566,15 @@ function updateCombatTrains(dt){
   }
 }
 
+let deferEnemyRemoval=false,enemyRemovalPending=false;
+function compactDeadEnemies(){if(!enemyRemovalPending)return;state.enemies=state.enemies.filter(enemy=>enemy.hp>0);enemyRemovalPending=false;}
+
 function damageEnemy(enemy,amount){
+  if(enemy.hp<=0)return false;
   enemy.hp-=amount;
   if(enemy.hp>0)return false;
-  state.enemies=state.enemies.filter(candidate=>candidate.id!==enemy.id);
+  enemyRemovalPending=true;
+  if(!deferEnemyRemoval)compactDeadEnemies();
   if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;
   state.creepsNeutralized++;burstAt(enemy.x,enemy.y,"#e35050",7);return true;
 }

@@ -410,6 +410,13 @@ describe("enemy navigation", () => {
     assert.equal(api.constants.CREEP_ATTACK_INTERVAL,1);assert.equal(api.constants.CREEP_ATTACK_DAMAGE,1);
   });
 
+  test("Creep attacks against player-built structures keep their impact sound",()=>{
+    const state=api.state;state.hives.clear();state.structures.clear();state.tracks.clear();state.trains=[];const wall={id:"wall-sound",type:"wall",q:5,r:0,hp:100,maxHp:100};state.structures.set("5,0",wall);state.enemies=[makeEnemy("enemy-wall-sound",6,0)];
+    const hitCalls=[],originalHit=api.sounds.hit;api.sounds.hit=()=>hitCalls.push(true);
+    try{api.updateEnemies(1);}finally{api.sounds.hit=originalHit;}
+    assert.equal(wall.hp,99);assert.equal(hitCalls.length,1);
+  });
+
   test("pathfinding can route around an impassable hex", () => {
     const blocked = new Set(["1,0"]);
     const step = api.findEnemyStep({ q: 0, r: 0 }, { q: 4, r: 0 }, (q, r) => !blocked.has(api.key(q, r)));

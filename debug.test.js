@@ -6,6 +6,15 @@ const { api, elements, makeEnemy, makeTrack, addTestTrain } = require("./harness
 
 beforeEach(()=>api.reset());
 
+function findArmyCenter(){
+  const state=api.state;
+  for(let q=-18;q<=18;q++)for(let r=-18;r<=18;r++){
+    const cells=[{q,r},...api.neighbors(q,r)];
+    if(cells.every(cell=>api.terrainAt(cell.q,cell.r).type==="ground"&&!state.tracks.has(api.key(cell.q,cell.r))&&api.hexDistance(cell,state.base)>3))return {q,r};
+  }
+  return null;
+}
+
 describe("Debug menu",()=>{
   test("opens and closes without leaving its destructive tool active",()=>{
     api.setDebugMenuOpen(true);
@@ -24,24 +33,22 @@ describe("Debug menu",()=>{
     assert.equal(elements.get("debugToggle").ariaExpanded,"false");
   });
 
-  test("Add max creeps fills only the remaining slots on the chosen hex",()=>{
+  test("Add big hex of creeps fills the selected hex and all six surrounding hexes",()=>{
     const state=api.state;state.enemies=[];state.structures.clear();state.ghosts.clear();state.trains=[];
-    let target=null;
-    for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&!state.tracks.has(api.key(q,r))&&api.hexDistance({q,r},state.base)>3)target={q,r};
-    assert.ok(target);assert.ok(api.spawnEnemyAt(target.q,target.r));assert.ok(api.spawnEnemyAt(target.q,target.r));api.setMode("debug-add-max-creeps");
-    assert.equal(api.handleHexClick(target),5);
-    assert.equal(state.enemies.length,7);assert.deepEqual([...new Set(state.enemies.map(enemy=>enemy.slot))].sort((a,b)=>a-b),[0,1,2,3,4,5,6]);
-    assert.equal(api.handleHexClick(target),undefined);assert.equal(state.enemies.length,7,"a full hex must not be overfilled");
+    const target=findArmyCenter();assert.ok(target);const cells=[target,...api.neighbors(target.q,target.r)];
+    assert.ok(api.spawnEnemyAt(target.q,target.r));assert.ok(api.spawnEnemyAt(target.q,target.r));api.setMode("debug-add-max-creeps");
+    assert.equal(api.handleHexClick(target),47);
+    assert.equal(state.enemies.length,49);for(const cell of cells){const occupants=state.enemies.filter(enemy=>enemy.q===cell.q&&enemy.r===cell.r);assert.equal(occupants.length,7);assert.deepEqual(occupants.map(enemy=>enemy.slot).sort((a,b)=>a-b),[0,1,2,3,4,5,6]);}
+    assert.equal(api.handleHexClick(target),undefined);assert.equal(state.enemies.length,49,"a full big hex must not be overfilled");
   });
 
-  test("Add max neutralizers fills only the remaining slots on the chosen hex",()=>{
+  test("Add big hex of neutralizers fills the selected hex and all six surrounding hexes",()=>{
     const state=api.state;state.neutralizers=[];state.enemies=[];state.structures.clear();state.ghosts.clear();state.trains=[];
-    let target=null;
-    for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&!state.tracks.has(api.key(q,r))&&api.hexDistance({q,r},state.base)>3)target={q,r};
-    assert.ok(target);for(let index=0;index<3;index++)assert.ok(api.spawnNeutralizerAt(target.q,target.r));api.setMode("debug-add-max-neutralizers");
-    assert.equal(api.handleHexClick(target),4);
-    assert.equal(state.neutralizers.length,7);assert.deepEqual([...new Set(state.neutralizers.map(unit=>unit.slot))].sort((a,b)=>a-b),[0,1,2,3,4,5,6]);
-    assert.equal(api.handleHexClick(target),undefined);assert.equal(state.neutralizers.length,7,"a full hex must not be overfilled");
+    const target=findArmyCenter();assert.ok(target);const cells=[target,...api.neighbors(target.q,target.r)];
+    for(let index=0;index<3;index++)assert.ok(api.spawnNeutralizerAt(target.q,target.r));api.setMode("debug-add-max-neutralizers");
+    assert.equal(api.handleHexClick(target),46);
+    assert.equal(state.neutralizers.length,49);for(const cell of cells){const occupants=state.neutralizers.filter(unit=>unit.q===cell.q&&unit.r===cell.r);assert.equal(occupants.length,7);assert.deepEqual(occupants.map(unit=>unit.slot).sort((a,b)=>a-b),[0,1,2,3,4,5,6]);}
+    assert.equal(api.handleHexClick(target),undefined);assert.equal(state.neutralizers.length,49,"a full big hex must not be overfilled");
   });
 
   test("adds 1,000 of every registered Base resource, including future resource types",()=>{
