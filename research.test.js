@@ -17,7 +17,7 @@ function findResearchSite(){
 }
 
 describe("Research building and upgrades",()=>{
-  test("every newly constructed Research building grants 30 points and the first unlocks passive accrual",()=>{
+  test("paid Research construction grants 30 points only when it sets a new building-count record",()=>{
     const state=api.state;api.updateResearch(95.75);api.updateUI(true);
     assert.equal(state.researchPoints,0);assert.equal(elements.get("researchPointsHud").textContent,0);
 
@@ -34,7 +34,12 @@ describe("Research building and upgrades",()=>{
     assert.equal(state.researchPoints,65,"the second Research building should grant another 30 points");
     const thirdSite=findResearchSite();assert.ok(thirdSite);assert.ok(api.buildResearch(thirdSite.q,thirdSite.r));
     assert.equal(state.researchPoints,95,"the third Research building should grant another 30 points");
-    assert.equal(state.baseMaterial,50);assert.equal(state.baseEnergy,50);
+    assert.equal(state.maxResearchBuildings,3);assert.equal(state.baseMaterial,50);assert.equal(state.baseEnergy,50);
+
+    api.salvageStructure(state.structures.get(api.key(thirdSite.q,thirdSite.r)));
+    const replacementSite=findResearchSite();assert.ok(replacementSite);assert.ok(api.buildResearch(replacementSite.q,replacementSite.r));
+    assert.equal(state.researchPoints,95,"salvaging and replacing a Research building must not grant repeatable bonus points");
+    assert.equal(state.maxResearchBuildings,3);assert.equal(state.baseMaterial,50);assert.equal(state.baseEnergy,50);
   });
 
   test("all three triangular cells render R and select the same 300 HP building",()=>{

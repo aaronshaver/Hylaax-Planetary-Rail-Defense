@@ -84,7 +84,10 @@ function buildResearch(q,r){
   for(const {ghost,site} of replacedGhosts.values())replaceDestroyedSite(ghost,site);
   for(const cell of footprint){const site=nonMineConstructionSite(cell.q,cell.r);if(site.clearDepletedNode)clearDepletedResourceNode(cell.q,cell.r);}
   const research={id:`research-${state.nextId++}`,type:"research",q,r,footprint:footprint.map(cell=>({...cell})),hp:RESEARCH_HIT_POINTS,maxHp:RESEARCH_HIT_POINTS};
-  state.structures.set(key(q,r),research);state.researchUnlocked=true;state.researchPoints+=30;invalidateEnemyNavigation();sounds.place();
+  state.structures.set(key(q,r),research);state.researchUnlocked=true;
+  const researchBuildingCount=[...state.structures.values()].filter(structure=>structure.type==="research").length;
+  if(researchBuildingCount>state.maxResearchBuildings){state.maxResearchBuildings=researchBuildingCount;state.researchPoints+=30;}
+  invalidateEnemyNavigation();sounds.place();
   for(const cell of footprint)burst(cell.q,cell.r,"#b879ff",6);
   select("structure",research.id);return research;
 }

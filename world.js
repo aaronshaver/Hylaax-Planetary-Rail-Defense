@@ -49,6 +49,7 @@ function makeInitialState() {
     baseEnergy: 125,
     researchPoints: 0,
     researchUnlocked: false,
+    maxResearchBuildings: 0,
     researchUpgrades: {},
     selected: { type: "base", id: "base" },
     trackStart: null,
