@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { describe, test, beforeEach } = require("node:test");
-const { api } = require("./harness.js");
+const { api, elements } = require("./harness.js");
 
 beforeEach(() => { api.reset(); });
 
@@ -55,6 +55,29 @@ describe("terrain generation", () => {
   test("guaranteed resource nodes remain available and typed", () => {
     assert.deepEqual({ ...api.terrainAt(7, -2) }, { type: "resource", resource: "material" });
     assert.deepEqual({ ...api.terrainAt(-4, 7) }, { type: "resource", resource: "energy" });
+  });
+
+  test("Terraform land converts blocked terrain and resource nodes to clear ground for 5 C and 5 E each",()=>{
+    const state=api.state,targets={};
+    for(let q=-60;q<=60&&Object.keys(targets).length<3;q++)for(let r=-60;r<=60&&Object.keys(targets).length<3;r++){
+      const type=api.terrainAt(q,r).type;if(["water","trees","rock"].includes(type)&&!targets[type])targets[type]={q,r};
+    }
+    assert.deepEqual(Object.keys(targets).sort(),["rock","trees","water"]);
+    state.baseMaterial=30;state.baseEnergy=30;assert.equal(api.setMode("terraform"),true);
+    for(const type of ["water","trees","rock"]){
+      const target=targets[type],materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
+      assert.equal(api.handleHexClick(target),true);assert.equal(api.terrainAt(target.q,target.r).type,"ground");assert.equal(api.isPassable(target.q,target.r),true);
+      assert.equal(state.terraformedLand.has(api.key(target.q,target.r)),true);assert.equal(state.baseMaterial,materialBefore-5);assert.equal(state.baseEnergy,energyBefore-5);
+    }
+    const node=api.resourceNodeAt(7,-2);api.setNodeAmount(node,73);const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
+    assert.equal(api.handleHexClick({q:7,r:-2}),true);assert.equal(api.terrainAt(7,-2).type,"ground");assert.equal(state.nodeResources.has("7,-2"),false);assert.equal(state.baseMaterial,materialBefore-5);assert.equal(state.baseEnergy,energyBefore-5);
+    const spentMaterial=state.baseMaterial,spentEnergy=state.baseEnergy;
+    assert.equal(Boolean(api.handleHexClick({q:0,r:6})),false,"ordinary ground must remain invalid");assert.equal(state.baseMaterial,spentMaterial);assert.equal(state.baseEnergy,spentEnergy);assert.equal(elements.get("toastStack").children.at(-1).textContent,"Cannot terraform this type of object.");
+  });
+
+  test("Terraform land does not silently delete a Mine or its resource node",()=>{
+    const state=api.state,node=api.resourceNodeAt(7,-2),mine={id:"terraform-mine",type:"mine",resource:node.resource,q:node.q,r:node.r,hp:22,maxHp:22};state.structures.set(node.id,mine);state.baseMaterial=20;state.baseEnergy=20;api.setMode("terraform");
+    assert.equal(Boolean(api.handleHexClick({q:node.q,r:node.r})),false);assert.equal(state.structures.get(node.id),mine);assert.equal(api.terrainAt(node.q,node.r).type,"resource");assert.equal(state.baseMaterial,20);assert.equal(state.baseEnergy,20);
   });
 
   test("every generated resource node has a traversable approach to the larger clear area",()=>{

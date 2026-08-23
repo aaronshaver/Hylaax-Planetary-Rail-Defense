@@ -30,6 +30,7 @@ function makeInitialState() {
     ghosts: new Map(),
     nodeResources: new Map(),
     clearedResourceNodes: new Set(),
+    terraformedLand: new Set(),
     worldMessages: [],
     trains: [],
     enemies: [],

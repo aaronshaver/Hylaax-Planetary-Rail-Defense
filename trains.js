@@ -45,6 +45,7 @@ function handleHexClick(hex) {
   if (state.mode === "artillery") return buildArtillery(q,r);
   if (state.mode === "research") return buildResearch(q,r);
   if (state.mode === "neutralizer") return buildNeutralizer(q,r);
+  if (state.mode === "terraform") return terraformLand(q,r);
   if (state.mode === "deploy") return deployTrain(q,r);
   if (structure) {select(structure.type === "base" ? "base" : "structure", structure.id);if(structure.type==="base")tutorialEvent("base-selected");return;}
   if (hive) return select("hive",hive.id);
@@ -58,8 +59,8 @@ function handleHexClick(hex) {
 
 function canBaseAfford(cost){return state.baseMaterial>=cost.material&&state.baseEnergy>=cost.energy;}
 
-const CONSTRUCTION_MODE_COSTS={track:COSTS.track,turret:COSTS.turret,mine:COSTS.mine,wall:COSTS.wall,artillery:COSTS.artillery,research:COSTS.research,gate:COSTS.gate,neutralizer:COSTS.neutralizer};
-const CONSTRUCTION_MODE_LABELS={track:"track",turret:"turret",mine:"mine",wall:"wall",artillery:"artillery",research:"research",gate:"gate",neutralizer:"neutralizer building"};
+const CONSTRUCTION_MODE_COSTS={track:COSTS.track,turret:COSTS.turret,mine:COSTS.mine,wall:COSTS.wall,artillery:COSTS.artillery,research:COSTS.research,gate:COSTS.gate,neutralizer:COSTS.neutralizer,terraform:COSTS.terraform};
+const CONSTRUCTION_MODE_LABELS={track:"track",turret:"turret",mine:"mine",wall:"wall",artillery:"artillery",research:"research",gate:"gate",neutralizer:"neutralizer building",terraform:"terraforming land"};
 function constructionModeCost(mode){return CONSTRUCTION_MODE_COSTS[mode]||null;}
 function constructionModeAffordable(mode){const cost=constructionModeCost(mode);return !cost||canBaseAfford(cost);}
 function constructionModeUnavailableMessage(mode){

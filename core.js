@@ -72,7 +72,8 @@ const COSTS = {
   gate: { material: 30, energy: 0 },
   artillery: { material: 50, energy: 50 },
   research: { material: 50, energy: 50 },
-  neutralizer: { material: 50, energy: 50 }
+  neutralizer: { material: 50, energy: 50 },
+  terraform: { material: 5, energy: 5 }
 };
 const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, gate: 12, artillery: 30, research: 30, "neutralizer-building": 30 };
 const BASE_RESOURCE_TYPES = [
@@ -90,7 +91,7 @@ const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*
 const ui = Object.fromEntries([
   "baseEnergyHud", "baseMaterialHud", "unminedMaterialHud", "unminedEnergyHud", "researchPointsHud", "timeSurvived",
   "pauseToggle", "soundToggle", "centerBaseButton", "selectionLabel",
-  "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool", "gateTool", "neutralizerTool",
+  "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool", "gateTool", "neutralizerTool", "terraformTool",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart", "tutorialArrows",

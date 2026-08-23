@@ -76,7 +76,7 @@ function selectionHtml(){
 function updateConstructionToolAvailability(){
   const tools=[
     ["select",ui.selectTool],["track",ui.trackTool],["turret",ui.turretTool],["mine",ui.mineTool],
-    ["wall",ui.wallTool],["artillery",ui.artilleryTool],["salvage",ui.salvageTool],["research",ui.researchTool],["gate",ui.gateTool],["neutralizer",ui.neutralizerTool]
+    ["wall",ui.wallTool],["artillery",ui.artilleryTool],["salvage",ui.salvageTool],["research",ui.researchTool],["gate",ui.gateTool],["neutralizer",ui.neutralizerTool],["terraform",ui.terraformTool]
   ];
   if(!state.gameOver&&!constructionModeAffordable(state.mode)){
     state.mode="select";state.trackStart=null;canvas.style.cursor="default";

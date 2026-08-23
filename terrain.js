@@ -94,6 +94,7 @@ function resourceHasOpenApproach(q,r){
 function terrainAt(q, r) {
   if(terrainCacheSeed!==state.mapSeed){terrainCacheSeed=state.mapSeed;terrainCache=new Map();}
   const terrainKey=key(q,r);
+  if(state.terraformedLand?.has(terrainKey))return {type:"ground"};
   if(state.clearedResourceNodes?.has(terrainKey))return {type:"ground"};
   const cached=terrainCache.get(terrainKey);if(cached)return cached;
   const guaranteed = guaranteedNodes.get(terrainKey);
@@ -102,4 +103,15 @@ function terrainAt(q, r) {
   const d=distanceToStructure({q,r},state.base),corridorA=q>=0&&q<=7&&r>=-2&&r<=0,corridorB=q>=-4&&q<=0&&r>=0&&r<=7;
   if(terrain.type==="ground"&&d>=6&&!corridorA&&!corridorB&&!guaranteedResourceCorridors.has(terrainKey)&&terrainHash(q,r,17)>.986&&resourceHasOpenApproach(q,r))terrain={type:"resource",resource:terrainHash(q,r,31)>.5?"material":"energy"};
   terrainCache.set(terrainKey,terrain);return terrain;
+}
+
+function terraformLand(q,r){
+  const terrain=terrainAt(q,r);
+  if(!["water","trees","rock","resource"].includes(terrain.type))return fail("Cannot terraform this type of object.");
+  if(structureAt(q,r)||ghostAt(q,r)||state.tracks.has(key(q,r))||trainAt(q,r))return fail("Cannot terraform this type of object.");
+  if(!payBase(COSTS.terraform,"terraforming land"))return false;
+  const terrainKey=key(q,r);
+  state.terraformedLand.add(terrainKey);state.nodeResources.delete(terrainKey);terrainCache.delete(terrainKey);terrainReachabilityCache=new Map();
+  terrainRevision++;invalidateTerrainLayer();invalidateEnemyNavigation();
+  state.selected=null;sounds.place();burst(q,r,"#86ad78",7);updateUI(true);render();return true;
 }
