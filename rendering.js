@@ -517,5 +517,5 @@ function screenShakeActive(){return state.screenShakeUntilWallTime?state.screenS
 
 function render(){
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ensureTerrainLayer();const shake=screenShakeOffset();ctx.save();ctx.translate(shake.x,shake.y);drawTerrainLayer();ctx.save();ctx.translate(width/2,height/2);ctx.scale(state.camera.zoom,state.camera.zoom);ctx.translate(-state.camera.x,-state.camera.y);
-  drawStopSupplyLines();drawResourceNodes();drawTurretRanges();drawTracks();drawGhosts();drawTrainStops();drawEffects();drawHives();drawBase();drawStructures();drawSelection();drawTrains();drawBuildTrackGlow();drawEnemies();drawNeutralizers();drawHover();drawWorldMessages();ctx.restore();ctx.restore();
+  drawStopSupplyLines();drawResourceNodes();drawTurretRanges();drawTracks();drawGhosts();drawTrainStops();drawEffects();drawHives();drawBase();drawStructures();drawSelection();drawTrains();drawBuildTrackGlow();drawEnemies();drawNeutralizers();drawHover();drawWorldMessages();ctx.restore();ctx.restore();syncTutorialArrows();
 }

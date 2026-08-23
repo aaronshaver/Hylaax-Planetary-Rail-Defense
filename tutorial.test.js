@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { describe, test, beforeEach } = require("node:test");
-const { api, elements, addTestTrain, makeTrack } = require("./harness.js");
+const { api, elements, document, addTestTrain, makeTrack } = require("./harness.js");
 
 beforeEach(() => { api.reset(); });
 
@@ -21,6 +21,63 @@ function installTutorialLoop(){
 }
 
 describe("guided tutorial",()=>{
+  test("renders large overlay arrows only for the requested tutorial steps",()=>{
+    api.startTutorial();
+    const overlay=elements.get("tutorialArrows");
+    assert.equal(overlay.hidden,false);
+    assert.match(overlay.innerHTML,/class="tutorial-arrow"/);
+    assert.equal(api.tutorialArrowSpecs().length,1);
+
+    api.state.tutorial.step=3;api.state.trackStart=[...api.state.tracks.values()][0];api.syncTutorialArrows();
+    const step3Arrows=api.tutorialArrowSpecs();
+    assert.equal(step3Arrows.length,1,"Step 3 points to clear ground next to the initial Track");
+    assert.equal(api.hexDistance(step3Arrows[0].target,api.state.trackStart),1);
+    assert.equal(api.terrainAt(step3Arrows[0].target.q,step3Arrows[0].target.r).type,"ground");
+
+    api.state.tutorial.step=4;api.syncTutorialArrows();
+    const step4Arrows=api.tutorialArrowSpecs();
+    assert.equal(step4Arrows.length,3,"Step 4 points beside the Base and the nearest C and E nodes");
+    assert.ok(step4Arrows.every(arrow=>api.terrainAt(arrow.target.q,arrow.target.r).type==="ground"));
+    assert.equal(api.distanceToStructure(step4Arrows[0].target,api.state.base),1);
+    const frozenTargets=step4Arrows.map(arrow=>api.key(arrow.target.q,arrow.target.r)),frozenDirections=step4Arrows.map(arrow=>arrow.vectorName);
+    const builtTarget=step4Arrows[0].target;api.state.tracks.set(api.key(builtTarget.q,builtTarget.r),makeTrack(builtTarget.q,builtTarget.r));api.state.trackStart=builtTarget;
+    const afterTrack=api.tutorialArrowSpecs();
+    assert.deepEqual(afterTrack.map(arrow=>api.key(arrow.target.q,arrow.target.r)),frozenTargets.slice(1),"the completed Step 4 target disappears while the others stay fixed");
+    assert.deepEqual(afterTrack.map(arrow=>arrow.vectorName),frozenDirections.slice(1),"remaining Step 4 approach directions stay fixed as Track is added");
+    assert.equal(overlay.hidden,false);
+  });
+
+  test("Step 9 points to adjacent Track, then Step 14 points to clear ground beside each Stop",()=>{
+    api.startTutorial();
+    const loop=installTutorialLoop();
+    const train=addTestTrain(),tutorial=api.state.tutorial;
+    tutorial.step=9;tutorial.trainId=train.id;tutorial.loopMaterialNodeKey="7,-2";tutorial.loopEnergyNodeKey="-4,7";
+    api.state.scheduleDraft={trainId:train.id,originalSchedule:[]};
+    document.querySelector=selector=>selector.includes('finish-schedule')?elements.get("tutorialOkay"):null;
+    try{
+      train.schedule=[];
+      const step9Arrows=api.tutorialArrowSpecs();
+      assert.equal(step9Arrows.length,3,"adjacent Track by the Base, C node, and E node appears first");
+      assert.ok(step9Arrows.every(arrow=>api.state.tracks.has(api.key(arrow.target.q,arrow.target.r))));
+      assert.equal(api.distanceToStructure(step9Arrows[0].target,api.state.base),1);
+      assert.equal(api.hexDistance(step9Arrows[1].target,{q:7,r:-2}),1);
+      assert.equal(api.hexDistance(step9Arrows[2].target,{q:-4,r:7}),1);
+      train.schedule.push(step9Arrows[0].target);
+      assert.equal(api.tutorialArrowSpecs().length,2,"the first landmark arrow disappears after its indicated Stop is added");
+      train.schedule.push(step9Arrows[1].target);
+      assert.equal(api.tutorialArrowSpecs().length,1,"the second landmark arrow also disappears");
+      train.schedule.push(step9Arrows[2].target);
+      assert.equal(api.tutorialArrowSpecs().length,1,"only Done adding remains after the third indicated Stop");
+
+      tutorial.step=14;tutorial.materialNodeKey="7,-2";tutorial.energyNodeKey="-4,7";
+      const step14Arrows=api.tutorialArrowSpecs();
+      assert.equal(step14Arrows.length,3,"Step 14 points to clear ground beside each Stop");
+      assert.ok(step14Arrows.every(arrow=>api.terrainAt(arrow.target.q,arrow.target.r).type==="ground"&&!api.state.tracks.has(api.key(arrow.target.q,arrow.target.r))));
+      assert.ok(step14Arrows.every((arrow,index)=>api.hexDistance(arrow.target,train.schedule[index])===1),"every suggested Turret hex is exactly one hex from its Train Stop");
+      assert.equal(new Set(step14Arrows.map(arrow=>api.key(arrow.target.q,arrow.target.r))).size,3,"the three suggested Turret hexes are distinct");
+    }finally{delete document.querySelector;}
+  });
+
   test("starts paused and displays the numbered first instruction",()=>{
     api.startTutorial();
 
@@ -106,7 +163,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.paused,true,"the final step must remain paused until Okay is clicked");
     assert.equal(elements.get("pauseToggle").disabled,true);
     assert.equal(elements.get("tutorialOkay").hidden,false);
-    assert.equal(elements.get("tutorialText").textContent,"Step 15: You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base building.\n\nClick the 'Playing' button in the upper right to pause the game and catch your breath if you need time to think.\n\nThere are more buildings you can build, like walls and artillery and a research building to give you more tools to survive and improve efficiency.");
+    assert.equal(elements.get("tutorialText").textContent,"Step 15: You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base building.\n\nClick the 'Playing' button in the upper right to pause the game if you feel overwhelmed by enemies and need time to build with less pressure.\n\nThere are more tools to help you survive and improve efficiency: they're in the Actions pane on the right.");
 
     api.finishTutorial();
     assert.equal(api.state.tutorial,null);

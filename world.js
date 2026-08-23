@@ -230,6 +230,7 @@ function resize() {
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
   invalidateTerrainLayer();
+  if(typeof syncTutorialArrows==="function")syncTutorialArrows();
 }
 
 function centerMapOnBase(){

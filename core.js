@@ -90,7 +90,7 @@ const ui = Object.fromEntries([
   "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool", "gateTool", "neutralizerTool",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
-  "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart",
+  "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart", "tutorialArrows",
   "debugToggle", "debugMenu", "debugDestroyObject", "debugAddCreep", "debugAddBaseResources", "debugAddResearchPoints",
   "turretEnergyDialog", "turretEnergyMessage", "turretEnergyOkay",
   "neutralizerGateDialog", "neutralizerGateOkay",
