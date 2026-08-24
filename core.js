@@ -15,7 +15,7 @@ const ENERGY_NODE_MAX_CAPACITY = Math.ceil(NODE_MAX_CAPACITY*1.4);
 const BASE_TRAIN_STOP_SECONDS = 2;
 const TRAIN_ACTIVITY_MESSAGE_SECONDS = 1.25;
 const INITIAL_HIVE_BUFFER = 8;
-const INITIAL_HIVE_COUNT = 2;
+const INITIAL_HIVE_COUNT = 1;
 const ENEMY_SPEED = .38;
 const CREEP_ATTACK_INTERVAL = 1;
 const CREEP_ATTACK_DAMAGE = 1;
@@ -23,6 +23,7 @@ const COMBAT_BEAM_RENDER_CAP = 25;
 const COMBAT_DEATH_FLASH_RENDER_CAP = 25;
 const UNIT_SHADOW_RENDER_LIMIT = 100;
 const UNIT_DEATH_FLASH_SECONDS = .28;
+const UNIT_LIFESPAN_SECONDS = 120;
 const SIMULATION_STEP = 1 / 60;
 const TRACK_HIT_POINTS = 1;
 const TRAIN_HIT_POINTS = 50;
@@ -62,7 +63,7 @@ const CREEP_SLOT_RADIUS = 17;
 const CREEP_RENDER_SCALE = .64;
 const BASE_UNLOAD_TARGET = 110;
 const BASE_FOOTPRINT_OFFSETS = [{q:0,r:0},{q:1,r:0},{q:0,r:1},{q:1,r:-1}];
-const HIVE_LEVELS = [2,3,5,8,13,21];
+const HIVE_LEVELS = [1,2,3,5,8,13];
 const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const COSTS = {
   track: { material: 1, energy: 0 },
@@ -75,7 +76,8 @@ const COSTS = {
   artillery: { material: 50, energy: 50 },
   research: { material: 50, energy: 50 },
   neutralizer: { material: 50, energy: 50 },
-  terraform: { material: 5, energy: 5 }
+  terraform: { material: 5, energy: 5 },
+  hiveBlocker: { material: 14, energy: 14 }
 };
 const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, gate: 12, artillery: 30, research: 30, "neutralizer-building": 30 };
 const BASE_RESOURCE_TYPES = [
@@ -93,7 +95,7 @@ const HEX_CORNERS = Array.from({length:6},(_,index)=>{const angle=(Math.PI/180)*
 const ui = Object.fromEntries([
   "baseEnergyHud", "baseMaterialHud", "unminedMaterialHud", "unminedEnergyHud", "researchPointsHud", "timeSurvived",
   "pauseToggle", "soundToggle", "centerBaseButton", "selectionLabel",
-  "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool", "gateTool", "neutralizerTool", "terraformTool",
+  "selectTool", "trackTool", "turretTool", "mineTool", "wallTool", "artilleryTool", "salvageTool", "researchTool", "gateTool", "neutralizerTool", "terraformTool", "hiveBlockerTool",
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart", "tutorialArrows",
@@ -226,7 +228,7 @@ function hexLineBetween(start,end){
   return line;
 }
 
-function hasClearShot(start,end){return hexLineBetween(start,end).every(position=>!["rock","trees"].includes(terrainAt(position.q,position.r).type));}
+function hasClearShot(start,end){return hexLineBetween(start,end).every(position=>terrainAt(position.q,position.r).type!=="rock");}
 
 function hash(q, r, salt = 0) {
   let n = Math.imul(q, 374761393) + Math.imul(r, 668265263) + Math.imul(salt, 1442695041);

@@ -42,6 +42,13 @@ describe("Research building and upgrades",()=>{
     assert.equal(state.maxResearchBuildings,3);assert.equal(state.baseMaterial,50);assert.equal(state.baseEnergy,50);
   });
 
+  test("additional Research buildings do not increase passive Research gain",()=>{
+    const state=api.state;state.baseMaterial=500;state.baseEnergy=500;
+    const firstSite=findResearchSite();assert.ok(api.buildResearch(firstSite.q,firstSite.r));state.researchPoints=0;api.updateResearch(10);assert.equal(state.researchPoints,10);
+    for(let count=0;count<2;count++){const site=findResearchSite();assert.ok(site);assert.ok(api.buildResearch(site.q,site.r));}
+    state.researchPoints=0;api.updateResearch(10);assert.equal(state.researchPoints,10);
+  });
+
   test("all three triangular cells render R and select the same 300 HP building",()=>{
     const state=api.state,context=elements.get("gameCanvas").context,research=addResearchBuilding();context.textCalls.length=0;
     api.drawStructures();
@@ -165,8 +172,8 @@ describe("Research building and upgrades",()=>{
     assert.equal(combatTarget.hp,8,"Turret Train damage should share the Turret damage upgrade");assert.ok(Math.abs(combat.combatCooldown-2/3)<1e-9);
 
     state.hives.clear();const artillery={id:"upgraded-artillery",type:"artillery",q:-4,r:-4,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};state.structures.set("-4,-4",artillery);
-    const artilleryTarget=api.createHive(-3,-4,20);assert.equal(api.fireArtillery(artillery),true);assert.equal(artillery.cooldown,2);
-    api.resolveArtilleryImpact(state.projectiles.at(-1));assert.equal(artilleryTarget.hp,8);
+    const artilleryTarget=api.createHive(-3,-4,13);assert.equal(api.fireArtillery(artillery),true);assert.equal(artillery.cooldown,2);
+    api.resolveArtilleryImpact(state.projectiles.at(-1));assert.equal(artilleryTarget.hp,1);
   });
 
   test("destroying Research leaves one selectable three-cell ghost",()=>{

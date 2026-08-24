@@ -26,7 +26,7 @@ describe("repairs, ghosts, and schedules", () => {
     assert.equal(api.constructionStopRequirement(1),"Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined.");
     assert.equal(api.constructionStopRequirement(5),"Must be built within 5 hexes of a train stop so that it can be resupplied, repaired, and/or mined.");
     let target=null;
-    for(let q=-10;q<=10&&!target;q++)for(let r=-10;r<=10&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>4)target={q,r};
+    for(let q=-10;q<=10&&!target;q++)for(let r=-10;r<=10&&!target;r++)if(api.terrainAt(q,r).type==="land"&&api.hexDistance({q,r},state.base)>4)target={q,r};
     assert.ok(target);
     const trackPosition={q:target.q+1,r:target.r},trackKey=api.key(trackPosition.q,trackPosition.r),train=state.trains[0];
     state.tracks.set(trackKey,makeTrack(trackPosition.q,trackPosition.r));train.schedule=[trackPosition];train.scheduleComplete=false;
@@ -51,7 +51,7 @@ describe("repairs, ghosts, and schedules", () => {
   test("a Wall costs 30 Construction Material and no Energy and requires a Train Stop within five hexes",()=>{
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
     let target=null;
-    for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
+    for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="land"&&api.hexDistance({q,r},state.base)>5)target={q,r};
     assert.ok(target);
     const trackPosition={q:target.q+6,r:target.r},materialBefore=state.baseMaterial,energyBefore=state.baseEnergy,train=state.trains[0];
     installCompletedStop(trackPosition,train);
@@ -69,7 +69,7 @@ describe("repairs, ghosts, and schedules", () => {
   test("a Creep occupying a hex blocks Wall construction and shows a warning",()=>{
     const state=api.state;state.tracks.clear();state.structures.clear();
     let target=null;
-    for(let q=-10;q<=10&&!target;q++)for(let r=-10;r<=10&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>4)target={q,r};
+    for(let q=-10;q<=10&&!target;q++)for(let r=-10;r<=10&&!target;r++)if(api.terrainAt(q,r).type==="land"&&api.hexDistance({q,r},state.base)>4)target={q,r};
     assert.ok(target);installCompletedStop({q:target.q+1,r:target.r});state.enemies.push(makeEnemy("wall-blocking-creep",target.q,target.r));
     const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
 
@@ -83,7 +83,7 @@ describe("repairs, ghosts, and schedules", () => {
     for(const item of [{type:"turret",label:"T",build:api.buildTurret},{type:"wall",label:"W",build:api.buildWall},{type:"artillery",label:"A",build:api.buildArtillery}]){
       api.reset();const state=api.state,context=elements.get("gameCanvas").context;addTestTrain();state.tracks.clear();state.structures.clear();state.baseMaterial=500;state.baseEnergy=500;state.paused=true;
       let target=null;
-      for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
+      for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="land"&&api.hexDistance({q,r},state.base)>5)target={q,r};
       assert.ok(target);installCompletedStop({q:target.q+1,r:target.r});context.textCalls.length=0;
 
       item.build(target.q,target.r);
@@ -97,7 +97,7 @@ describe("repairs, ghosts, and schedules", () => {
     const state=api.state;state.tracks.clear();state.ghosts.clear();state.structures.clear();
     state.baseEnergy=150;
     let target=null;
-    for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
+    for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="land"&&api.hexDistance({q,r},state.base)>5)target={q,r};
     assert.ok(target);
     const trackPosition={q:target.q+1,r:target.r},materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;
     installCompletedStop(trackPosition);
@@ -177,7 +177,7 @@ describe("repairs, ghosts, and schedules", () => {
     for(const item of cases){
       api.reset();const state=api.state;state.tracks.clear();state.structures.clear();state.ghosts.clear();state.trains=[];state.baseMaterial=500;state.baseEnergy=500;
       let target=null;
-      for(let q=-15;q<=15&&!target;q++)for(let r=-15;r<=15&&!target;r++)if(api.terrainAt(q,r).type==="ground"&&api.hexDistance({q,r},state.base)>5)target={q,r};
+      for(let q=-15;q<=15&&!target;q++)for(let r=-15;r<=15&&!target;r++)if(api.terrainAt(q,r).type==="land"&&api.hexDistance({q,r},state.base)>5)target={q,r};
       assert.ok(target);installCompletedStop({q:target.q+1,r:target.r});
       const ghostKey=api.key(target.q,target.r);state.ghosts.set(ghostKey,{id:ghostKey,type:"ghost",objectType:item.ghostType,...target});
       const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;item.build(target.q,target.r);
@@ -205,7 +205,7 @@ describe("repairs, ghosts, and schedules", () => {
     const state=api.state,node=api.resourceNodeAt(7,-2),nodeKey=api.key(node.q,node.r);state.trains=[];state.structures.clear();state.ghosts.clear();state.tracks.clear();state.baseMaterial=500;state.baseEnergy=500;
     api.setNodeAmount(node,0);installCompletedStop({q:6,r:-2});state.ghosts.set(nodeKey,{id:nodeKey,type:"ghost",objectType:"mine",resource:node.resource,q:node.q,r:node.r});
     api.buildArtillery(node.q,node.r);
-    assert.equal(state.ghosts.has(nodeKey),false);assert.equal(state.structures.get(nodeKey).type,"artillery");assert.equal(api.terrainAt(node.q,node.r).type,"ground");
+    assert.equal(state.ghosts.has(nodeKey),false);assert.equal(state.structures.get(nodeKey).type,"artillery");assert.equal(api.terrainAt(node.q,node.r).type,"land");
   });
 
   test("Build Track can replace non-Track wreckage without a separate clear action",()=>{

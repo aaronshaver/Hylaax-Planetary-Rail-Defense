@@ -7,136 +7,67 @@ const { api, elements, moveTrain, makeEnemy, addTestTrain, performance } = requi
 beforeEach(() => { api.reset(); });
 
 describe("Hive and defense behavior", () => {
-  test("Hive expansion unlocks only one Fibonacci level at a time", () => {
-    const hive2 = { level: 2 };
-    const hive3 = { level: 3 };
-    const hive5 = { level: 5 };
-    assert.equal(api.hiveExpansionLevel(hive2, 179), 2);
-    assert.equal(api.hiveExpansionLevel(hive2, 180), 3);
-    assert.equal(api.hiveExpansionLevel(hive3, 300), 5);
-    assert.equal(api.hiveExpansionLevel(hive5, 301), 5);
-    assert.equal(api.hiveExpansionLevel(hive5, 480), 8);
+  test("Hive expansion always creates the parent's fixed lifetime level", () => {
+    for(const level of api.constants.HIVE_LEVELS)for(const time of [0,180,480,9999])assert.equal(api.hiveExpansionLevel({level},time),level);
   });
 
-  test("an original Hive's first Creep batch receives one shared 1–15 second delay", () => {
-    const state = api.state;
-    state.hives.clear();
-    state.enemies = [];
-    const hive = api.createHive(2, 2, 2, true, true);
-    hive.nextSpawnAt = 0;
+  test("the solitary starting Level 1 Hive immediately cycles, then cycles once per minute",()=>{
+    const state=api.reset({mapSeed:12345,seedHives:true}),hive=[...state.hives.values()][0];
+    assert.equal(state.hives.size,1);assert.equal(hive.level,1);assert.equal(hive.nextSpawnAt,0);assert.equal(state.enemies.length,0);
+    state.nextEncroachmentAt=Infinity;const delay=api.creepSpawnDelaySeconds(hive,0,0);assert.ok(delay>=1&&delay<=5);
+    api.updateHives();assert.equal(state.hives.size,1,"a Level 1 Hive must never expand");assert.equal(hive.spawnCount,1);assert.equal(hive.nextSpawnAt,60);assert.equal(state.pendingCreepBatches.length,1);
+    state.elapsed=delay;api.updateHives();assert.equal(state.enemies.length,1);
+    state.elapsed=60;api.updateHives();assert.equal(hive.spawnCount,2);assert.equal(hive.nextSpawnAt,120);
+  });
 
+  test("a failed expansion roll spawns all 13 Creeps from a capped Level 13 Hive after its delay",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.nextEncroachmentAt=Infinity;state.elapsed=60;
+    const hive=api.createHive(12,0,21);assert.equal(hive.level,13);let spawnNumber=0;while(api.hiveReplicationRoll(hive,spawnNumber,13)&&spawnNumber<10000)spawnNumber++;
+    const delay=api.creepSpawnDelaySeconds(hive,spawnNumber,60);hive.spawnCount=spawnNumber;hive.nextSpawnAt=60;api.updateHives();
+    state.elapsed=60+delay;api.updateHives();
+    assert.equal(state.hives.size,1);assert.equal(state.enemies.length,13);assert.equal(hive.productionPulseUntil,60+delay+.75);
+  });
+
+  test("a queued Creep batch is canceled when its source Hive is destroyed during the delay",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.nextEncroachmentAt=Infinity;state.elapsed=60;
+    const hive=api.createHive(12,0,1);let spawnNumber=0;
+    while(api.creepSpawnDelaySeconds(hive,spawnNumber,60)===0&&spawnNumber<10000)spawnNumber++;
+    const delay=api.creepSpawnDelaySeconds(hive,spawnNumber,60);assert.ok(delay>=1&&delay<=5);
+    hive.spawnCount=spawnNumber;hive.nextSpawnAt=60;api.updateHives();assert.equal(state.pendingCreepBatches.length,1);
+    api.damageTarget(hive,1);state.elapsed=60+delay;api.updateHives();
+    assert.equal(state.hives.size,0);assert.equal(state.pendingCreepBatches.length,0);assert.equal(state.enemies.length,0);
+  });
+
+  test("a successful expansion queues a non-cancellable same-level Hive that cycles when it appears",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.nextEncroachmentAt=Infinity;state.elapsed=480;
+    const hive=api.createHive(12,0,3);let spawnNumber=0;while(!api.hiveReplicationRoll(hive,spawnNumber,3)&&spawnNumber<10000)spawnNumber++;
+    hive.spawnCount=spawnNumber;hive.nextSpawnAt=480;api.updateHives();assert.equal(state.hives.size,1);assert.equal(state.pendingHiveSpawns.length,1);
+    const queued=state.pendingHiveSpawns[0];assert.ok(queued.delaySeconds>=1&&queued.delaySeconds<=5);api.damageTarget(hive,hive.hp);state.elapsed=queued.executeAt;api.updateHives();
+    assert.ok(state.hives.size>=1);assert.equal(state.enemies.length,0);
+    const child=[...state.hives.values()].find(candidate=>candidate.sourceHiveId===hive.id);assert.ok(child);assert.equal(child.level,3);assert.equal(child.spawnCount,1);assert.equal(child.nextSpawnAt,540);assert.ok(api.hexDistance(hive,child)>=2&&api.hexDistance(hive,child)<=4);
+  });
+
+  test("all Hives due at a minute boundary execute during that boundary without staggering",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.nextEncroachmentAt=Infinity;state.elapsed=60;
+    for(const [q,r] of [[12,0],[0,12],[-12,12]]){const hive=api.createHive(q,r,2);let spawnNumber=0;while(api.hiveReplicationRoll(hive,spawnNumber,2))spawnNumber++;hive.spawnCount=spawnNumber;hive.nextSpawnAt=60;}
     api.updateHives();
-
-    assert.equal(state.hives.size, 1);
-    assert.equal(state.enemies.length, 0);
-    assert.equal(state.creepSpawnQueue.length, 1);
-    assert.equal(state.creepSpawnQueue[0].count, 2);
-    assert.ok(state.creepSpawnQueue.every(operation => Number.isInteger(operation.delay) && operation.delay >= 1 && operation.delay <= 15));
-    assert.ok(state.creepSpawnQueue.every(operation => operation.executeAt === operation.delay));
-    assert.equal(hive.forceFirstCreepBatch, false);
-    const batchSpawnAt = state.creepSpawnQueue[0].executeAt;
-    state.elapsed = batchSpawnAt - .001;
-    assert.equal(api.processCreepSpawnQueue(), 0);
-    assert.equal(state.enemies.length, 0);
-    state.elapsed = batchSpawnAt;
-    assert.equal(api.processCreepSpawnQueue(), 1);
-    assert.equal(state.enemies.length, 2);
-    assert.equal(hive.productionPulseUntil, batchSpawnAt + .75);
+    state.elapsed=65;api.updateHives();
+    assert.equal(state.enemies.length,6);
   });
 
-  test("destroying a Hive cancels only that Hive's pending Creep batches", () => {
-    const state = api.state;
-    state.hives.clear();
-    state.enemies = [];
-    const destroyedHive = api.createHive(12, 0, 2, false, false);
-    const survivingHive = api.createHive(0, 12, 2, false, false);
-    api.queueCreepBatch(destroyedHive, 2, 0);
-    api.queueCreepBatch(survivingHive, 2, 0);
-    api.queueCreepBatch(destroyedHive, 2, 1);
-    state.hiveProductionQueue.push({hiveId:destroyedHive.id,q:destroyedHive.q,r:destroyedHive.r,executeAt:1});
-
-    api.damageTarget(destroyedHive, destroyedHive.hp);
-
-    assert.equal(state.creepSpawnQueue.length, 1);
-    assert.equal(state.creepSpawnQueue[0].hiveId, survivingHive.id);
-    assert.equal(state.hiveProductionQueue.length, 0);
-    state.elapsed = state.creepSpawnQueue[0].executeAt;
-    assert.equal(api.processCreepSpawnQueue(), 1);
-    assert.equal(state.enemies.length, 2);
+  test("Hive expansion prefers 2-4 hexes but continues outward through 7",()=>{
+    const state=api.state;state.hives.clear();state.hiveBlockedLand.clear();state.nextEncroachmentAt=Infinity;state.elapsed=60;
+    const hive=api.createHive(12,0,3);let spawnNumber=0;while(!api.hiveReplicationRoll(hive,spawnNumber,3)&&spawnNumber<10000)spawnNumber++;
+    for(const candidate of api.hiveSpawnCandidates(hive,spawnNumber))if(candidate.distance<=4)state.hiveBlockedLand.add(api.key(candidate.q,candidate.r));
+    const child=api.spawnHiveNear(hive,spawnNumber,3);assert.ok(child);assert.ok(api.hexDistance(hive,child)>=5&&api.hexDistance(hive,child)<=7);
   });
 
-  test("a stale Creep batch cannot be inherited by a replacement Hive on the same hex", () => {
-    const state = api.state;
-    state.hives.clear();
-    state.enemies = [];
-    const originalHive = api.createHive(12, 0, 2, false, false);
-    const operation = api.queueCreepBatch(originalHive, 2, 0);
-    state.hives.delete(api.key(originalHive.q, originalHive.r));
-    api.createHive(originalHive.q, originalHive.r, 2, false, false);
-
-    state.elapsed = operation.executeAt;
-
-    assert.equal(api.processCreepSpawnQueue(), 1);
-    assert.equal(state.enemies.length, 0);
-    assert.equal(state.creepSpawnQueue.length, 0);
-  });
-
-  test("destroying a Hive cancels only that Hive's pending replication", () => {
-    const state = api.state;
-    state.hives.clear();
-    const destroyedHive = api.createHive(12, 0, 2, false, false);
-    const survivingHive = api.createHive(0, 12, 2, false, false);
-    api.queueHiveSpawn({q:16,r:0},{sourceHiveId:destroyedHive.id});
-    api.queueHiveSpawn({q:0,r:16},{sourceHiveId:survivingHive.id});
-    api.queueHiveSpawn({q:-16,r:16},{kind:"encroachment"});
-
-    api.damageTarget(destroyedHive, destroyedHive.hp);
-
-    assert.equal(state.hiveSpawnQueue.length, 2);
-    assert.ok(state.hiveSpawnQueue.some(operation=>operation.sourceHiveId===survivingHive.id));
-    assert.ok(state.hiveSpawnQueue.some(operation=>operation.kind==="encroachment"));
-  });
-
-  test("a Hive replication queues its child for an independent 1–15 second delay", () => {
-    const state = api.state;
-    state.elapsed = 180;
-    state.nextEncroachmentAt=Infinity;
-    state.hives.clear();
-    state.enemies = [];
-    const hive = api.createHive(2, 2, 2, false, false);
-    let spawnNumber = 0;
-    while (!api.hiveReplicationRoll(hive, spawnNumber, 2) && spawnNumber < 10000) spawnNumber++;
-    assert.ok(spawnNumber < 10000, "could not find a deterministic replication roll");
-    hive.spawnCount = spawnNumber;
-    hive.nextSpawnAt = 180;
-
-    api.updateHives();
-
-    assert.equal(state.hives.size,1);assert.equal(state.hiveSpawnQueue.length,1);assert.equal(state.enemies.length,0);
-    const queued=state.hiveSpawnQueue[0];assert.ok(Number.isInteger(queued.delay)&&queued.delay>=1&&queued.delay<=15);assert.equal(queued.executeAt,180+queued.delay);
-    state.elapsed=queued.executeAt-.001;assert.equal(api.processHiveSpawnQueue(),0);assert.equal(state.hives.size,1);
-    state.elapsed=queued.executeAt;assert.equal(api.processHiveSpawnQueue(),1);
-    assert.equal(state.hives.size, 2);
-    const child = [...state.hives.values()].find(candidate => candidate.id !== hive.id);
-    assert.equal(child.level, 3);
-    assert.equal(hive.productionPulseUntil,state.elapsed+.75);
-    assert.ok(api.hexDistance(hive, child) >= 2, "new Hives must have at least one non-Hive hex between them");
-  });
-
-  test("simultaneously due Hives operate in randomized order with 50 to 200 ms staggering",()=>{
-    const state=api.state;state.hives.clear();state.enemies=[];state.hiveProductionQueue=[];state.hiveProductionAvailableAt=0;state.nextEncroachmentAt=Infinity;state.elapsed=60;
-    for(const [q,r] of [[12,0],[0,12],[-12,12]]){const hive=api.createHive(q,r,2,false,true);hive.nextSpawnAt=60;}
-
-    api.updateHives();
-
-    assert.equal(state.hiveProductionQueue.length,2,"only the first due Hive should operate immediately");assert.equal(state.enemies.length,0);assert.equal(state.creepSpawnQueue.length,1);assert.equal(state.creepSpawnQueue[0].count,2);
-    const times=state.hiveProductionQueue.map(operation=>operation.executeAt),gaps=[times[0]-60,times[1]-times[0]];
-    assert.ok(gaps.every(gap=>gap>=.05-1e-9&&gap<=.2+1e-9),`stagger gaps were ${gaps.join(", ")}`);
-    state.elapsed=times[0]-1e-5;assert.equal(api.processHiveProductionQueue(),0);
-    state.elapsed=times[0];assert.equal(api.processHiveProductionQueue(),1);assert.equal(state.hiveProductionQueue.length,1);
-    state.elapsed=times[1];assert.equal(api.processHiveProductionQueue(),1);assert.equal(state.hiveProductionQueue.length,0);assert.equal(state.enemies.length,0);assert.equal(state.creepSpawnQueue.length,3);assert.ok(state.creepSpawnQueue.every(operation=>operation.count===2));
-    assert.ok(state.creepSpawnQueue.every(operation=>Number.isInteger(operation.delay)&&operation.delay>=1&&operation.delay<=15));
-    state.elapsed=Math.max(...state.creepSpawnQueue.map(operation=>operation.executeAt));assert.equal(api.processCreepSpawnQueue(),3);assert.equal(state.enemies.length,6);
+  test("a successful expansion roll falls back to the delayed Creep batch when no Hive hex exists through distance 7",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.hiveBlockedLand.clear();state.nextEncroachmentAt=Infinity;state.elapsed=60;
+    const hive=api.createHive(12,0,3);let spawnNumber=0;while(!api.hiveReplicationRoll(hive,spawnNumber,3)&&spawnNumber<10000)spawnNumber++;
+    for(const candidate of api.hiveSpawnCandidates(hive,spawnNumber))state.hiveBlockedLand.add(api.key(candidate.q,candidate.r));
+    const delay=api.creepSpawnDelaySeconds(hive,spawnNumber,60);hive.spawnCount=spawnNumber;hive.nextSpawnAt=60;api.updateHives();
+    assert.equal(state.hives.size,1);state.elapsed=60+delay;api.updateHives();assert.equal(state.enemies.length,3);
   });
 
   test("Turrets prioritize a Hive over a closer Creep", () => {
@@ -243,58 +174,33 @@ describe("Hive and defense behavior", () => {
     assert.equal(api.constants.COMBAT_TRAIN_RANGE, 6);
   });
 
-  test("minute-added Hives queue independent 1–15 second delays before appearing",()=>{
-    const state=api.state;
-    state.hives.clear();state.enemies=[];
-    const anchors=api.playerConstructionAnchors();
-    state.elapsed=299.99;api.updateHives();
-    assert.equal(state.hives.size,0);
+  test("timed additions use the current Fibonacci time level for both level and count, capped at 13",()=>{
+    const levels=[[0,0],[1,1],[2,2],[3,3],[4,3],[5,5],[8,8],[13,13],[14,13],[21,13],[189,13]];
+    for(const [minute,level] of levels)assert.equal(api.hiveUnlockedLevel(minute*60),level,`minute ${minute} level`);
+    const counts=[[0,0],[1,1],[2,2],[3,3],[4,3],[5,5],[8,8],[13,13],[14,13],[21,13],[189,13]];
+    for(const [minute,count] of counts)assert.equal(api.encroachingHiveCount(minute*60),count,`minute ${minute} count`);
+  });
 
-    let successfulSeed=0;while(!api.encroachmentOccurs(300,successfulSeed))successfulSeed++;state.mapSeed=successfulSeed;
-    state.elapsed=300;api.updateHives();
-    assert.equal(state.hives.size,0);assert.equal(state.hiveSpawnQueue.length,1);const queued=state.hiveSpawnQueue[0];assert.ok(Number.isInteger(queued.delay)&&queued.delay>=1&&queued.delay<=15);assert.equal(queued.executeAt,300+queued.delay);
-    state.elapsed=queued.executeAt;assert.equal(api.processHiveSpawnQueue(),1);api.updateHives();
-    const hive=[...state.hives.values()].find(candidate=>candidate.encroaching);assert.ok(hive);
-    assert.equal(hive.level,5);
-    assert.equal(hive.encroachmentMinute,5);
-    assert.equal(state.enemies.length,0,"the new Level 5 Hive should queue rather than immediately produce its five Creeps");
-    assert.equal(state.creepSpawnQueue.length,1);assert.equal(state.creepSpawnQueue[0].count,5);
-    assert.ok(state.creepSpawnQueue.every(operation=>Number.isInteger(operation.delay)&&operation.delay>=1&&operation.delay<=15));
-    assert.equal(hive.nextSpawnAt,360,"future production stays synchronized to minute boundaries");
-    assert.ok(anchors.some(anchor=>{const distance=api.hexDistance(anchor,hive);return distance>=6&&distance<=14;}));
-    assert.ok(anchors.every(anchor=>api.hexDistance(anchor,hive)>=api.constants.ENEMY_SPAWN_BUFFER),"a new Hive must respect every construction's safety buffer");
-    state.elapsed=state.creepSpawnQueue[0].executeAt;assert.equal(api.processCreepSpawnQueue(),1);assert.equal(state.enemies.length,5);
-    assert.ok(state.enemies.every(enemy=>anchors.every(anchor=>api.hexDistance(anchor,enemy)>=api.constants.ENEMY_SPAWN_BUFFER)),"new Creeps must respect every construction's safety buffer");
-
-    const expectedLevels=[[300,5],[360,5],[420,5],[480,8]];
-    for(const [time,level] of expectedLevels){
-      state.hives.clear();state.elapsed=time;
-      state.hiveSpawnQueue=[];const scheduled=api.spawnEncroachingHive(time);
-      assert.equal(scheduled.level,level);
-      assert.ok(scheduled.delay>=1&&scheduled.delay<=15);
+  test("timed Hives appear at the minute boundary and immediately perform their first cycle",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.nextEncroachmentAt=120;const anchors=api.playerConstructionAnchors();
+    state.elapsed=119.999;api.updateHives();assert.equal(state.hives.size,0);
+    state.elapsed=120;api.updateHives();assert.equal(state.pendingHiveSpawns.filter(operation=>operation.kind==="timed").length,2);state.elapsed=125;api.updateHives();const timed=[...state.hives.values()].filter(hive=>hive.encroachmentMinute===2);assert.equal(timed.length,2);assert.equal(state.enemies.length,0);
+    for(const hive of timed){
+      assert.equal(hive.level,2);assert.equal(hive.spawnCount,1);assert.equal(hive.nextSpawnAt,180);
+      assert.ok(anchors.some(anchor=>{const distance=api.hexDistance(anchor,hive);return distance>=7&&distance<=20;}));assert.ok(anchors.every(anchor=>api.hexDistance(anchor,hive)>=api.constants.ENEMY_SPAWN_BUFFER));
     }
   });
 
-  test("starting at minute five, successful timed batches grow linearly and failed minutes do not carry forward",()=>{
-    const state=api.state;state.hives.clear();state.enemies=[];state.nextEncroachmentAt=300;
-    for(const time of [60,120,180,240])assert.equal(api.encroachingHiveCount(time),0);
-    for(const [time,added] of [[300,1],[360,2],[420,3],[480,4],[540,5],[600,6]])assert.equal(api.encroachingHiveCount(time),added);
-
-    let mixedSeed=0;while(api.encroachmentOccurs(300,mixedSeed)||!api.encroachmentOccurs(360,mixedSeed))mixedSeed++;state.mapSeed=mixedSeed;
-    state.elapsed=300;api.updateEncroachingHives();assert.equal(state.hiveSpawnQueue.length,0,"a failed minute-five roll should queue no Hives");assert.equal(state.nextEncroachmentAt,360);
-    state.elapsed=360;api.updateEncroachingHives();const scheduled=state.hiveSpawnQueue;
-    assert.equal(scheduled.length,2,"minute six should queue only its own two-Hive batch");assert.ok(scheduled.every(operation=>operation.level===5&&operation.encroachmentMinute===6));
-    assert.ok(scheduled.every(operation=>Number.isInteger(operation.delay)&&operation.delay>=1&&operation.delay<=15));assert.equal(new Set(scheduled.map(operation=>`${operation.q},${operation.r}`)).size,2);
-  });
-
-  test("each timed-Hive minute uses one stable approximately 50 percent event roll",()=>{
-    for(const time of [300,360,420]){const outcomes=Array.from({length:1000},(_,seed)=>api.encroachmentOccurs(time,seed)),successes=outcomes.filter(Boolean).length;assert.ok(successes>=400&&successes<=600,`${time/60}-minute success count was ${successes}`);for(let seed=0;seed<100;seed++)assert.equal(api.encroachmentOccurs(time,seed),outcomes[seed]);}
+  test("each timed addition phase adds its entire configured batch without a chance roll",()=>{
+    const state=api.state;state.hives.clear();state.enemies=[];state.nextEncroachmentAt=300;state.elapsed=300;api.updateEncroachingHives();assert.equal(state.pendingHiveSpawns.filter(operation=>operation.kind==="timed").length,5);
+    state.elapsed=305;api.runPendingHiveSpawns();const timed=[...state.hives.values()].filter(hive=>hive.encroachmentMinute===5);assert.equal(timed.length,5);assert.ok(timed.every(hive=>hive.level===5&&hive.spawnCount===1&&hive.nextSpawnAt===360));assert.equal(state.nextEncroachmentAt,360);
   });
 
   test("Hive and Creep spawn buffers include live constructions but ignore destroyed objects",()=>{
     const state=api.state;state.tracks.clear();state.structures.clear();state.trains=[];state.ghosts.clear();
     state.tracks.set("8,0",{q:8,r:0,hp:1,maxHp:1,links:new Set()});
     state.structures.set("0,8",{id:"mine-buffer",type:"mine",q:0,r:8,hp:22,maxHp:22});
+    state.structures.set("9,9",{id:"destroyed-mine",type:"mine",q:9,r:9,hp:0,maxHp:22});
     state.ghosts.set("-8,0",{id:"-8,0",type:"ghost",objectType:"track",q:-8,r:0,links:[]});
 
     for(const anchor of [{q:8,r:0},{q:0,r:8}]){
@@ -302,14 +208,15 @@ describe("Hive and defense behavior", () => {
       assert.equal(api.outsidePlayerConstructionBuffer(anchor.q+4,anchor.r),true);
     }
     assert.equal(api.playerConstructionAnchors().some(anchor=>anchor.q===-8&&anchor.r===0),false);
+    assert.equal(api.playerConstructionAnchors().some(anchor=>anchor.q===9&&anchor.r===9),false);
     assert.equal(api.outsidePlayerConstructionBuffer(-8,0),true);
     for(const cell of api.structureFootprint(state.base))assert.equal(api.outsidePlayerConstructionBuffer(cell.q+3,cell.r),false);
     assert.equal(api.outsidePlayerConstructionBuffer(-4,0),true);
   });
 
-  test("mountains and trees block both Turrets and Turret Trains",()=>{
+  test("mountains block both Turrets and Turret Trains",()=>{
     let blocker=null;
-    for(let q=-50;q<=50&&!blocker;q++)for(let r=-50;r<=50&&!blocker;r++)if(["rock","trees"].includes(api.terrainAt(q,r).type))blocker={q,r};
+    for(let q=-50;q<=50&&!blocker;q++)for(let r=-50;r<=50&&!blocker;r++)if(api.terrainAt(q,r).type==="rock")blocker={q,r};
     assert.ok(blocker);
     const start={q:blocker.q-1,r:blocker.r},target={q:blocker.q+1,r:blocker.r};
     assert.equal(api.hasClearShot(start,target),false);
@@ -325,6 +232,18 @@ describe("Hive and defense behavior", () => {
     const train=addTestTrain("combat");moveTrain(train,start.q,start.r);train.wagons[0].amount=3;train.combatCooldown=0;
     api.updateCombatTrains(.5);
     assert.equal(hive.hp,2);assert.equal(train.wagons[0].amount,3);
+  });
+
+  test("trees no longer block Turret fire",()=>{let tree=null;for(let q=-50;q<=50&&!tree;q++)for(let r=-50;r<=50&&!tree;r++)if(api.terrainAt(q,r).type==="trees")tree={q,r};assert.ok(tree);assert.equal(api.hasClearShot({q:tree.q-1,r:tree.r},{q:tree.q+1,r:tree.r}),true);});
+
+  test("Creeps and Neutralizers expire after two minutes with their normal thin death X",()=>{
+    const state=api.state;state.hives.clear();let first=null,second=null;for(let q=8;q<30&&!second;q++)for(let r=-10;r<20&&!second;r++)if(api.isPassable(q,r)&&!api.structureAt(q,r)){if(!first)first={q,r};else if(api.hexDistance(first,{q,r})>1)second={q,r};}
+    const creep=api.spawnEnemyAt(first.q,first.r),ally=api.spawnNeutralizerAt(second.q,second.r);assert.ok(creep&&ally);state.elapsed=119.999;assert.equal(api.expireCreeps(),0);assert.equal(api.expireNeutralizers(),0);state.elapsed=120;assert.equal(api.expireCreeps(),1);assert.equal(api.expireNeutralizers(),1);assert.equal(state.enemies.length,0);assert.equal(state.neutralizers.length,0);assert.ok(state.projectiles.some(item=>item.kind==="creep-death-x"));assert.ok(state.projectiles.some(item=>item.kind==="neutralizer-death-x"));
+  });
+
+  test("water is traversable at double path cost and half departure speed",()=>{
+    let water=null;for(let q=-50;q<=50&&!water;q++)for(let r=-50;r<=50&&!water;r++)if(api.terrainAt(q,r).type==="water")water={q,r};assert.ok(water);assert.equal(api.unitCanTraverse(water.q,water.r),true);assert.equal(api.unitTraversalCost(water.q,water.r),2);
+    const state=api.state;state.hives.clear();state.structures.clear();state.tracks.clear();const creep=api.spawnEnemyAt(water.q,water.r)||(()=>{const point=api.enemyWorldPosition(water.q,water.r,0),unit={id:"enemy-water",type:"enemy",...water,slot:0,x:point.x,y:point.y,fromQ:water.q,fromR:water.r,fromSlot:0,toQ:water.q+1,toR:water.r,toSlot:0,progress:0,moveCount:0,speed:api.constants.ENEMY_SPEED,hp:1,maxHp:1,bornAt:0,attackClock:0,nextPathAt:0,phase:0};state.enemies=[unit];return unit;})();creep.fromQ=water.q;creep.fromR=water.r;creep.toQ=water.q+1;creep.toR=water.r;creep.progress=0;api.updateEnemies(1);assert.ok(Math.abs(creep.progress-api.constants.ENEMY_SPEED/2)<1e-9);
   });
 
   test("water does not block a clear shot",()=>{
@@ -351,11 +270,11 @@ describe("Hive and defense behavior", () => {
 });
 
 describe("enemy navigation", () => {
-  test("Hive locations reject isolated ground that Creeps cannot traverse back to the Base",()=>{
+  test("Hive locations reject isolated land that Creeps cannot traverse back to the Base",()=>{
     const state=api.state;state.mapSeed=1;
     const isolated={q:16,r:-22};
-    assert.equal(api.terrainAt(isolated.q,isolated.r).type,"ground");
-    assert.ok(api.neighbors(isolated.q,isolated.r).every(position=>!api.isPassable(position.q,position.r)),"fixture must remain a fully isolated ground hex");
+    assert.equal(api.terrainAt(isolated.q,isolated.r).type,"land");
+    assert.ok(api.neighbors(isolated.q,isolated.r).every(position=>!api.isPassable(position.q,position.r)),"fixture must remain a fully isolated land hex");
     assert.equal(api.terrainCanReachBase(isolated.q,isolated.r),false);
     assert.equal(api.hiveHexOpen(isolated.q,isolated.r),false);
   });

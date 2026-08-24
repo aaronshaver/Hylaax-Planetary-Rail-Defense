@@ -7,6 +7,13 @@ const { api, elements, makeEnemy } = require("./harness.js");
 beforeEach(() => { api.reset(); });
 
 describe("rendering caches", () => {
+  test("Hive-blocked land uses a subtle gray inner ring and previews all seven hexes",()=>{
+    const state=api.state,context=elements.get("gameCanvas").context;state.hiveBlockedLand.add("4,4");context.strokeCalls.length=0;api.drawTerrainBase(context);
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="rgba(174,181,184,.62)"&&call.lineWidth===1.35));
+    state.mode="hiveBlocker";state.hover={q:4,r:4};context.strokeCalls.length=0;api.drawHover();
+    assert.equal(context.strokeCalls.filter(call=>call.strokeStyle==="rgba(174,181,184,.78)"&&call.lineWidth===1.5).length,7);
+  });
+
   test("all gray Track junction hubs render after every black rail bed",()=>{
     const context=elements.get("gameCanvas").context,state=api.state,{makeTrack}=require("./harness.js");state.tracks.clear();
     const a=makeTrack(1,0,["0,0"]),b=makeTrack(0,0,["1,0","-1,0"]),c=makeTrack(-1,0,["0,0"]);

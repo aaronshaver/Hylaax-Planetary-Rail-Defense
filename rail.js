@@ -65,7 +65,7 @@ function requireNoUnit(q,r){if(!requireNoCreep(q,r))return false;if(!neutralizer
 
 function nonMineConstructionSite(q,r){
   const terrain=terrainAt(q,r),node=terrain.type==="resource"?resourceNodeAt(q,r):null;
-  return {terrain:node?.amount<=0?{type:"ground"}:terrain,clearDepletedNode:Boolean(node&&node.amount<=0)};
+  return {terrain:node?.amount<=0?{type:"land"}:terrain,clearDepletedNode:Boolean(node&&node.amount<=0)};
 }
 
 function replaceDestroyedSite(ghost,site){
@@ -115,7 +115,7 @@ function layTrack(q, r) {
     return;
   }
   if(isNew){
-    if(!isPassable(q,r)||destinationSite.terrain.type==="resource")return fail("Track needs clear ground.");
+    if(!isPassable(q,r)||destinationSite.terrain.type==="resource")return fail("Track needs clear land.");
     if(structureAt(q,r)||hiveAt(q,r)||trainAt(q,r))return fail("That hex is occupied.");
   }
   if(curveIsExtreme(start,destination))return fail("Train curves cannot be that extreme.");
@@ -184,7 +184,7 @@ function buildTurret(q, r) {
   if(!requireNoUnit(q,r))return;
   if(!requireNearbyTrainStop({q,r},1))return;
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
-  if (!isPassable(q, r) || site.terrain.type === "resource" || structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("Turrets need clear ground away from track.");
+  if (!isPassable(q, r) || site.terrain.type === "resource" || structureAt(q, r) || hiveAt(q,r) || state.tracks.has(key(q,r))) return fail("Turrets need clear land away from track.");
   if(!payBase(COSTS.turret,"turret"))return;
   const maxEnergy=turretEnergyStorage(),turret = { id: `turret-${state.nextId++}`, type: "turret", q, r, hp: TURRET_HIT_POINTS, maxHp: TURRET_HIT_POINTS, energy:10, maxEnergy, baseMaxEnergy:20, cooldown: 0 };
   if(ghost)replaceDestroyedSite(ghost,site);
@@ -198,7 +198,7 @@ function buildWall(q, r) {
   if(!requireNoUnit(q,r))return;
   if(!requireNearbyTrainStop({q,r},WALL_SERVICE_RANGE))return;
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
-  if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Walls need clear ground away from track.");
+  if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Walls need clear land away from track.");
   if(!payBase(COSTS.wall,"wall"))return;
   const maxHp=wallHitPoints(),wall={id:`wall-${state.nextId++}`,type:"wall",q,r,hp:maxHp,maxHp,baseMaxHp:WALL_HIT_POINTS};
   if(ghost)replaceDestroyedSite(ghost,site);
@@ -211,7 +211,7 @@ function buildGate(q,r){
   if(!requireNoUnit(q,r))return;
   if(!requireNearbyTrainStop({q,r},WALL_SERVICE_RANGE))return;
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
-  if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Gates need clear ground away from track.");
+  if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Gates need clear land away from track.");
   if(!payBase(COSTS.gate,"gate"))return;
   const maxHp=wallHitPoints(),gate={id:`gate-${state.nextId++}`,type:"gate",q,r,hp:maxHp,maxHp,baseMaxHp:WALL_HIT_POINTS};
   if(ghost)replaceDestroyedSite(ghost,site);
@@ -222,7 +222,7 @@ function buildArtillery(q,r){
   if(!requireNoUnit(q,r))return;
   if(!requireNearbyTrainStop({q,r},1))return;
   const ghost=ghostAt(q,r),site=nonMineConstructionSite(q,r);
-  if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Artillery needs clear ground away from track.");
+  if(!isPassable(q,r)||site.terrain.type==="resource"||structureAt(q,r)||hiveAt(q,r)||state.tracks.has(key(q,r))||trainClaimsHex(q,r))return fail("Artillery needs clear land away from track.");
   if(!payBase(COSTS.artillery,"artillery"))return;
   const maxEnergy=artilleryEnergyStorage(),artillery={id:`artillery-${state.nextId++}`,type:"artillery",q,r,hp:ARTILLERY_HIT_POINTS,maxHp:ARTILLERY_HIT_POINTS,energy:maxEnergy,maxEnergy,baseMaxEnergy:ARTILLERY_MAX_ENERGY,cooldown:0,showRangeUntil:state.elapsed+3.5};
   if(ghost)replaceDestroyedSite(ghost,site);

@@ -95,8 +95,10 @@ describe("interface formatting", () => {
     api.state.selected = { type: "hive", id: hive.id };
     const html = api.selectionHtml();
     assert.match(html, /Level 2 hive/);
-    assert.match(html, /Periodically produces either 2 more creeps or a new hive/);
-    assert.match(html, /1 in 2 chance of a hive spawn/);
+    assert.match(html, /When it appears and once per minute thereafter/);
+    assert.match(html, /1 in 2 chance to produce one Level 2 hive/);
+    assert.match(html, /otherwise produces 2 creeps/);
+    assert.match(html, /1–5 second delay/);
   });
 
   test("destroyed selections identify the wreckage and explain rebuild and clearing options",()=>{
@@ -249,7 +251,7 @@ describe("interface formatting", () => {
 
   test("Turret Train selection uses the mobile defense description",()=>{
     const train=addTestTrain("combat");api.state.selected={type:"train",id:train.id};
-    assert.match(api.selectionHtml(),/A mobile turret train · Shot range 6 hexes · 1 damage every 1 second\(s\) · Restocks its fuel energy and shot energy at the base building · Another train can provide emergency fuel when it has no fuel energy remaining/);
+    assert.match(api.selectionHtml(),/A mobile turret train · Shot range 6 hexes · 1 damage every 1 second\(s\) · Cannot shoot over mountains; can shoot across water, trees, and walls · Restocks its fuel energy and shot energy at the base building/);
   });
 
   test("Turret Train fabrication costs 30 Construction Material and 10 Energy and cancellation refunds both",()=>{

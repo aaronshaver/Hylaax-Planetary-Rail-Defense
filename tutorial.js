@@ -144,14 +144,14 @@ function tutorialTrackTarget(requireDeploymentSpace=false){
 
 function tutorialDistanceToTarget(position,target){return target?.footprint?.length?distanceToStructure(position,target):hexDistance(position,target);}
 
-function tutorialClearGroundHex(position){
-  return terrainAt(position.q,position.r).type==="ground"&&!structureAt(position.q,position.r)&&!state.tracks.has(key(position.q,position.r))&&!ghostAt(position.q,position.r)&&!hiveAt(position.q,position.r)&&!trainAt(position.q,position.r)&&!creepOccupiesHex(position.q,position.r)&&!neutralizerOccupiesHex(position.q,position.r);
+function tutorialClearLandHex(position){
+  return terrainAt(position.q,position.r).type==="land"&&!structureAt(position.q,position.r)&&!state.tracks.has(key(position.q,position.r))&&!ghostAt(position.q,position.r)&&!hiveAt(position.q,position.r)&&!trainAt(position.q,position.r)&&!creepOccupiesHex(position.q,position.r)&&!neutralizerOccupiesHex(position.q,position.r);
 }
 
-function tutorialClearGroundNextTo(target,{near=null,awayFrom=null}={}){
+function tutorialClearLandNextTo(target,{near=null,awayFrom=null}={}){
   if(!target)return null;
   const candidates=new Map();
-  for(const cell of structureFootprint(target))for(const position of neighbors(cell.q,cell.r))if(tutorialClearGroundHex(position))candidates.set(key(position.q,position.r),position);
+  for(const cell of structureFootprint(target))for(const position of neighbors(cell.q,cell.r))if(tutorialClearLandHex(position))candidates.set(key(position.q,position.r),position);
   let available=[...candidates.values()];
   available.sort((a,b)=>{
     if(near){const difference=tutorialDistanceToTarget(a,near)-tutorialDistanceToTarget(b,near);if(difference)return difference;}
@@ -167,9 +167,9 @@ function tutorialTrackNextTo(target,allowedKeys=null){
   tracks.sort((a,b)=>a.q-b.q||a.r-b.r);return tracks[0]||null;
 }
 
-function tutorialClearGroundByStop(stop,usedKeys=new Set()){
+function tutorialClearLandByStop(stop,usedKeys=new Set()){
   if(!stop)return null;
-  const available=neighbors(stop.q,stop.r).filter(position=>!usedKeys.has(key(position.q,position.r))&&tutorialClearGroundHex(position));
+  const available=neighbors(stop.q,stop.r).filter(position=>!usedKeys.has(key(position.q,position.r))&&tutorialClearLandHex(position));
   available.sort((a,b)=>a.q-b.q||a.r-b.r);
   return available[0]||null;
 }
@@ -195,14 +195,14 @@ function tutorialArrowSpecs(step=state.tutorial?.step){
   if(step===1){const arrow=tutorialElementArrow(ui.trackTool,"ne");if(arrow)arrows.push(arrow);}
   else if(step===2){const track=tutorialTrackTarget();tutorialAddWorldArrow(arrows,track,["right"],{clearance:25,targetTrackKey:track?key(track.q,track.r):null});}
   else if(step===3){
-    const track=state.trackStart||tutorialTrackTarget(),ground=tutorialClearGroundNextTo(track,{awayFrom:state.base});
-    tutorialAddWorldArrow(arrows,ground,["right","se","sw","ne","nw","down","up","left"],{clearance:18});
+    const track=state.trackStart||tutorialTrackTarget(),land=tutorialClearLandNextTo(track,{awayFrom:state.base});
+    tutorialAddWorldArrow(arrows,land,["right","se","sw","ne","nw","down","up","left"],{clearance:18});
   }
   else if(step===4){
     const energy=tutorialNearestResource("energy"),material=tutorialNearestResource("material");
-    tutorialStep4Arrow(arrows,tutorial,"step4BaseGroundKey","step4BaseDirection",()=>tutorialClearGroundNextTo(state.base,{near:state.trackStart}),["se","sw","right","down","ne","nw"]);
-    tutorialStep4Arrow(arrows,tutorial,"step4EnergyGroundKey","step4EnergyDirection",()=>tutorialClearGroundNextTo(energy,{near:state.base}),["ne","se","right","up","down"]);
-    tutorialStep4Arrow(arrows,tutorial,"step4MaterialGroundKey","step4MaterialDirection",()=>tutorialClearGroundNextTo(material,{near:state.base}),["sw","nw","left","down","up"]);
+    tutorialStep4Arrow(arrows,tutorial,"step4BaseLandKey","step4BaseDirection",()=>tutorialClearLandNextTo(state.base,{near:state.trackStart}),["se","sw","right","down","ne","nw"]);
+    tutorialStep4Arrow(arrows,tutorial,"step4EnergyLandKey","step4EnergyDirection",()=>tutorialClearLandNextTo(energy,{near:state.base}),["ne","se","right","up","down"]);
+    tutorialStep4Arrow(arrows,tutorial,"step4MaterialLandKey","step4MaterialDirection",()=>tutorialClearLandNextTo(material,{near:state.base}),["sw","nw","left","down","up"]);
   }
   else if(step===5){tutorialAddWorldArrow(arrows,structureWorldCenter(state.base),["right"],{clearance:62});}
   else if(step===6){const arrow=tutorialElementArrow(document.querySelector?.('[data-action="fabricate-place-builder-train"]'),"se");if(arrow)arrows.push(arrow);}
@@ -226,7 +226,7 @@ function tutorialArrowSpecs(step=state.tutorial?.step){
   else if(step===13){const arrow=tutorialElementArrow(ui.turretTool,"ne");if(arrow)arrows.push(arrow);}
   else if(step===14){
     const train=state.trains.find(candidate=>candidate.id===tutorial.trainId),usedTargetKeys=new Set(),targets=[];
-    for(const stop of (train?.schedule||[]).slice(0,3)){const target=tutorialClearGroundByStop(stop,usedTargetKeys);if(target)usedTargetKeys.add(key(target.q,target.r));targets.push(target);}
+    for(const stop of (train?.schedule||[]).slice(0,3)){const target=tutorialClearLandByStop(stop,usedTargetKeys);if(target)usedTargetKeys.add(key(target.q,target.r));targets.push(target);}
     const vectors=[["se","right","down","ne"],["sw","left","down","nw"],["ne","up","right","nw"]];
     for(const [index,target] of targets.entries())tutorialAddWorldArrow(arrows,target,vectors[index],{clearance:18});
   }

@@ -9,7 +9,7 @@ function neutralizerFootprintCandidates(q,r){return DIRECTIONS.map(([dq,dr])=>[{
 
 function neutralizerCellAvailable(cell){
   const site=nonMineConstructionSite(cell.q,cell.r);
-  return isPassable(cell.q,cell.r)&&site.terrain.type==="ground"&&!structureAt(cell.q,cell.r)&&!hiveAt(cell.q,cell.r)&&!state.tracks.has(key(cell.q,cell.r))&&!trainClaimsHex(cell.q,cell.r)&&!creepOccupiesHex(cell.q,cell.r)&&!neutralizerOccupiesHex(cell.q,cell.r);
+  return isPassable(cell.q,cell.r)&&site.terrain.type==="land"&&!structureAt(cell.q,cell.r)&&!hiveAt(cell.q,cell.r)&&!state.tracks.has(key(cell.q,cell.r))&&!trainClaimsHex(cell.q,cell.r)&&!creepOccupiesHex(cell.q,cell.r)&&!neutralizerOccupiesHex(cell.q,cell.r);
 }
 
 function neutralizerPlacementFootprint(q,r){return neutralizerFootprintCandidates(q,r).find(footprint=>footprint.every(neutralizerCellAvailable))||null;}
@@ -28,7 +28,7 @@ function dismissNeutralizerGateNotice(){
 
 function buildNeutralizer(q,r){
   const footprint=neutralizerPlacementFootprint(q,r);
-  if(!footprint)return fail("Neutralizer buildings need two connected clear ground hexes without creeps or neutralizers.");
+  if(!footprint)return fail("Neutralizer buildings need two connected clear land hexes without creeps or neutralizers.");
   const buildingSite={q,r,footprint};
   if(!requireNearbyTrainStop(buildingSite,1))return null;
   if(!payBase(COSTS.neutralizer,"neutralizer building"))return null;
@@ -47,7 +47,7 @@ function neutralizerSpaceReservations(excludeId=null){
 }
 
 function neutralizerCanTraverse(q,r){
-  if(!isPassable(q,r)||hiveAt(q,r))return false;
+  if(!unitCanTraverse(q,r)||hiveAt(q,r))return false;
   const structure=structureAt(q,r);
   return !structure||structure.type==="gate";
 }
@@ -85,7 +85,7 @@ function cachedNeutralizerPathStep(unit,targetPosition,passable,pathBudget){
     if(!field){if(neutralizerRouteFields.size>=256)neutralizerRouteFields.clear();field={steps:new Map(),distances:new Map(),until:0};neutralizerRouteFields.set(fieldKey,field);}
     const endpoint=path.at(-1);if(!field.distances.has(key(endpoint.q,endpoint.r)))field.distances.set(key(endpoint.q,endpoint.r),0);
     for(let index=path.length-1;index>=0;index--){
-      const previous=index===0?{q:unit.q,r:unit.r}:path[index-1],next=path[index],nextDistance=field.distances.get(key(next.q,next.r))??path.length-1-index,candidateDistance=nextDistance+1,previousKey=key(previous.q,previous.r),knownDistance=field.distances.get(previousKey);
+      const previous=index===0?{q:unit.q,r:unit.r}:path[index-1],next=path[index],nextDistance=field.distances.get(key(next.q,next.r))??path.length-1-index,candidateDistance=nextDistance+unitTraversalCost(previous.q,previous.r),previousKey=key(previous.q,previous.r),knownDistance=field.distances.get(previousKey);
       if(knownDistance===undefined||candidateDistance<knownDistance){field.distances.set(previousKey,candidateDistance);field.steps.set(previousKey,next);}
     }
     field.until=state.elapsed+NEUTRALIZER_PATH_CACHE_SECONDS;
@@ -130,7 +130,7 @@ function spawnNeutralizerAt(q,r,spawnNumber=state.nextId,reservations=neutralize
   if(!neutralizerCanTraverse(q,r)||creepOccupiesHex(q,r)||trainClaimsHex(q,r)||!enemyHexHasRoom(reservations,q,r))return null;
   const unitId=`neutralizer-${state.nextId}`,prototype={id:unitId,moveCount:0},slot=chooseEnemySpaceSlot(reservations,q,r,prototype);
   if(slot===null)return null;
-  const point=enemyWorldPosition(q,r,slot),maxHp=neutralizerHitPoints(),unit={id:`neutralizer-${state.nextId++}`,type:"neutralizer",sourceBuildingId,q,r,slot,x:point.x,y:point.y,fromQ:q,fromR:r,fromSlot:slot,toQ:q,toR:r,toSlot:slot,progress:1,moveCount:0,speed:neutralizerSpeed(),hp:maxHp,maxHp,attackClock:0,nextPathAt:0,phase:hash(q,r,spawnNumber)*Math.PI*2};
+  const point=enemyWorldPosition(q,r,slot),maxHp=neutralizerHitPoints(),unit={id:`neutralizer-${state.nextId++}`,type:"neutralizer",sourceBuildingId,q,r,slot,x:point.x,y:point.y,fromQ:q,fromR:r,fromSlot:slot,toQ:q,toR:r,toSlot:slot,progress:1,moveCount:0,speed:neutralizerSpeed(),hp:maxHp,maxHp,bornAt:state.elapsed,attackClock:0,nextPathAt:0,phase:hash(q,r,spawnNumber)*Math.PI*2};
   state.neutralizers.push(unit);return unit;
 }
 
@@ -189,6 +189,15 @@ function neutralizerNextStep(unit,reservations,enemyIndex=null,targetById=null,p
 let deferNeutralizerRemoval=false,neutralizerRemovalPending=false;
 function compactDeadNeutralizers(){if(!neutralizerRemovalPending)return;state.neutralizers=state.neutralizers.filter(unit=>unit.hp>0);neutralizerRemovalPending=false;}
 
+function expireNeutralizers(){
+  let expired=0;const survivors=[];
+  for(const unit of state.neutralizers){
+    if(Number.isFinite(unit.bornAt)&&state.elapsed+1e-9>=unit.bornAt+UNIT_LIFESPAN_SECONDS){if(state.selected?.type==="neutralizer"&&state.selected.id===unit.id)state.selected=null;addUnitDeathFlash("neutralizer-death-x",unit.x,unit.y,"#4bbcff");expired++;}
+    else survivors.push(unit);
+  }
+  if(expired)state.neutralizers=survivors;return expired;
+}
+
 function damageNeutralizer(unit,amount){
   if(unit.hp<=0)return false;
   unit.hp-=amount;
@@ -200,6 +209,7 @@ function damageNeutralizer(unit,amount){
 }
 
 function updateNeutralizers(dt,initiativeRoll=Math.random){
+  expireNeutralizers();
   updateNeutralizerProduction(dt);
   if(!state.neutralizers.length)return;
   const units=state.neutralizers,start=(state.neutralizerPathCursor||0)%units.length;
@@ -227,7 +237,7 @@ function updateNeutralizers(dt,initiativeRoll=Math.random){
       if(next){unit.previousQ=unit.q;unit.previousR=unit.r;unit.fromQ=unit.q;unit.fromR=unit.r;unit.fromSlot=currentSlot;unit.toQ=next.q;unit.toR=next.r;unit.toSlot=next.slot;unit.progress=0;unit.nextPathAt=0;unit.moveCount++;reserveEnemySpace(reservations,next.q,next.r,next.slot);}else unit.nextPathAt=state.elapsed+.25;
     }
     if(unit.progress<1){
-      unit.progress=Math.min(1,unit.progress+dt*unit.speed);const a=enemyWorldPosition(unit.fromQ,unit.fromR,unit.fromSlot),b=enemyWorldPosition(unit.toQ,unit.toR,unit.toSlot),eased=unit.progress*unit.progress*(3-2*unit.progress);unit.x=lerp(a.x,b.x,eased);unit.y=lerp(a.y,b.y,eased);
+      const terrainSpeed=unitTraversalCost(unit.fromQ,unit.fromR)===2 ? .5 : 1;unit.progress=Math.min(1,unit.progress+dt*unit.speed*terrainSpeed);const a=enemyWorldPosition(unit.fromQ,unit.fromR,unit.fromSlot),b=enemyWorldPosition(unit.toQ,unit.toR,unit.toSlot),eased=unit.progress*unit.progress*(3-2*unit.progress);unit.x=lerp(a.x,b.x,eased);unit.y=lerp(a.y,b.y,eased);
       if(unit.progress>=1){unit.q=unit.toQ;unit.r=unit.toR;unit.slot=unit.toSlot;}
     }
   }}finally{deferEnemyRemoval=false;compactDeadEnemies();}

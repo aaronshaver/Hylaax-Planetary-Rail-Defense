@@ -1,42 +1,36 @@
 "use strict";
 
-function hiveReplicationRoll(hive,spawnNumber=hive.spawnCount,rate=hive.level||2){
+function hiveReplicationRoll(hive,spawnNumber=hive.spawnCount,rate=hive.level||1){
   return hash(hive.q,hive.r,(state.mapSeed+spawnNumber*7919)|0)<1/rate;
 }
 
 function hiveSpawnCandidates(hive,spawnNumber=hive.spawnCount){
   const candidates=[];
-  for(let dq=-4;dq<=4;dq++){
-    const r0=Math.max(-4,-dq-4),r1=Math.min(4,-dq+4);
+  for(let dq=-7;dq<=7;dq++){
+    const r0=Math.max(-7,-dq-7),r1=Math.min(7,-dq+7);
     for(let dr=r0;dr<=r1;dr++){
       const distance=hexDistance({q:0,r:0},{q:dq,r:dr});
-      if(distance<2||distance>4)continue;
+      if(distance<2||distance>7)continue;
       const q=hive.q+dq,r=hive.r+dr;
-      candidates.push({q,r,score:hash(q,r,(state.mapSeed+spawnNumber*3571)|0)});
+      candidates.push({q,r,distance,score:hash(q,r,(state.mapSeed+spawnNumber*3571)|0)});
     }
   }
-  return candidates.sort((a,b)=>b.score-a.score);
+  return candidates.sort((a,b)=>(a.distance<=4?0:a.distance)-(b.distance<=4?0:b.distance)||b.score-a.score);
 }
 
-function hiveSpawnDelay(q,r,spawnNumber=0,spawnTime=state.elapsed){return Math.min(15,1+Math.floor(hash(q,r,(state.mapSeed+spawnNumber*2377+Math.floor(spawnTime*1000))|0)*15));}
-
-function queueHiveSpawn(location,{kind="replication",level=2,spawnNumber=0,spawnTime=state.elapsed,sourceHiveId=null,forceFirstCreepBatch=false,encroachmentMinute=null}={}){
-  if(!location)return null;
-  const delay=hiveSpawnDelay(location.q,location.r,spawnNumber,spawnTime),operation={kind,q:location.q,r:location.r,level,spawnNumber,spawnTime,sourceHiveId,forceFirstCreepBatch,encroachmentMinute,delay,executeAt:state.elapsed+delay};
-  state.hiveSpawnQueue.push(operation);state.hiveSpawnQueue.sort((a,b)=>a.executeAt-b.executeAt||a.q-b.q||a.r-b.r);return operation;
-}
-
-function spawnHiveNear(hive,spawnNumber=hive.spawnCount,level=hiveExpansionLevel(hive,state.elapsed)){
+function spawnHiveNear(hive,spawnNumber=hive.spawnCount,level=hiveExpansionLevel(hive)){
   const constructionAnchors=playerConstructionAnchors(),location=hiveSpawnCandidates(hive,spawnNumber).find(candidate=>hiveHexOpen(candidate.q,candidate.r,constructionAnchors));
-  return queueHiveSpawn(location,{kind:"replication",level,spawnNumber,spawnTime:state.elapsed,sourceHiveId:hive.id});
+  if(!location)return null;
+  hive.productionPulseUntil=state.elapsed+.75;
+  return queueHiveSpawn(location,{kind:"expansion",level,spawnNumber,spawnTime:state.elapsed,sourceHiveId:hive.id,originQ:hive.q,originR:hive.r});
 }
 
 function spawnEnemyAt(q,r,spawnNumber=state.nextId){
   const reservations=enemySpaceReservations(),enemyId=`enemy-${state.nextId}`;
-  if(!isPassable(q,r)||hiveAt(q,r)||(state.hiveSpawnQueue||[]).some(operation=>operation.q===q&&operation.r===r)||structureAt(q,r)||trainAt(q,r)||neutralizerOccupiesHex(q,r)||!enemyHexHasRoom(reservations,q,r))return null;
+  if(!isPassable(q,r)||hiveAt(q,r)||state.pendingHiveSpawns.some(operation=>operation.q===q&&operation.r===r)||structureAt(q,r)||trainAt(q,r)||neutralizerOccupiesHex(q,r)||!enemyHexHasRoom(reservations,q,r))return null;
   const slot=chooseEnemySpaceSlot(reservations,q,r,{id:enemyId,moveCount:spawnNumber});
   if(slot===null)return null;
-  const p=enemyWorldPosition(q,r,slot),enemy={id:`enemy-${state.nextId++}`,type:"enemy",q,r,slot,x:p.x,y:p.y,fromQ:q,fromR:r,fromSlot:slot,toQ:q,toR:r,toSlot:slot,progress:1,moveCount:0,speed:ENEMY_SPEED,hp:1,maxHp:1,attackClock:0,nextPathAt:0,phase:hash(q,r,spawnNumber)*Math.PI*2};
+  const p=enemyWorldPosition(q,r,slot),enemy={id:`enemy-${state.nextId++}`,type:"enemy",q,r,slot,x:p.x,y:p.y,fromQ:q,fromR:r,fromSlot:slot,toQ:q,toR:r,toSlot:slot,progress:1,moveCount:0,speed:ENEMY_SPEED,hp:1,maxHp:1,bornAt:state.elapsed,attackClock:0,nextPathAt:0,phase:hash(q,r,spawnNumber)*Math.PI*2};
   state.enemies.push(enemy);return enemy;
 }
 
@@ -56,38 +50,68 @@ function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
       const distance=hexDistance({q:0,r:0},{q:dq,r:dr});
       if(distance<1||distance>4)continue;
       const position={q:hive.q+dq,r:hive.r+dr};
-      if(isPassable(position.q,position.r)&&terrainCanReachBase(position.q,position.r)&&outsidePlayerConstructionBuffer(position.q,position.r,ENEMY_SPAWN_BUFFER,constructionAnchors)&&!hiveAt(position.q,position.r)&&!(state.hiveSpawnQueue||[]).some(operation=>operation.q===position.q&&operation.r===position.r)&&!structureAt(position.q,position.r)&&!neutralizerOccupiesHex(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r))options.push(position);
+      if(isPassable(position.q,position.r)&&terrainCanReachBase(position.q,position.r)&&outsidePlayerConstructionBuffer(position.q,position.r,ENEMY_SPAWN_BUFFER,constructionAnchors)&&!hiveAt(position.q,position.r)&&!state.pendingHiveSpawns.some(operation=>operation.q===position.q&&operation.r===position.r)&&!structureAt(position.q,position.r)&&!neutralizerOccupiesHex(position.q,position.r)&&enemyHexHasRoom(reservations,position.q,position.r))options.push(position);
     }
   }
   options.sort((a,b)=>hash(b.q,b.r,(state.mapSeed+spawnNumber)|0)-hash(a.q,a.r,(state.mapSeed+spawnNumber)|0));
   const location=options[0];return location?spawnEnemyAt(location.q,location.r,spawnNumber):null;
 }
 
-function creepSpawnDelay(q,r,spawnNumber=0,spawnTime=state.elapsed){return Math.min(15,1+Math.floor(hash(q,r,(state.mapSeed+spawnNumber*4211+Math.floor(spawnTime*1000))|0)*15));}
-
-function queueCreepBatch(hive,count,spawnNumber,spawnTime=state.elapsed){
-  const delay=creepSpawnDelay(hive.q,hive.r,spawnNumber,spawnTime),operation={kind:"creep-batch",hiveId:hive.id,q:hive.q,r:hive.r,count,spawnNumber,spawnTime,delay,executeAt:state.elapsed+delay};
-  state.creepSpawnQueue.push(operation);state.creepSpawnQueue.sort((a,b)=>a.executeAt-b.executeAt||a.spawnNumber-b.spawnNumber);return operation;
+function spawnCreepBatch(hive,count,spawnNumber,spawnTime=state.elapsed){
+  let spawned=0;
+  for(let creep=0;creep<count;creep++)if(spawnEnemyFromHive(hive,spawnNumber*32+creep))spawned++;
+  if(spawned)hive.productionPulseUntil=state.elapsed+.75;
+  return spawned;
 }
 
-function processCreepSpawnQueue(){
-  let processed=0;
-  while(state.creepSpawnQueue.length&&state.creepSpawnQueue[0].executeAt<=state.elapsed+1e-9){
-    const operation=state.creepSpawnQueue.shift(),source=state.hives.get(key(operation.q,operation.r));
-    if(!source||source.id!==operation.hiveId){processed++;continue;}
-    let spawned=false;
-    for(let creep=0;creep<operation.count;creep++)spawned=Boolean(spawnEnemyFromHive(operation,operation.spawnNumber*32+creep))||spawned;
-    if(spawned)source.productionPulseUntil=state.elapsed+.75;
+function creepSpawnDelaySeconds(hive,spawnNumber,spawnTime=state.elapsed){
+  return 1+Math.floor(hash(hive.q,hive.r,(state.mapSeed+spawnNumber*7919+Math.floor(spawnTime/60)*3571)|0)*5);
+}
+
+function queueCreepBatch(hive,count,spawnNumber,spawnTime=state.elapsed){
+  const delaySeconds=creepSpawnDelaySeconds(hive,spawnNumber,spawnTime);
+  state.pendingCreepBatches.push({hiveId:hive.id,q:hive.q,r:hive.r,count,spawnNumber,spawnTime,delaySeconds,executeAt:spawnTime+delaySeconds});
+  return true;
+}
+
+function queueHiveSpawn(location,{kind="expansion",level=1,spawnNumber=0,spawnTime=state.elapsed,sourceHiveId=null,originQ=location.q,originR=location.r,encroachmentMinute=null}={}){
+  const delaySeconds=creepSpawnDelaySeconds(location,spawnNumber,spawnTime),operation={kind,q:location.q,r:location.r,level,spawnNumber,spawnTime,sourceHiveId,originQ,originR,encroachmentMinute,delaySeconds,executeAt:state.elapsed+delaySeconds};
+  state.pendingHiveSpawns.push(operation);state.pendingHiveSpawns.sort((a,b)=>a.executeAt-b.executeAt||a.q-b.q||a.r-b.r);return operation;
+}
+
+function runPendingHiveSpawns(){
+  const due=[],future=[];
+  for(const operation of state.pendingHiveSpawns)(state.elapsed+1e-9>=operation.executeAt?due:future).push(operation);
+  state.pendingHiveSpawns=future;let spawned=0;
+  for(const operation of due){
+    const anchors=playerConstructionAnchors();let location=hiveHexOpen(operation.q,operation.r,anchors)?operation:null;
+    if(!location&&operation.kind==="timed")location=encroachingHiveLocation(operation.spawnTime);
+    if(!location&&operation.kind!=="timed"){const origin={q:operation.originQ,r:operation.originR,spawnCount:operation.spawnNumber};location=hiveSpawnCandidates(origin,operation.spawnNumber).find(candidate=>hiveHexOpen(candidate.q,candidate.r,anchors));}
+    if(!location){operation.executeAt=state.elapsed+.25;state.pendingHiveSpawns.push(operation);continue;}
+    const hive=createHive(location.q,location.r,operation.level);hive.sourceHiveId=operation.sourceHiveId;
+    if(operation.kind==="timed"){hive.encroaching=true;hive.encroachmentMinute=operation.encroachmentMinute;}
+    runNewHiveCycle(hive);spawned++;
+  }
+  state.pendingHiveSpawns.sort((a,b)=>a.executeAt-b.executeAt||a.q-b.q||a.r-b.r);return spawned;
+}
+
+function runPendingCreepBatches(){
+  const pending=[];let processed=0;
+  for(const batch of state.pendingCreepBatches){
+    if(state.elapsed+1e-9<batch.executeAt){pending.push(batch);continue;}
+    const hive=state.hives.get(key(batch.q,batch.r));
+    if(hive?.id===batch.hiveId)spawnCreepBatch(hive,batch.count,batch.spawnNumber,batch.spawnTime);
     processed++;
   }
+  state.pendingCreepBatches=pending;
   return processed;
 }
 
 function encroachingHiveLocation(spawnTime=state.nextEncroachmentAt){
   const minute=Math.floor(spawnTime/60),anchors=playerConstructionAnchors().sort((a,b)=>hash(b.q,b.r,state.mapSeed+minute*1223)-hash(a.q,a.r,state.mapSeed+minute*1223));
   for(const anchor of anchors){
-    const preferred=6+Math.floor(hash(anchor.q,anchor.r,state.mapSeed+minute*2371)*9);
-    const distances=Array.from({length:9},(_,index)=>6+index).sort((a,b)=>Math.abs(a-preferred)-Math.abs(b-preferred)||hash(anchor.q,a,state.mapSeed+minute)-hash(anchor.q,b,state.mapSeed+minute));
+    const preferred=7+Math.floor(hash(anchor.q,anchor.r,state.mapSeed+minute*2371)*14);
+    const distances=Array.from({length:14},(_,index)=>7+index).sort((a,b)=>Math.abs(a-preferred)-Math.abs(b-preferred)||hash(anchor.q,a,state.mapSeed+minute)-hash(anchor.q,b,state.mapSeed+minute));
     for(const distance of distances){
       const candidates=[];
       for(let dq=-distance;dq<=distance;dq++)for(let dr=Math.max(-distance,-dq-distance);dr<=Math.min(distance,-dq+distance);dr++){
@@ -106,80 +130,54 @@ function encroachingHiveLocation(spawnTime=state.nextEncroachmentAt){
 function spawnEncroachingHive(spawnTime=state.nextEncroachmentAt,spawnNumber=0){
   const location=encroachingHiveLocation(spawnTime);
   if(!location)return null;
-  return queueHiveSpawn(location,{kind:"encroachment",level:hiveUnlockedLevel(spawnTime),spawnNumber,spawnTime,forceFirstCreepBatch:true,encroachmentMinute:Math.floor(spawnTime/60)});
+  const level=hiveUnlockedLevel(spawnTime);if(level<1)return null;
+  return queueHiveSpawn(location,{kind:"timed",level,spawnNumber,spawnTime,encroachmentMinute:Math.floor(spawnTime/60)});
 }
 
 function encroachingHiveCount(spawnTime=state.nextEncroachmentAt){
-  return spawnTime>=300?Math.floor(spawnTime/60)-4:0;
+  return hiveUnlockedLevel(spawnTime);
 }
-
-function encroachmentOccurs(spawnTime=state.nextEncroachmentAt,mapSeed=state.mapSeed){return hash(Math.floor(spawnTime/60),mapSeed|0,8171)<.5;}
 
 function updateEncroachingHives(){
   for(let cycles=0;state.elapsed>=state.nextEncroachmentAt&&cycles<64;cycles++){
-    const spawnTime=state.nextEncroachmentAt,count=encroachmentOccurs(spawnTime)?encroachingHiveCount(spawnTime):0;
+    const spawnTime=state.nextEncroachmentAt,count=encroachingHiveCount(spawnTime);
     for(let index=0;index<count;index++)spawnEncroachingHive(spawnTime,index);
     state.nextEncroachmentAt+=60;
   }
 }
 
-function processHiveSpawnQueue(){
-  let spawned=0;
-  while(state.hiveSpawnQueue.length&&state.hiveSpawnQueue[0].executeAt<=state.elapsed+1e-9){
-    const operation=state.hiveSpawnQueue.shift();
-    if(operation.sourceHiveId&&![...state.hives.values()].some(candidate=>candidate.id===operation.sourceHiveId))continue;
-    const constructionAnchors=playerConstructionAnchors();let location=operation;
-    if(!hiveHexOpen(location.q,location.r,constructionAnchors)){
-      if(operation.kind==="encroachment")location=encroachingHiveLocation(operation.spawnTime);
-      else location=hiveSpawnCandidates(operation,operation.spawnNumber).find(candidate=>hiveHexOpen(candidate.q,candidate.r,constructionAnchors));
-    }
-    if(!location)continue;
-    const hive=createHive(location.q,location.r,operation.level,true,operation.forceFirstCreepBatch);
-    if(operation.kind==="encroachment"){hive.encroaching=true;hive.encroachmentMinute=operation.encroachmentMinute;}
-    const source=[...state.hives.values()].find(candidate=>candidate.id===operation.sourceHiveId);if(source)source.productionPulseUntil=state.elapsed+.75;
-    spawned++;
-  }
-  return spawned;
-}
-
-function hiveProductionDelay(hive,spawnNumber){return .05+hash(hive.q,hive.r,(state.mapSeed+spawnNumber*1877)|0)*.15;}
-
-function queueDueHiveProductions(){
+function runDueHiveCycles(){
   const due=[];
   for(const hive of [...state.hives.values()]){
     for(let cycles=0;state.elapsed>=hive.nextSpawnAt&&cycles<32;cycles++){
       const spawnTime=hive.nextSpawnAt,spawnNumber=hive.spawnCount++;
-      const forceCreepBatch=hive.forceFirstCreepBatch&&spawnNumber===0;
-      if(forceCreepBatch)hive.forceFirstCreepBatch=false;
-      due.push({hiveId:hive.id,q:hive.q,r:hive.r,spawnTime,spawnNumber,forceCreepBatch,order:hash(hive.q,hive.r,(state.mapSeed+Math.floor(spawnTime*1000))|0)});
+      due.push({hiveId:hive.id,q:hive.q,r:hive.r,spawnTime,spawnNumber,order:hash(hive.q,hive.r,(state.mapSeed+Math.floor(spawnTime*1000))|0)});
       hive.nextSpawnAt=(Math.floor(spawnTime/60)+1)*60;
     }
   }
   due.sort((a,b)=>a.spawnTime-b.spawnTime||a.order-b.order);
-  let availableAt=Math.max(state.elapsed,state.hiveProductionAvailableAt||0);
-  for(const operation of due){operation.executeAt=availableAt;state.hiveProductionQueue.push(operation);const hive=state.hives.get(key(operation.q,operation.r));availableAt+=hiveProductionDelay(hive||operation,operation.spawnNumber);}
-  if(due.length)state.hiveProductionAvailableAt=availableAt;
+  for(const operation of due)produceHiveOperation(operation);
   return due.length;
 }
 
 function produceHiveOperation(operation){
   const hive=state.hives.get(key(operation.q,operation.r));
   if(!hive||hive.id!==operation.hiveId)return false;
-  const rate=hive.level;let produced=false,hiveSpawnQueued=null;
-  if(!operation.forceCreepBatch&&hiveReplicationRoll(hive,operation.spawnNumber,rate))hiveSpawnQueued=spawnHiveNear(hive,operation.spawnNumber,hiveExpansionLevel(hive,operation.spawnTime));
-  if(hiveSpawnQueued)produced=true;
-  else produced=Boolean(queueCreepBatch(hive,rate,operation.spawnNumber,operation.spawnTime));
+  const rate=hive.level;let produced=false,child=null;
+  if(rate>1&&hiveReplicationRoll(hive,operation.spawnNumber,rate))child=spawnHiveNear(hive,operation.spawnNumber,rate);
+  if(child)produced=true;
+  else produced=queueCreepBatch(hive,rate,operation.spawnNumber,operation.spawnTime);
   return produced;
 }
 
-function processHiveProductionQueue(){
-  let processed=0;
-  while(state.hiveProductionQueue.length&&state.hiveProductionQueue[0].executeAt<=state.elapsed+1e-9){produceHiveOperation(state.hiveProductionQueue.shift());processed++;}
-  return processed;
+function runNewHiveCycle(hive,spawnTime=state.elapsed){
+  const spawnNumber=hive.spawnCount++;
+  hive.nextSpawnAt=(Math.floor(spawnTime/60)+1)*60;
+  return produceHiveOperation({hiveId:hive.id,q:hive.q,r:hive.r,spawnTime,spawnNumber});
 }
 
 function updateHives(){
-  processHiveSpawnQueue();processCreepSpawnQueue();updateEncroachingHives();queueDueHiveProductions();processHiveProductionQueue();
+  runPendingHiveSpawns();updateEncroachingHives();runDueHiveCycles();runPendingCreepBatches();
 }
 
 function targetHexFor(enemy,target) {
@@ -238,19 +236,23 @@ function rebuildEnemyNavigation(){
   for(const margin of [8,24,64]){
     bounds={minQ:baseMinQ-margin,maxQ:baseMaxQ+margin,minR:baseMinR-margin,maxR:baseMaxR+margin};
     const inBounds=(q,r)=>q>=bounds.minQ&&q<=bounds.maxQ&&r>=bounds.minR&&r<=bounds.maxR;
-    const passable=(q,r)=>inBounds(q,r)&&isPassable(q,r)&&!targetKeys.has(key(q,r));
+    const passable=(q,r)=>inBounds(q,r)&&unitCanTraverse(q,r)&&!targetKeys.has(key(q,r));
     distances=new Map();const queue=[];
+    const push=node=>{queue.push(node);let index=queue.length-1;while(index>0){const parent=(index-1)>>1;if(queue[parent].distance<=node.distance)break;queue[index]=queue[parent];index=parent;}queue[index]=node;};
+    const pop=()=>{const root=queue[0],tail=queue.pop();if(queue.length&&tail){let index=0;while(true){const left=index*2+1,right=left+1;if(left>=queue.length)break;const child=right<queue.length&&queue[right].distance<queue[left].distance?right:left;if(queue[child].distance>=tail.distance)break;queue[index]=queue[child];index=child;}queue[index]=tail;}return root;};
     for(const target of targetCells)for(const position of neighbors(target.q,target.r)){
       const positionKey=key(position.q,position.r);
       if(!passable(position.q,position.r)||distances.has(positionKey))continue;
-      distances.set(positionKey,0);queue.push(position);
+      distances.set(positionKey,0);push({...position,distance:0});
     }
-    for(let cursor=0;cursor<queue.length;cursor++){
-      const current=queue[cursor],nextDistance=distances.get(key(current.q,current.r))+1;
+    while(queue.length){
+      const current=pop(),currentKey=key(current.q,current.r);if(current.distance!==distances.get(currentKey))continue;
       for(const next of neighbors(current.q,current.r)){
         const nextKey=key(next.q,next.r);
-        if(distances.has(nextKey)||!passable(next.q,next.r))continue;
-        distances.set(nextKey,nextDistance);queue.push(next);
+        if(!passable(next.q,next.r))continue;
+        const nextDistance=current.distance+unitTraversalCost(next.q,next.r);
+        if(nextDistance>=(distances.get(nextKey)??Infinity))continue;
+        distances.set(nextKey,nextDistance);push({...next,distance:nextDistance});
       }
     }
     if(state.enemies.every(enemy=>distances.has(key(enemy.q,enemy.r))||targetKeys.has(key(enemy.q,enemy.r))))break;
@@ -316,7 +318,7 @@ function addUnitDeathFlash(kind,x,y,color){
 
 function enemyNavigationStats(){return {builds:enemyNavigationCache.builds,cells:enemyNavigationCache.distances.size};}
 
-function findEnemyPath(start,goal,passable=isPassable,stopRange=0){
+function findEnemyPath(start,goal,passable=isPassable,stopRange=0,movementCost=unitTraversalCost){
   const startKey=key(start.q,start.r),goalKey=key(goal.q,goal.r);
   if(hexDistance(start,goal)<=stopRange)return [];
   const distance=hexDistance(start,goal);
@@ -339,7 +341,7 @@ function findEnemyPath(start,goal,passable=isPassable,stopRange=0){
     for(const next of neighbors(current.q,current.r)){
       const nextKey=key(next.q,next.r);
       if(closed.has(nextKey)||(!passable(next.q,next.r)&&nextKey!==goalKey))continue;
-      const tentative=current.g+1;
+      const tentative=current.g+movementCost(current.q,current.r);
       if(tentative>=(gScore.get(nextKey)??Infinity))continue;
       cameFrom.set(nextKey,currentKey);gScore.set(nextKey,tentative);
       const h=hexDistance(next,goal);push({q:next.q,r:next.r,g:tentative,h,f:tentative+h,order:order++});
@@ -470,9 +472,6 @@ function damageTarget(target, amount,{silent=false}={}) {
   if (target.hp > 0) return;
   if(target.type==="hive"){
     state.hives.delete(key(target.q,target.r));
-    state.creepSpawnQueue=state.creepSpawnQueue.filter(operation=>operation.hiveId!==target.id);
-    state.hiveProductionQueue=state.hiveProductionQueue.filter(operation=>operation.hiveId!==target.id);
-    state.hiveSpawnQueue=state.hiveSpawnQueue.filter(operation=>operation.sourceHiveId!==target.id);
     state.hivesNeutralized++;
     if(state.selected?.type==="hive"&&state.selected.id===target.id)state.selected=null;
     burst(target.q,target.r,"#d94a4a",16);updateUI(true);return;
@@ -514,7 +513,8 @@ function damageTarget(target, amount,{silent=false}={}) {
 }
 
 function updateEnemies(dt) {
-  if(state.gameOver||!state.enemies.length)return;
+  if(state.gameOver)return;
+  expireCreeps();if(!state.enemies.length)return;
   ensureEnemyNavigation();
   const reservations=enemySpaceReservations(),neutralizerIndex=unitHexIndex(state.neutralizers);
   deferNeutralizerRemoval=true;
@@ -546,7 +546,7 @@ function updateEnemies(dt) {
       }else enemy.nextPathAt=state.elapsed+.25;
     }
     if (enemy.progress < 1) {
-      enemy.progress = Math.min(1,enemy.progress + dt*enemy.speed);
+      const terrainSpeed=unitTraversalCost(enemy.fromQ,enemy.fromR)===2 ? .5 : 1;enemy.progress=Math.min(1,enemy.progress+dt*enemy.speed*terrainSpeed);
       const a=enemyWorldPosition(enemy.fromQ,enemy.fromR,enemy.fromSlot),b=enemyWorldPosition(enemy.toQ,enemy.toR,enemy.toSlot);
       const eased=enemy.progress*enemy.progress*(3-2*enemy.progress);
       enemy.x=lerp(a.x,b.x,eased); enemy.y=lerp(a.y,b.y,eased);
@@ -575,6 +575,15 @@ function updateCombatTrains(dt){
 
 let deferEnemyRemoval=false,enemyRemovalPending=false;
 function compactDeadEnemies(){if(!enemyRemovalPending)return;state.enemies=state.enemies.filter(enemy=>enemy.hp>0);enemyRemovalPending=false;}
+
+function expireCreeps(){
+  let expired=0;const survivors=[];
+  for(const enemy of state.enemies){
+    if(Number.isFinite(enemy.bornAt)&&state.elapsed+1e-9>=enemy.bornAt+UNIT_LIFESPAN_SECONDS){if(state.selected?.type==="enemy"&&state.selected.id===enemy.id)state.selected=null;addUnitDeathFlash("creep-death-x",enemy.x,enemy.y,"#ff4354");expired++;}
+    else survivors.push(enemy);
+  }
+  if(expired)state.enemies=survivors;return expired;
+}
 
 function damageEnemy(enemy,amount){
   if(enemy.hp<=0)return false;

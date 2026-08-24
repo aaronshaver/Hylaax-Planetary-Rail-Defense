@@ -30,14 +30,14 @@ describe("guided tutorial",()=>{
 
     api.state.tutorial.step=3;api.state.trackStart=[...api.state.tracks.values()][0];api.syncTutorialArrows();
     const step3Arrows=api.tutorialArrowSpecs();
-    assert.equal(step3Arrows.length,1,"Step 3 points to clear ground next to the initial Track");
+    assert.equal(step3Arrows.length,1,"Step 3 points to clear land next to the initial Track");
     assert.equal(api.hexDistance(step3Arrows[0].target,api.state.trackStart),1);
-    assert.equal(api.terrainAt(step3Arrows[0].target.q,step3Arrows[0].target.r).type,"ground");
+    assert.equal(api.terrainAt(step3Arrows[0].target.q,step3Arrows[0].target.r).type,"land");
 
     api.state.tutorial.step=4;api.syncTutorialArrows();
     const step4Arrows=api.tutorialArrowSpecs();
     assert.equal(step4Arrows.length,3,"Step 4 points beside the Base and the nearest C and E nodes");
-    assert.ok(step4Arrows.every(arrow=>api.terrainAt(arrow.target.q,arrow.target.r).type==="ground"));
+    assert.ok(step4Arrows.every(arrow=>api.terrainAt(arrow.target.q,arrow.target.r).type==="land"));
     assert.equal(api.distanceToStructure(step4Arrows[0].target,api.state.base),1);
     const frozenTargets=step4Arrows.map(arrow=>api.key(arrow.target.q,arrow.target.r)),frozenDirections=step4Arrows.map(arrow=>arrow.vectorName);
     const builtTarget=step4Arrows[0].target;api.state.tracks.set(api.key(builtTarget.q,builtTarget.r),makeTrack(builtTarget.q,builtTarget.r));api.state.trackStart=builtTarget;
@@ -47,7 +47,7 @@ describe("guided tutorial",()=>{
     assert.equal(overlay.hidden,false);
   });
 
-  test("Step 9 points to adjacent Track, then Step 14 points to clear ground beside each Stop",()=>{
+  test("Step 9 points to adjacent Track, then Step 14 points to clear land beside each Stop",()=>{
     api.startTutorial();
     const loop=installTutorialLoop();
     const train=addTestTrain(),tutorial=api.state.tutorial;
@@ -71,8 +71,8 @@ describe("guided tutorial",()=>{
 
       tutorial.step=14;tutorial.materialNodeKey="7,-2";tutorial.energyNodeKey="-4,7";
       const step14Arrows=api.tutorialArrowSpecs();
-      assert.equal(step14Arrows.length,3,"Step 14 points to clear ground beside each Stop");
-      assert.ok(step14Arrows.every(arrow=>api.terrainAt(arrow.target.q,arrow.target.r).type==="ground"&&!api.state.tracks.has(api.key(arrow.target.q,arrow.target.r))));
+      assert.equal(step14Arrows.length,3,"Step 14 points to clear land beside each Stop");
+      assert.ok(step14Arrows.every(arrow=>api.terrainAt(arrow.target.q,arrow.target.r).type==="land"&&!api.state.tracks.has(api.key(arrow.target.q,arrow.target.r))));
       assert.ok(step14Arrows.every((arrow,index)=>api.hexDistance(arrow.target,train.schedule[index])===1),"every suggested Turret hex is exactly one hex from its Train Stop");
       assert.equal(new Set(step14Arrows.map(arrow=>api.key(arrow.target.q,arrow.target.r))).size,3,"the three suggested Turret hexes are distinct");
     }finally{delete document.querySelector;}
@@ -101,7 +101,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.paused,true);
     assert.equal(api.state.tracks.size,1);
     assert.equal(api.state.trains.length,0);
-    assert.equal(api.state.baseMaterial,200);
+    assert.equal(api.state.baseMaterial,300);
     assert.equal(elements.get("tutorialText").textContent,"This is a tower defense game where automating train networks is the key to successful survival.\n\nStep 1: Click 'Build track' in the actions panel");
   });
 

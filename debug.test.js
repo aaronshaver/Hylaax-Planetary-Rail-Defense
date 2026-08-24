@@ -10,7 +10,7 @@ function findArmyCenter(){
   const state=api.state;
   for(let q=-18;q<=18;q++)for(let r=-18;r<=18;r++){
     const cells=[{q,r},...api.neighbors(q,r)];
-    if(cells.every(cell=>api.terrainAt(cell.q,cell.r).type==="ground"&&!state.tracks.has(api.key(cell.q,cell.r))&&api.hexDistance(cell,state.base)>3))return {q,r};
+    if(cells.every(cell=>api.terrainAt(cell.q,cell.r).type==="land"&&!state.tracks.has(api.key(cell.q,cell.r))&&api.hexDistance(cell,state.base)>3))return {q,r};
   }
   return null;
 }

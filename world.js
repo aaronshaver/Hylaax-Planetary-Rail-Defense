@@ -14,7 +14,7 @@ function makeInitialState() {
     gameOver: false,
     finalMapView: false,
     elapsed: 0,
-    nextEncroachmentAt: 300,
+    nextEncroachmentAt: 0,
     hivesNeutralized: 0,
     creepsNeutralized: 0,
     stats: { tracksLaid: 0, minesBuilt: 0, turretsBuilt: 0, trainsBuilt: 0, energyMined: 0, materialMined: 0 },
@@ -23,14 +23,13 @@ function makeInitialState() {
     base,
     structures: new Map(),
     hives: new Map(),
-    hiveSpawnQueue: [],
-    creepSpawnQueue: [],
-    hiveProductionQueue: [],
-    hiveProductionAvailableAt: 0,
+    pendingHiveSpawns: [],
+    pendingCreepBatches: [],
     ghosts: new Map(),
     nodeResources: new Map(),
     clearedResourceNodes: new Set(),
     terraformedLand: new Set(),
+    hiveBlockedLand: new Set(),
     worldMessages: [],
     trains: [],
     enemies: [],
@@ -46,8 +45,8 @@ function makeInitialState() {
     trackDestroyedWarningWasPaused: false,
     neutralizerGateNoticeShown: false,
     neutralizerGateNoticeWasPaused: false,
-    baseMaterial: 200,
-    baseEnergy: 125,
+    baseMaterial: 300,
+    baseEnergy: 200,
     researchPoints: 0,
     researchUnlocked: false,
     maxResearchBuildings: 0,
@@ -76,27 +75,29 @@ function makeInitialState() {
 function hiveAt(q,r){return state.hives.get(key(q,r))||null;}
 
 function hiveUnlockedLevel(elapsedSeconds=state.elapsed){
-  const elapsedMinutes=elapsedSeconds/60;
-  let level=2;
+  const elapsedMinutes=Math.floor(elapsedSeconds/60);
+  if(elapsedMinutes<1)return 0;
+  let level=1;
   for(const candidate of HIVE_LEVELS.slice(1))if(elapsedMinutes>=candidate)level=candidate;
   return level;
 }
 
-function nextHiveLevel(level){const index=HIVE_LEVELS.indexOf(level);return index<0?2:HIVE_LEVELS[Math.min(index+1,HIVE_LEVELS.length-1)];}
+function nextHiveLevel(level){const index=HIVE_LEVELS.indexOf(level);return index<0?1:HIVE_LEVELS[Math.min(index+1,HIVE_LEVELS.length-1)];}
 
-function hiveExpansionLevel(hive,elapsedSeconds=state.elapsed){const parentLevel=Math.max(2,hive?.level||2);return Math.max(parentLevel,Math.min(nextHiveLevel(parentLevel),hiveUnlockedLevel(elapsedSeconds)));}
+function hiveExpansionLevel(hive){return Math.max(1,hive?.level||1);}
 
-function createHive(q,r,requestedLevel=2,spawnImmediately=false,forceFirstCreepBatch=false){
-  const level=Math.max(2,requestedLevel);
+function createHive(q,r,requestedLevel=1){
+  const level=Math.max(1,Math.min(HIVE_LEVELS.at(-1),requestedLevel));
   const nextMinute=(Math.floor(state.elapsed/60)+1)*60;
-  const hive={id:`hive-${state.nextId++}`,type:"hive",q,r,level,hp:level,maxHp:level,nextSpawnAt:spawnImmediately?state.elapsed:nextMinute,spawnCount:0,forceFirstCreepBatch};
+  const hive={id:`hive-${state.nextId++}`,type:"hive",q,r,level,hp:level,maxHp:level,nextSpawnAt:nextMinute,spawnCount:0};
   state.hives.set(key(q,r),hive);
   return hive;
 }
 
 function playerConstructionAnchors(){
-  const anchors=[state.base,...state.tracks.values(),...state.structures.values()].flatMap(item=>structureFootprint(item)),unique=new Map();
-  anchors.push(...state.trains.flatMap(train=>trainSegments(train)));
+  const infrastructure=[state.base,...state.tracks.values(),...state.structures.values()].filter(item=>(item.hp??1)>0);
+  const anchors=infrastructure.flatMap(item=>structureFootprint(item)),unique=new Map();
+  anchors.push(...state.trains.flatMap(train=>trainSegments(train).filter(segment=>(segment.hp??1)>0)));
   for(const anchor of anchors)unique.set(key(anchor.q,anchor.r),{q:anchor.q,r:anchor.r});
   return [...unique.values()];
 }
@@ -138,12 +139,12 @@ function terrainCanReachBase(q,r,passable=isPassable){
 }
 
 function hiveHexOpen(q,r,constructionAnchors=playerConstructionAnchors(),requireReachability=true){
-  if(terrainAt(q,r).type!=="ground")return false;
+  if(terrainAt(q,r).type!=="land"||state.hiveBlockedLand?.has(key(q,r)))return false;
   if(requireReachability&&!terrainCanReachBase(q,r))return false;
   if(!outsidePlayerConstructionBuffer(q,r,ENEMY_SPAWN_BUFFER,constructionAnchors))return false;
   if(structureAt(q,r)||state.tracks.has(key(q,r))||ghostAt(q,r)||trainClaimsHex(q,r))return false;
   if([...state.hives.values()].some(hive=>hexDistance(hive,{q,r})<=1))return false;
-  if((state.hiveSpawnQueue||[]).some(operation=>hexDistance(operation,{q,r})<=1))return false;
+  if(state.pendingHiveSpawns.some(operation=>hexDistance(operation,{q,r})<=1))return false;
   return !state.enemies.some(enemy=>enemy.q===q&&enemy.r===r)&&!neutralizerOccupiesHex(q,r);
 }
 
@@ -159,7 +160,7 @@ function seedInitialHives(){
   for(const candidate of candidates){
     if(!terrainCanReachBase(candidate.q,candidate.r))continue;
     if([...state.hives.values()].some(hive=>hexDistance(hive,candidate)<9))continue;
-    createHive(candidate.q,candidate.r,2,true,true);
+    const hive=createHive(candidate.q,candidate.r,1);hive.nextSpawnAt=state.elapsed;
     if(state.hives.size>=INITIAL_HIVE_COUNT)break;
   }
 }
@@ -258,6 +259,9 @@ function isPassable(q, r) {
   const terrain = terrainAt(q, r);
   return terrain.type !== "water" && terrain.type !== "rock" && terrain.type !== "trees";
 }
+
+function unitCanTraverse(q,r){const type=terrainAt(q,r).type;return type!=="rock"&&type!=="trees";}
+function unitTraversalCost(q,r){return terrainAt(q,r).type==="water"?2:1;}
 
 function structureAt(q, r) {
   if (structureFootprint(state.base).some(cell=>cell.q===q&&cell.r===r)) return state.base;

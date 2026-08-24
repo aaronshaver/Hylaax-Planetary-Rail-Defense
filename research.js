@@ -68,7 +68,7 @@ function researchFootprintCandidates(q,r){
 
 function researchCellAvailable(cell){
   const site=nonMineConstructionSite(cell.q,cell.r);
-  return isPassable(cell.q,cell.r)&&site.terrain.type==="ground"&&!structureAt(cell.q,cell.r)&&!hiveAt(cell.q,cell.r)&&!state.tracks.has(key(cell.q,cell.r))&&!trainClaimsHex(cell.q,cell.r)&&!creepOccupiesHex(cell.q,cell.r)&&!neutralizerOccupiesHex(cell.q,cell.r);
+  return isPassable(cell.q,cell.r)&&site.terrain.type==="land"&&!structureAt(cell.q,cell.r)&&!hiveAt(cell.q,cell.r)&&!state.tracks.has(key(cell.q,cell.r))&&!trainClaimsHex(cell.q,cell.r)&&!creepOccupiesHex(cell.q,cell.r)&&!neutralizerOccupiesHex(cell.q,cell.r);
 }
 
 function researchPlacementFootprint(q,r){return researchFootprintCandidates(q,r).find(footprint=>footprint.every(researchCellAvailable))||null;}
@@ -77,7 +77,7 @@ function researchPreviewFootprint(q,r){return researchPlacementFootprint(q,r)||r
 function buildResearch(q,r){
   if(!requireNoUnit(q,r))return;
   const footprint=researchPlacementFootprint(q,r);
-  if(!footprint)return fail("Research needs three connected clear ground hexes in a triangle.");
+  if(!footprint)return fail("Research needs three connected clear land hexes in a triangle.");
   if(!payBase(COSTS.research,"research"))return null;
   const replacedGhosts=new Map();
   for(const cell of footprint){const ghost=ghostAt(cell.q,cell.r);if(ghost)replacedGhosts.set(ghost.id,{ghost,site:nonMineConstructionSite(cell.q,cell.r)});}
