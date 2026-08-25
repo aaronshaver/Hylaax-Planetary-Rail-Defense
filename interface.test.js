@@ -111,7 +111,7 @@ describe("interface formatting", () => {
 
   test("the live Base pane explains its 110-unit unloading reserve",()=>{
     api.state.selected={type:"base",id:"base"};
-    assert.match(api.selectionHtml(),/Trains will only fill resources to 110 units so that they don't endlessly dump resources into the base building and starve buildings that need those resources/);
+    assert.match(api.selectionHtml(),/Trains will only fill each base resource to 110 units/);
   });
 
   test("Mine selection describes Train service at an adjacent Stop",()=>{

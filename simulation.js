@@ -12,7 +12,7 @@ function update(dt) {
   state.elapsed+=dt;
   updateResearch(dt);
   state.worldMessages=state.worldMessages.filter(item=>item.until>state.elapsed);
-  updateTrains(dt);updateAutomaticLogistics(dt);updateTrainEnergyWarnings();updateTrainSchedules();updateHives(dt);updateNeutralizers(dt);updateEnemies(dt);if(state.gameOver)return;updateCombatTrains(dt);updateStructures(dt);
+  updateTrains(dt);updateAutomaticLogistics(dt);updateTrainEnergyWarnings();updateTrainSchedules();updateHives(dt);updateNeutralizers(dt);updateEnemies(dt);if(state.gameOver)return;updateCombatTrains(dt);updateStructures(dt);showLowBaseResourceWarning();
   state.uiClock-=dt;if(state.uiClock<=0){state.uiClock=.15;updateUI();}
 }
 

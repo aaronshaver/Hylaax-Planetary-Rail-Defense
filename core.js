@@ -14,8 +14,6 @@ const ENERGY_NODE_MIN_CAPACITY = Math.ceil(NODE_MIN_CAPACITY*1.4);
 const ENERGY_NODE_MAX_CAPACITY = Math.ceil(NODE_MAX_CAPACITY*1.4);
 const BASE_TRAIN_STOP_SECONDS = 2;
 const TRAIN_ACTIVITY_MESSAGE_SECONDS = 1.25;
-const INITIAL_HIVE_BUFFER = 8;
-const INITIAL_HIVE_COUNT = 1;
 const ENEMY_SPEED = .38;
 const CREEP_ATTACK_INTERVAL = 1;
 const CREEP_ATTACK_DAMAGE = 1;
@@ -103,6 +101,7 @@ const ui = Object.fromEntries([
   "turretEnergyDialog", "turretEnergyMessage", "turretEnergyOkay",
   "trackDestroyedDialog", "trackDestroyedOkay",
   "neutralizerGateDialog", "neutralizerGateOkay",
+  "lowBaseResourceDialog", "lowBaseResourceOkay",
   "defeatHivesNeutralized", "defeatCreepsNeutralized", "defeatTracksLaid", "defeatMinesBuilt", "defeatTurretsBuilt", "defeatTrainsBuilt", "defeatEnergyMined", "defeatMaterialMined"
 ].map(id => [id, document.getElementById(id)]));
 

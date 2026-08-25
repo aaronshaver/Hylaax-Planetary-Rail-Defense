@@ -147,14 +147,21 @@ describe("game bootstrap", () => {
     assert.match(html,/id="turretEnergyOkay"[^>]*>OK<\/button>/);
   });
 
+  test("the one-time low Base resource warning uses the requested message and OK",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+    assert.match(html,/id="lowBaseResourceDialog"[^>]*hidden[^>]*role="dialog"/);
+    assert.match(html,/Your base is running low on resources\. Place more track \+ a new train \+ mines to get more resources\. Also think about using the 'mining efficiency' and train research items to improve resource collection and distribution\./);
+    assert.match(html,/id="lowBaseResourceOkay"[^>]*>OK<\/button>/);
+  });
+
   test("the salvage confirmation shows its title only once",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),dialog=html.match(/<div id="confirmDialog"[\s\S]*?<\/div>\s*<\/div>/)?.[0]||"";
     assert.equal((dialog.match(/Confirm salvage/g)||[]).length,1);assert.match(dialog,/id="confirmTitle" class="eyebrow text-danger">Confirm salvage/);assert.doesNotMatch(dialog,/<h2[^>]*>Confirm salvage<\/h2>/);
   });
 
-  test("the displayed and package version is 4.5.3",()=>{
+  test("the displayed and package version is 4.5.4",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 4\.5\.3/);assert.match(html,/DEFENSE 4\.5\.3/);assert.equal(packageJson.version,"4.5.3");
+    assert.match(html,/Planetary Rail Defense 4\.5\.4/);assert.match(html,/DEFENSE 4\.5\.4/);assert.equal(packageJson.version,"4.5.4");
   });
 });

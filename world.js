@@ -45,8 +45,10 @@ function makeInitialState() {
     trackDestroyedWarningWasPaused: false,
     neutralizerGateNoticeShown: false,
     neutralizerGateNoticeWasPaused: false,
+    lowBaseResourceWarningShown: false,
+    lowBaseResourceWarningWasPaused: false,
     baseMaterial: 300,
-    baseEnergy: 200,
+    baseEnergy: 300,
     researchPoints: 0,
     researchUnlocked: false,
     maxResearchBuildings: 0,
@@ -148,26 +150,8 @@ function hiveHexOpen(q,r,constructionAnchors=playerConstructionAnchors(),require
   return !state.enemies.some(enemy=>enemy.q===q&&enemy.r===r)&&!neutralizerOccupiesHex(q,r);
 }
 
-function seedInitialHives(){
-  const candidates=[],constructionAnchors=playerConstructionAnchors();
-  for(let q=-22;q<=22;q++)for(let r=-22;r<=22;r++){
-    const distance=distanceToStructure({q,r},state.base);
-    const tooCloseToInfrastructure=distanceToStructure({q,r},state.base)<INITIAL_HIVE_BUFFER||[...state.tracks.values()].some(track=>hexDistance({q,r},track)<INITIAL_HIVE_BUFFER);
-    if(tooCloseToInfrastructure||distance>20||!hiveHexOpen(q,r,constructionAnchors,false))continue;
-    candidates.push({q,r,score:terrainHash(q,r,901)});
-  }
-  candidates.sort((a,b)=>b.score-a.score);
-  for(const candidate of candidates){
-    if(!terrainCanReachBase(candidate.q,candidate.r))continue;
-    if([...state.hives.values()].some(hive=>hexDistance(hive,candidate)<9))continue;
-    const hive=createHive(candidate.q,candidate.r,1);hive.nextSpawnAt=state.elapsed;
-    if(state.hives.size>=INITIAL_HIVE_COUNT)break;
-  }
-}
-
 let terrainReachabilitySeed=null,terrainReachabilityCache=new Map();
 let state = makeInitialState();
-seedInitialHives();
 let width = 1, height = 1, dpr = 1;
 let lastWallTime = Date.now();
 let simulationAccumulator = 0;

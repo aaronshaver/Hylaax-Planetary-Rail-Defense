@@ -11,13 +11,16 @@ describe("Hive and defense behavior", () => {
     for(const level of api.constants.HIVE_LEVELS)for(const time of [0,180,480,9999])assert.equal(api.hiveExpansionLevel({level},time),level);
   });
 
-  test("the solitary starting Level 1 Hive immediately cycles, then cycles once per minute",()=>{
-    const state=api.reset({mapSeed:12345,seedHives:true}),hive=[...state.hives.values()][0];
-    assert.equal(state.hives.size,1);assert.equal(hive.level,1);assert.equal(hive.nextSpawnAt,0);assert.equal(state.enemies.length,0);
-    state.nextEncroachmentAt=Infinity;const delay=api.creepSpawnDelaySeconds(hive,0,0);assert.ok(delay>=1&&delay<=5);
-    api.updateHives();assert.equal(state.hives.size,1,"a Level 1 Hive must never expand");assert.equal(hive.spawnCount,1);assert.equal(hive.nextSpawnAt,60);assert.equal(state.pendingCreepBatches.length,1);
-    state.elapsed=delay;api.updateHives();assert.equal(state.enemies.length,1);
-    state.elapsed=60;api.updateHives();assert.equal(hive.spawnCount,2);assert.equal(hive.nextSpawnAt,120);
+  test("the game starts hive-free and the minute-one Level 1 Hive cycles when it appears",()=>{
+    const state=api.reset({mapSeed:12345});
+    assert.equal(state.hives.size,0);assert.equal(state.pendingHiveSpawns.length,0);assert.equal(state.enemies.length,0);
+    state.elapsed=59.999;api.updateHives();assert.equal(state.hives.size,0);assert.equal(state.pendingHiveSpawns.length,0);
+    state.elapsed=60;api.updateHives();assert.equal(state.hives.size,0);assert.equal(state.pendingHiveSpawns.length,1);
+    const hiveOperation=state.pendingHiveSpawns[0];assert.equal(hiveOperation.kind,"timed");assert.equal(hiveOperation.level,1);assert.ok(hiveOperation.delaySeconds>=1&&hiveOperation.delaySeconds<=5);
+    state.elapsed=hiveOperation.executeAt;api.updateHives();
+    const hive=[...state.hives.values()][0];assert.equal(state.hives.size,1);assert.equal(hive.level,1);assert.equal(hive.spawnCount,1);assert.equal(hive.nextSpawnAt,120);assert.equal(state.pendingCreepBatches.length,1);assert.equal(state.enemies.length,0);
+    const creepOperation=state.pendingCreepBatches[0];assert.ok(creepOperation.delaySeconds>=1&&creepOperation.delaySeconds<=5);
+    state.elapsed=creepOperation.executeAt;api.updateHives();assert.equal(state.enemies.length,1);
   });
 
   test("a failed expansion roll spawns all 13 Creeps from a capped Level 13 Hive after its delay",()=>{
@@ -105,6 +108,14 @@ describe("Hive and defense behavior", () => {
     assert.equal(api.dismissTurretEnergyWarning(),true);assert.equal(state.paused,false);assert.equal(elements.get("turretEnergyDialog").hidden,true);
     turret.energy=1;turret.cooldown=0;api.updateStructures(0);
     assert.equal(turret.energy,0);assert.equal(elements.get("turretEnergyDialog").hidden,true,"later empty Turrets must not repeat the modal");
+  });
+
+  test("zero C or E can show one low-resource warning at five minutes, but never earlier or twice",()=>{
+    const state=api.state;state.baseMaterial=300;state.baseEnergy=0;state.elapsed=299.999;
+    assert.equal(api.showLowBaseResourceWarning(),false);assert.equal(state.lowBaseResourceWarningShown,false);assert.equal(elements.get("lowBaseResourceDialog").hidden,true);
+    state.elapsed=300;assert.equal(api.showLowBaseResourceWarning(),true);assert.equal(state.lowBaseResourceWarningShown,true);assert.equal(state.paused,true);assert.equal(elements.get("lowBaseResourceDialog").hidden,false);
+    assert.equal(api.dismissLowBaseResourceWarning(),true);assert.equal(state.paused,false);assert.equal(elements.get("lowBaseResourceDialog").hidden,true);
+    state.baseEnergy=300;state.baseMaterial=0;assert.equal(api.showLowBaseResourceWarning(),false,"the warning is once per run even if the other resource later reaches zero");
   });
 
   test("Artillery can trigger the shared one-time Energy warning before a Turret",()=>{
@@ -279,11 +290,12 @@ describe("enemy navigation", () => {
     assert.equal(api.hiveHexOpen(isolated.q,isolated.r),false);
   });
 
-  test("every initial Hive is placed on terrain connected to the Base",()=>{
+  test("the first timed Hive is placed on terrain connected to the Base",()=>{
     for(const mapSeed of [1,2,3,4,5]){
-      api.reset({mapSeed,seedHives:true});
-      assert.equal(api.state.hives.size,api.constants.INITIAL_HIVE_COUNT);
-      for(const hive of api.state.hives.values())assert.equal(api.terrainCanReachBase(hive.q,hive.r),true,`map ${mapSeed} Hive ${hive.q},${hive.r}`);
+      const state=api.reset({mapSeed});state.elapsed=60;api.updateHives();
+      assert.equal(state.pendingHiveSpawns.length,1);state.elapsed=state.pendingHiveSpawns[0].executeAt;api.updateHives();
+      assert.equal(state.hives.size,1);
+      for(const hive of state.hives.values())assert.equal(api.terrainCanReachBase(hive.q,hive.r),true,`map ${mapSeed} Hive ${hive.q},${hive.r}`);
     }
   });
 

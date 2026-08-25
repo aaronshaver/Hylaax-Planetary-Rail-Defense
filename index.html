@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 4.5.3</title>
+  <title>Planetary Rail Defense 4.5.4</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 4.5.3 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 4.5.4 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -65,7 +65,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 4.5.3</span></h1>
+          <h1>RAIL<br><span>DEFENSE 4.5.4</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -158,6 +158,15 @@
       <h2 id="neutralizerGateTitle">Use gates with walls</h2>
       <p id="neutralizerGateMessage">If you build walls surrounding your base, note that gates can be used to let neutralizers (blue ally units) pass through so that you can keep a solid defense of walls while allowing neutralizer units to leave. Creeps cannot pass through gates.</p>
       <button id="neutralizerGateOkay" class="btn btn-command">OK</button>
+    </div>
+  </div>
+
+  <div id="lowBaseResourceDialog" class="confirm-overlay d-none" hidden role="dialog" aria-modal="true" aria-labelledby="lowBaseResourceTitle" aria-describedby="lowBaseResourceMessage">
+    <div class="confirm-card energy-warning-card">
+      <div class="eyebrow">Resource warning</div>
+      <h2 id="lowBaseResourceTitle">Base resources running low</h2>
+      <p id="lowBaseResourceMessage">Your base is running low on resources. Place more track + a new train + mines to get more resources. Also think about using the 'mining efficiency' and train research items to improve resource collection and distribution.</p>
+      <button id="lowBaseResourceOkay" class="btn btn-command">OK</button>
     </div>
   </div>
 

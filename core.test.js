@@ -15,7 +15,7 @@ describe("geometry and initial state", () => {
     }
   });
 
-  test("a new game has one random adjacent Track and no Train", () => {
+  test("a new game has one random adjacent Track, no Train, and no starting Hive", () => {
     const state = api.state;
     const [track]=state.tracks.values();
     assert.equal(state.tracks.size, 1);
@@ -25,8 +25,9 @@ describe("geometry and initial state", () => {
     assert.equal(api.distanceToStructure(track,state.base),1);
     assert.equal(track.links.size,0);
     assert.equal(state.trains.length,0);
+    assert.equal(state.hives.size,0);
     assert.equal(state.baseMaterial, 300);
-    assert.equal(state.baseEnergy,200);
+    assert.equal(state.baseEnergy,300);
     assert.equal(state.nextTrainIndex,0);
     assert.equal(api.constants.TRACK_HIT_POINTS, 1);
     assert.equal(api.constants.TRAIN_HIT_POINTS, 50);
