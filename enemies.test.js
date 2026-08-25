@@ -261,7 +261,7 @@ describe("Hive and defense behavior", () => {
 
   test("Creeps and Neutralizers expire after two minutes with their normal thin death X",()=>{
     const state=api.state;state.hives.clear();let first=null,second=null;for(let q=8;q<30&&!second;q++)for(let r=-10;r<20&&!second;r++)if(api.isPassable(q,r)&&!api.structureAt(q,r)){if(!first)first={q,r};else if(api.hexDistance(first,{q,r})>1)second={q,r};}
-    const creep=api.spawnEnemyAt(first.q,first.r),ally=api.spawnNeutralizerAt(second.q,second.r);assert.ok(creep&&ally);state.elapsed=119.999;assert.equal(api.expireCreeps(),0);assert.equal(api.expireNeutralizers(),0);state.elapsed=120;assert.equal(api.expireCreeps(),1);assert.equal(api.expireNeutralizers(),1);assert.equal(state.enemies.length,0);assert.equal(state.neutralizers.length,0);assert.ok(state.projectiles.some(item=>item.kind==="creep-death-x"));assert.ok(state.projectiles.some(item=>item.kind==="neutralizer-death-x"));
+    const creep=api.spawnEnemyAt(first.q,first.r),ally=api.spawnNeutralizerAt(second.q,second.r);assert.ok(creep&&ally);state.elapsed=89.999;assert.equal(api.expireCreeps(),0);assert.equal(api.expireNeutralizers(),0);state.elapsed=90;assert.equal(api.expireCreeps(),1);assert.equal(api.expireNeutralizers(),1);assert.equal(state.enemies.length,0);assert.equal(state.neutralizers.length,0);assert.ok(state.projectiles.some(item=>item.kind==="creep-death-x"));assert.ok(state.projectiles.some(item=>item.kind==="neutralizer-death-x"));
   });
 
   test("water is traversable at double path cost and half departure speed",()=>{

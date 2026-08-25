@@ -163,7 +163,7 @@ describe("guided tutorial",()=>{
     assert.equal(api.state.paused,true,"the final step must remain paused until Okay is clicked");
     assert.equal(elements.get("pauseToggle").disabled,true);
     assert.equal(elements.get("tutorialOkay").hidden,false);
-    assert.equal(elements.get("tutorialText").textContent,"Step 15: You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base building.\n\nClick the 'Playing' button in the upper right to pause the game if you feel overwhelmed by enemies and need time to build with less pressure.\n\nThere are more tools to help you survive and improve efficiency: they're in the Actions pane on the right.");
+    assert.equal(elements.get("tutorialText").textContent,"Step 15: You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base (you'll want to keep building more turrets).\n\nClick the 'Playing' button in the upper right to pause the game if you feel overwhelmed by enemies and need time to build with less pressure.\n\nThere are more tools to help you survive and improve efficiency: they're in the Actions pane on the right.");
 
     api.finishTutorial();
     assert.equal(api.state.tutorial,null);

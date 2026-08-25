@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 4.5.7</title>
+  <title>Planetary Rail Defense 4.5.8</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 4.5.7 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 4.5.8 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -65,7 +65,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 4.5.7</span></h1>
+          <h1>RAIL<br><span>DEFENSE 4.5.8</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -87,7 +87,7 @@
           <button id="gateTool" class="btn tool-button" data-mode="gate" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 30 C, 0 E&#10;• Must be built within 5 hexes of a train stop so that it can be resupplied, repaired, and/or mined"><span class="keycap">9</span>Build gate</button>
           <button id="neutralizerTool" class="btn tool-button" data-mode="neutralizer" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E&#10;• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined"><span class="keycap">0</span>Build neutralizer</button>
           <button id="terraformTool" class="btn tool-button" data-mode="terraform" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 5 C, 5 E&#10;• Converts one water, tree, mountain, C node, or E node into clear land">Terraform land</button>
-          <button id="hiveBlockerTool" class="btn tool-button" data-mode="hiveBlocker" data-bs-toggle="tooltip" data-bs-placement="left" title="• Requires 14 C, 14 E in base storage&#10;• Costs 2 C, 2 E per newly blocked clear-land hex&#10;• Permanently prevents hives from ever spawning on a hex&#10;• Structures can be built on top as if it is clear land&#10;• Covers 7 hexes; skips existing blockers and any hex that is occupied or not clear land">Hive blocker</button>
+          <button id="hiveBlockerTool" class="btn tool-button" data-mode="hiveBlocker" data-bs-toggle="tooltip" data-bs-placement="left" title="• Requires 7 C, 7 E in base storage&#10;• Costs 1 C, 1 E per newly blocked clear-land hex&#10;• Permanently prevents hives from ever spawning on a hex&#10;• Structures can be built on top as if it is clear land&#10;• Covers 7 hexes; skips existing blockers and any hex that is occupied or not clear land">Hive blocker</button>
         </div>
       </section>
 

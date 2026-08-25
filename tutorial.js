@@ -16,7 +16,7 @@ const TUTORIAL_MESSAGES = [
   "Click on the C and E nodes to add mines to them",
   "Click 'Build turret'",
   "Place a turret one hex away from one of the train stops",
-  "You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base building.\n\nClick the 'Playing' button in the upper right to pause the game if you feel overwhelmed by enemies and need time to build with less pressure.\n\nThere are more tools to help you survive and improve efficiency: they're in the Actions pane on the right."
+  "You now have a basic automated train system for gathering construction material for building new structures, energy for fueling trains and turrets, and a turret to defend part of your base (you'll want to keep building more turrets).\n\nClick the 'Playing' button in the upper right to pause the game if you feel overwhelmed by enemies and need time to build with less pressure.\n\nThere are more tools to help you survive and improve efficiency: they're in the Actions pane on the right."
 ];
 const TUTORIAL_INTRO="This is a tower defense game where automating train networks is the key to successful survival.";
 const TUTORIAL_ARROW_VECTORS={

@@ -57,12 +57,12 @@ describe("terrain generation", () => {
     assert.deepEqual({ ...api.terrainAt(-4, 7) }, { type: "resource", resource: "energy" });
   });
 
-  test("Hive blockers cost 14 C and 14 E, cover seven clear land hexes, and permanently reject Hive spawns",()=>{
+  test("Hive blockers cost 7 C and 7 E, cover seven clear land hexes, and permanently reject Hive spawns",()=>{
     const state=api.state;let site=null;
     for(let q=-15;q<=15&&!site;q++)for(let r=-15;r<=15&&!site;r++)if(api.hiveBlockerFootprint(q,r).every(api.hiveBlockerCellClear))site={q,r};
     assert.ok(site);const footprint=api.hiveBlockerFootprint(site.q,site.r);assert.equal(footprint.length,7);assert.equal(new Set(footprint.map(cell=>api.key(cell.q,cell.r))).size,7);
     const materialBefore=state.baseMaterial,energyBefore=state.baseEnergy;assert.equal(api.setMode("hiveBlocker"),true);assert.equal(api.handleHexClick(site),true);
-    assert.equal(state.baseMaterial,materialBefore-14);assert.equal(state.baseEnergy,energyBefore-14);assert.equal(state.hiveBlockedLand.size,7);
+    assert.equal(state.baseMaterial,materialBefore-7);assert.equal(state.baseEnergy,energyBefore-7);assert.equal(state.hiveBlockedLand.size,7);assert.equal(state.particles.length,0,"Hive blocker placement should not create a gray-pixel burst");
     for(const cell of footprint){assert.equal(api.terrainAt(cell.q,cell.r).type,"land");assert.equal(state.hiveBlockedLand.has(api.key(cell.q,cell.r)),true);assert.equal(api.hiveHexOpen(cell.q,cell.r),false);}
     const research=api.buildResearch(site.q,site.r);assert.ok(research,"ordinary structures remain buildable over blocked land");assert.ok(research.footprint.every(cell=>state.hiveBlockedLand.has(api.key(cell.q,cell.r))));
     api.salvageStructure(research);assert.equal(state.hiveBlockedLand.size,7,"building and salvaging over a blocker cannot remove it");
@@ -73,27 +73,27 @@ describe("terrain generation", () => {
     for(let q=-15;q<=15&&!site;q++)for(let r=-15;r<=15&&!site;r++)if(api.hiveBlockerFootprint(q,r).every(api.hiveBlockerCellClear))site={q,r};
     assert.ok(site);const footprint=api.hiveBlockerFootprint(site.q,site.r),wall={id:"blocker-wall",type:"wall",...footprint[0],hp:100,maxHp:100},track={...footprint[1],hp:1,maxHp:1,links:new Set()};
     state.structures.set(api.key(wall.q,wall.r),wall);state.tracks.set(api.key(track.q,track.r),track);state.hiveBlockedLand.add(api.key(footprint[2].q,footprint[2].r));
-    assert.deepEqual({...api.hiveBlockerPlacementCost(site.q,site.r)},{material:8,energy:8});state.baseMaterial=14;state.baseEnergy=14;assert.equal(api.setMode("hiveBlocker"),true);
+    assert.deepEqual({...api.hiveBlockerPlacementCost(site.q,site.r)},{material:4,energy:4});state.baseMaterial=7;state.baseEnergy=7;assert.equal(api.setMode("hiveBlocker"),true);
     const toastCount=elements.get("toastStack").children.length;assert.equal(api.placeHiveBlocker(site.q,site.r),true);assert.equal(elements.get("toastStack").children.length,toastCount);
-    assert.equal(state.baseMaterial,6);assert.equal(state.baseEnergy,6);assert.equal(state.hiveBlockedLand.size,5);assert.equal(state.hiveBlockedLand.has(api.key(wall.q,wall.r)),false);assert.equal(state.hiveBlockedLand.has(api.key(track.q,track.r)),false);
+    assert.equal(state.baseMaterial,3);assert.equal(state.baseEnergy,3);assert.equal(state.hiveBlockedLand.size,5);assert.equal(state.hiveBlockedLand.has(api.key(wall.q,wall.r)),false);assert.equal(state.hiveBlockedLand.has(api.key(track.q,track.r)),false);
   });
 
-  test("Hive blockers require 14 C and 14 E up front, then discount existing blocker hexes",()=>{
+  test("Hive blockers require 7 C and 7 E up front, then discount existing blocker hexes",()=>{
     const state=api.state;let site=null;
     for(let q=-15;q<=15&&!site;q++)for(let r=-15;r<=15&&!site;r++)if(api.hiveBlockerFootprint(q,r).every(api.hiveBlockerCellClear))site={q,r};
     assert.ok(site);const footprint=api.hiveBlockerFootprint(site.q,site.r);state.hiveBlockedLand.add(api.key(footprint[0].q,footprint[0].r));state.hiveBlockedLand.add(api.key(footprint[1].q,footprint[1].r));
-    assert.deepEqual({...api.hiveBlockerPlacementCost(site.q,site.r)},{material:10,energy:10});
-    state.baseMaterial=13;state.baseEnergy=14;assert.equal(api.setMode("hiveBlocker"),false);assert.equal(state.hiveBlockedLand.size,2);
-    state.baseMaterial=14;state.baseEnergy=14;assert.equal(api.setMode("hiveBlocker"),true);assert.equal(api.placeHiveBlocker(site.q,site.r),true);
-    assert.equal(state.baseMaterial,4);assert.equal(state.baseEnergy,4);assert.equal(state.hiveBlockedLand.size,7);
+    assert.deepEqual({...api.hiveBlockerPlacementCost(site.q,site.r)},{material:5,energy:5});
+    state.baseMaterial=6;state.baseEnergy=7;assert.equal(api.setMode("hiveBlocker"),false);assert.equal(state.hiveBlockedLand.size,2);
+    state.baseMaterial=7;state.baseEnergy=7;assert.equal(api.setMode("hiveBlocker"),true);assert.equal(api.placeHiveBlocker(site.q,site.r),true);
+    assert.equal(state.baseMaterial,2);assert.equal(state.baseEnergy,2);assert.equal(state.hiveBlockedLand.size,7);
   });
 
   test("Hive blocker placement over zero eligible cells is a silent no-op",()=>{
     const state=api.state;let site=null;
     for(let q=-15;q<=15&&!site;q++)for(let r=-15;r<=15&&!site;r++)if(api.hiveBlockerFootprint(q,r).every(api.hiveBlockerCellClear))site={q,r};
     assert.ok(site);const footprint=api.hiveBlockerFootprint(site.q,site.r);for(const cell of footprint)state.hiveBlockedLand.add(api.key(cell.q,cell.r));
-    state.baseMaterial=14;state.baseEnergy=14;assert.equal(api.setMode("hiveBlocker"),true);const toastCount=elements.get("toastStack").children.length;
-    assert.equal(api.placeHiveBlocker(site.q,site.r),true);assert.equal(state.baseMaterial,14);assert.equal(state.baseEnergy,14);assert.equal(state.hiveBlockedLand.size,7);assert.equal(elements.get("toastStack").children.length,toastCount);
+    state.baseMaterial=7;state.baseEnergy=7;assert.equal(api.setMode("hiveBlocker"),true);const toastCount=elements.get("toastStack").children.length;
+    assert.equal(api.placeHiveBlocker(site.q,site.r),true);assert.equal(state.baseMaterial,7);assert.equal(state.baseEnergy,7);assert.equal(state.hiveBlockedLand.size,7);assert.equal(elements.get("toastStack").children.length,toastCount);
   });
 
   test("Terraform land converts blocked terrain and resource nodes to clear land for 5 C and 5 E each",()=>{

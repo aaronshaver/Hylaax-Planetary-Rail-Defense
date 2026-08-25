@@ -86,27 +86,27 @@ describe("Research building and upgrades",()=>{
     assert.doesNotMatch(html,/infinite/i);
   });
 
-  test("Research rate uses five diminishing upgrades and then becomes maxed",()=>{
-    const state=api.state;addResearchBuilding();state.researchPoints=150;
-    const bonuses=[25,20,15,10,5],rates=[1.25,1.5,1.725,1.8975,1.992375];
+  test("Research rate uses six upgrades with diminishing bonuses and then becomes maxed",()=>{
+    const state=api.state;addResearchBuilding();state.researchPoints=180;
+    const bonuses=[25,20,15,10,5,2.5],rates=[1.25,1.5,1.725,1.8975,1.992375,2.042184375];
     for(let level=0;level<bonuses.length;level++){
       assert.match(api.selectionHtml(),new RegExp(`\\+${bonuses[level]}% research rate \\(${level}\\)`));
       assert.equal(api.purchaseResearchUpgrade("researchSpeed"),true);
       assert.ok(Math.abs(api.researchRate()-rates[level])<1e-12);
     }
-    assert.match(api.selectionHtml(),/Research rate maxed \(5\)/);
-    const pointsBefore=state.researchPoints;assert.equal(Boolean(api.purchaseResearchUpgrade("researchSpeed")),false);assert.equal(state.researchPoints,pointsBefore);assert.equal(api.researchUpgradeCount("researchSpeed"),5);
+    assert.match(api.selectionHtml(),/Research rate maxed \(6\)/);
+    const pointsBefore=state.researchPoints;assert.equal(Boolean(api.purchaseResearchUpgrade("researchSpeed")),false);assert.equal(state.researchPoints,pointsBefore);assert.equal(api.researchUpgradeCount("researchSpeed"),6);
   });
 
-  test("every research item caps after five purchases",()=>{
+  test("every research item caps after six purchases",()=>{
     const state=api.state;addResearchBuilding();state.researchPoints=10000;
     for(const upgrade of api.constants.RESEARCH_UPGRADES){
-      assert.equal(api.researchUpgradeMaxLevel(upgrade),5,upgrade.key);
-      for(let level=0;level<5;level++)assert.equal(api.purchaseResearchUpgrade(upgrade.key),true,`${upgrade.key} level ${level+1}`);
-      assert.equal(api.researchUpgradeCount(upgrade.key),5,upgrade.key);
-      const points=state.researchPoints;assert.equal(Boolean(api.purchaseResearchUpgrade(upgrade.key)),false,`${upgrade.key} must reject a sixth purchase`);assert.equal(state.researchPoints,points);
+      assert.equal(api.researchUpgradeMaxLevel(upgrade),6,upgrade.key);
+      for(let level=0;level<6;level++)assert.equal(api.purchaseResearchUpgrade(upgrade.key),true,`${upgrade.key} level ${level+1}`);
+      assert.equal(api.researchUpgradeCount(upgrade.key),6,upgrade.key);
+      const points=state.researchPoints;assert.equal(Boolean(api.purchaseResearchUpgrade(upgrade.key)),false,`${upgrade.key} must reject a seventh purchase`);assert.equal(state.researchPoints,points);
     }
-    const html=api.selectionHtml();assert.equal((html.match(/maxed \(5\)/gi)||[]).length,api.constants.RESEARCH_UPGRADES.length);assert.equal(api.artilleryRange(),27);
+    const html=api.selectionHtml();assert.equal((html.match(/maxed \(6\)/gi)||[]).length,api.constants.RESEARCH_UPGRADES.length);assert.equal(api.artilleryRange(),33);
   });
 
   test("all twenty-one upgrades immediately update existing units and expose upgraded future values",()=>{

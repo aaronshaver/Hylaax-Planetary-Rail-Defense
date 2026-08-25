@@ -21,17 +21,17 @@ const RESEARCH_UPGRADES = [
   {key:"loadUnloadEfficiency",group:"Trains and mining",label:"+25% load/unload efficiency",multiplier:.75,description:"Trains spend 25% less time stopped at each train stop."},
   {key:"wallStrength",group:"Infrastructure",label:"+50% wall hit points",multiplier:1.5,description:"Walls have 50% more hit points."},
   {key:"trackStrength",group:"Infrastructure",label:"+100% track hit points",multiplier:2,description:"Tracks have 100% more hit points."},
-  {key:"researchSpeed",group:"Other",label:"+25% research rate",levelMultipliers:[1.25,1.2,1.15,1.1,1.05],maxLevel:5,description:"Research rate improves by a diminishing percentage: 25%, 20%, 15%, 10%, then 5%."}
+  {key:"researchSpeed",group:"Other",label:"+25% research rate",levelMultipliers:[1.25,1.2,1.15,1.1,1.05,1.025],description:"Research rate improves by a diminishing percentage: 25%, 20%, 15%, 10%, 5%, then 2.5%."}
 ];
 
 function researchUpgrade(keyName){return RESEARCH_UPGRADES.find(upgrade=>upgrade.key===keyName)||null;}
-function researchUpgradeMaxLevel(upgrade){return upgrade?.maxLevel||5;}
+function researchUpgradeMaxLevel(upgrade){return upgrade?.maxLevel||6;}
 function researchUpgradeCount(keyName){const count=state.researchUpgrades?.[keyName]||0,upgrade=researchUpgrade(keyName);return upgrade?Math.min(count,researchUpgradeMaxLevel(upgrade)):count;}
 function researchMultiplierAtCount(keyName,count){const upgrade=researchUpgrade(keyName);if(!upgrade)return 1;if(upgrade.levelMultipliers)return upgrade.levelMultipliers.slice(0,count).reduce((total,multiplier)=>total*multiplier,1);return Math.pow(upgrade.multiplier,count);}
 function researchMultiplier(keyName){return researchMultiplierAtCount(keyName,researchUpgradeCount(keyName));}
 function researchUpgradeIsMaxed(upgrade){return Boolean(upgrade&&researchUpgradeCount(upgrade.key)>=researchUpgradeMaxLevel(upgrade));}
 function researchUpgradeEffectLabel(upgrade){return upgrade.label.replace(/^\+\d+%\s+/,"");}
-function researchUpgradeButtonLabel(upgrade){const count=researchUpgradeCount(upgrade.key),effect=researchUpgradeEffectLabel(upgrade);if(researchUpgradeIsMaxed(upgrade))return `${effect.charAt(0).toUpperCase()+effect.slice(1)} maxed (${count})`;const multiplier=upgrade.levelMultipliers?.[count],label=multiplier?`+${Math.round((multiplier-1)*100)}% ${effect}`:upgrade.label;return `${label} (${count})`;}
+function researchUpgradeButtonLabel(upgrade){const count=researchUpgradeCount(upgrade.key),effect=researchUpgradeEffectLabel(upgrade);if(researchUpgradeIsMaxed(upgrade))return `${effect.charAt(0).toUpperCase()+effect.slice(1)} maxed (${count})`;const multiplier=upgrade.levelMultipliers?.[count],percent=multiplier?Math.round((multiplier-1)*10000)/100:null,label=multiplier?`+${percent}% ${effect}`:upgrade.label;return `${label} (${count})`;}
 function researchedWholeValue(base,keyName){const upgrade=researchUpgrade(keyName);let value=base;for(let level=0;level<researchUpgradeCount(keyName);level++)value=Math.ceil(value*upgrade.multiplier);return value;}
 
 function turretFireInterval(){return 1/researchMultiplier("turretFireRate");}

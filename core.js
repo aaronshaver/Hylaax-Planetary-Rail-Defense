@@ -14,14 +14,14 @@ const ENERGY_NODE_MIN_CAPACITY = Math.ceil(NODE_MIN_CAPACITY*1.4);
 const ENERGY_NODE_MAX_CAPACITY = Math.ceil(NODE_MAX_CAPACITY*1.4);
 const BASE_TRAIN_STOP_SECONDS = 2;
 const TRAIN_ACTIVITY_MESSAGE_SECONDS = 1.25;
-const ENEMY_SPEED = .38;
+const ENEMY_SPEED = .418;
 const CREEP_ATTACK_INTERVAL = 1;
 const CREEP_ATTACK_DAMAGE = 1;
 const COMBAT_BEAM_RENDER_CAP = 25;
 const COMBAT_DEATH_FLASH_RENDER_CAP = 25;
 const UNIT_SHADOW_RENDER_LIMIT = 100;
 const UNIT_DEATH_FLASH_SECONDS = .28;
-const UNIT_LIFESPAN_SECONDS = 120;
+const UNIT_LIFESPAN_SECONDS = 90;
 const SIMULATION_STEP = 1 / 60;
 const TRACK_HIT_POINTS = 1;
 const TRAIN_HIT_POINTS = 50;
@@ -75,7 +75,7 @@ const COSTS = {
   research: { material: 50, energy: 50 },
   neutralizer: { material: 50, energy: 50 },
   terraform: { material: 5, energy: 5 },
-  hiveBlocker: { material: 14, energy: 14 }
+  hiveBlocker: { material: 7, energy: 7 }
 };
 const REBUILD_COSTS = { track: 1, turret: 10, mine: 8, wall: 12, gate: 12, artillery: 30, research: 30, "neutralizer-building": 30 };
 const BASE_RESOURCE_TYPES = [
