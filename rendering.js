@@ -257,30 +257,6 @@ function drawTrackFocus(){
   }
 }
 
-function trackGlowPhase(now=performance.now()){return .5+.5*Math.sin(now/1000*5.5);}
-function trackGlowAnimationActive(){return state.mode==="track";}
-
-function drawBuildTrackGlow(now=performance.now()){
-  if(state.mode!=="track")return;
-  const pulse=trackGlowPhase(now),color="#b879ff";
-  ctx.save();ctx.globalCompositeOperation="screen";ctx.lineCap="round";ctx.strokeStyle=color;ctx.fillStyle=color;ctx.globalAlpha=.22+pulse*.2;ctx.shadowColor=color;ctx.shadowBlur=12+pulse*12;
-  for(const track of state.tracks.values()){
-    const p=axialToWorld(track.q,track.r);
-    for(const linkedKey of track.links){
-      if(key(track.q,track.r)>linkedKey)continue;
-      const neighbor=fromKey(linkedKey),np=axialToWorld(neighbor.q,neighbor.r);
-      if(!renderSegmentVisible(p.x,p.y,np.x,np.y,35))continue;
-      ctx.lineWidth=7+pulse*3;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(np.x,np.y);ctx.stroke();
-    }
-    if(renderPointVisible(p.x,p.y,35)){ctx.beginPath();ctx.arc(p.x,p.y,8+pulse*2,0,Math.PI*2);ctx.fill();}
-  }
-  ctx.globalAlpha=.6+pulse*.3;ctx.shadowBlur=0;ctx.lineWidth=1.4;const markerRadius=8;
-  for(const track of state.tracks.values()){
-    const p=axialToWorld(track.q,track.r);if(renderPointVisible(p.x,p.y,12)){ctx.beginPath();ctx.arc(p.x,p.y,markerRadius,0,Math.PI*2);ctx.stroke();}
-  }
-  ctx.restore();
-}
-
 function activeScheduleStops(train){return (train.schedule||[]).map((stop,index)=>({stop,index})).filter(entry=>isScheduleTrackHex(entry.stop.q,entry.stop.r));}
 
 function drawTrainStops(){
@@ -614,5 +590,5 @@ function drawWorldPass(draw){
 function render(){
   ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height);ensureTerrainLayer();const signatures=staticWorldContentSignatures();
   ensureStaticWorldLayer("supply",signatures.supply,drawStopSupplyLines);ensureStaticWorldLayer("tracks",signatures.tracks,()=>drawTracks(false));ensureStaticWorldLayer("ghosts",signatures.ghosts,drawGhosts);ensureStaticWorldLayer("stops",signatures.stops,drawTrainStops);ensureStaticWorldLayer("base",signatures.base,()=>drawBase({body:true,overlay:false}));ensureStaticWorldLayer("structures",signatures.structures,()=>drawStructures({warnings:false,bodies:true,overlays:false}));
-  const shake=screenShakeOffset();ctx.save();ctx.translate(shake.x,shake.y);drawTerrainLayer();drawStaticWorldLayer("supply");drawWorldPass(()=>{drawResourceNodes();drawTurretRanges();});drawStaticWorldLayer("tracks");drawWorldPass(drawTrackFocus);drawStaticWorldLayer("ghosts");drawStaticWorldLayer("stops");drawWorldPass(()=>{drawEffects();drawHives();});drawStaticWorldLayer("base");drawWorldPass(()=>{drawBase({body:false,overlay:true});drawStructures({warnings:true,bodies:false,overlays:false});});drawStaticWorldLayer("structures");drawWorldPass(()=>{drawStructures({warnings:false,bodies:false,overlays:true});drawSelection();drawTrains();drawBuildTrackGlow();drawEnemies();drawNeutralizers();drawHover();drawWorldMessages();});ctx.restore();syncTutorialArrows();
+  const shake=screenShakeOffset();ctx.save();ctx.translate(shake.x,shake.y);drawTerrainLayer();drawStaticWorldLayer("supply");drawWorldPass(()=>{drawResourceNodes();drawTurretRanges();});drawStaticWorldLayer("tracks");drawWorldPass(drawTrackFocus);drawStaticWorldLayer("ghosts");drawStaticWorldLayer("stops");drawWorldPass(()=>{drawEffects();drawHives();});drawStaticWorldLayer("base");drawWorldPass(()=>{drawBase({body:false,overlay:true});drawStructures({warnings:true,bodies:false,overlays:false});});drawStaticWorldLayer("structures");drawWorldPass(()=>{drawStructures({warnings:false,bodies:false,overlays:true});drawSelection();drawTrains();drawEnemies();drawNeutralizers();drawHover();drawWorldMessages();});ctx.restore();syncTutorialArrows();
 }

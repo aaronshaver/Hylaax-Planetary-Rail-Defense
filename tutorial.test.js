@@ -126,6 +126,7 @@ describe("guided tutorial",()=>{
     api.startTutorial();
     api.tutorialEvent("mode",{mode:"track"});
     assert.equal(api.state.tutorial.step,2);
+    assert.equal(api.tutorialMessage(),"Step 2: Click the existing track (a light gray circle)");
     api.tutorialEvent("track-selected");
     assert.equal(api.state.tutorial.step,3);
     assert.equal(api.tutorialMessage(),"Step 3: Click nearby hexes to add one more track segment.");

@@ -23,12 +23,13 @@ describe("rendering caches", () => {
     assert.ok(lastBed>=0&&firstHub>lastBed,"no later rail bed may cover a surfaced junction hub");
   });
 
-  test("Build Track glow uses wall-clock time and remains animated while paused",()=>{
-    const state=api.state;state.mode="track";state.paused=true;state.elapsed=0;
-    const first=api.trackGlowPhase(1000);state.elapsed=9999;
-    assert.equal(api.trackGlowPhase(1000),first,"simulation time must not affect the pulse");
-    assert.notEqual(api.trackGlowPhase(1250),first,"wall-clock time must advance the pulse");
-    assert.equal(api.trackGlowAnimationActive(),true,"paused Track mode must request animation frames");
+  test("Build Track uses simple static guides without a glow",()=>{
+    const state=api.state,context=elements.get("gameCanvas").context,start=[...state.tracks.values()][0];
+    state.mode="track";state.trackStart=start;state.hover=api.neighbors(start.q,start.r)[0];context.paintCalls.length=0;
+    api.drawHover();
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#fff1b4"),"the selected Track endpoint keeps its static outline");
+    assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="rgba(230,185,74,.45)"),"an adjacent destination keeps its simple connection guide");
+    assert.ok(context.paintCalls.every(call=>call.shadowBlur===0||call.shadowBlur===undefined),"Track building adds no glow blur");
   });
 
   test("nearby activity messages stack in the defined priority order", () => {

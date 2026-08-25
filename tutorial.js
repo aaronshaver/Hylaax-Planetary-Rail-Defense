@@ -3,7 +3,7 @@
 const TUTORIAL_MESSAGES = [
   "",
   "Click 'Build track' in the actions panel",
-  "Click the existing track (a light gray circle inside a purple outline)",
+  "Click the existing track (a light gray circle)",
   "Click nearby hexes to add one more track segment.",
   "Keep adding track until you have a complete loop that passes by the base building, an energy node, and a construction material node; it must be a fully closed loop",
   "Click the base building",
