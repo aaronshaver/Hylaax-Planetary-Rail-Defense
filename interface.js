@@ -94,8 +94,9 @@ function setDebugMenuOpen(open){
 }
 
 function updateDebugUI(){
-  ui.debugDestroyObject.disabled=state.gameOver;ui.debugAddMaxCreeps.disabled=state.gameOver;ui.debugAddMaxNeutralizers.disabled=state.gameOver;ui.debugAddBaseResources.disabled=state.gameOver;ui.debugAddResearchPoints.disabled=state.gameOver;
+  ui.debugDestroyObject.disabled=state.gameOver;ui.debugAddHive.disabled=state.gameOver;ui.debugAddMaxCreeps.disabled=state.gameOver;ui.debugAddMaxNeutralizers.disabled=state.gameOver;ui.debugAddBaseResources.disabled=state.gameOver;ui.debugAddResearchPoints.disabled=state.gameOver;
   ui.debugDestroyObject.classList.toggle("active",state.mode==="debug-destroy");
+  ui.debugAddHive.classList.toggle("active",state.mode==="debug-add-hive");
   ui.debugAddMaxCreeps.classList.toggle("active",state.mode==="debug-add-max-creeps");
   ui.debugAddMaxNeutralizers.classList.toggle("active",state.mode==="debug-add-max-neutralizers");
 }

@@ -134,6 +134,18 @@ describe("Hive and defense behavior", () => {
     finally{api.sounds.tone=originalTone;}
   });
 
+  test("an Artillery shell makes its own soft low thud once when it lands",()=>{
+    const state=api.state,calls=[],originalImpact=api.sounds.artilleryImpact,originalTone=api.sounds.tone,originalHit=api.sounds.hit;let sharedHits=0;
+    api.sounds.tone=(...args)=>calls.push(args);api.sounds.artilleryImpact=originalImpact;api.sounds.hit=()=>sharedHits++;
+    try{
+      api.createHive(8,0,13);
+      state.projectiles=[{kind:"artillery-shell",centerQ:8,centerR:0,life:.1,maxLife:.7}];
+      api.updateProjectiles(.05);assert.equal(calls.length,0,"the thud must not play while the shell is airborne");
+      api.updateProjectiles(.05);assert.equal(calls.length,2);assert.equal(sharedHits,0,"Artillery impact must not layer in the shared hit sound");assert.ok(calls.every(call=>call[0]<=72&&call[3]<=.016));
+      api.updateProjectiles(1);assert.equal(calls.length,2,"the impact must sound only once");
+    }finally{api.sounds.artilleryImpact=originalImpact;api.sounds.tone=originalTone;api.sounds.hit=originalHit;}
+  });
+
   test("Artillery lobs at Hives every three seconds for 10 Energy with delayed 8 center and 5 adjacent damage and no friendly fire",()=>{
     const state=api.state;state.hives.clear();state.enemies=[];state.structures.clear();state.trains=[];
     const artillery={id:"artillery-defense",type:"artillery",q:0,r:0,hp:36,maxHp:36,energy:40,maxEnergy:40,cooldown:0};

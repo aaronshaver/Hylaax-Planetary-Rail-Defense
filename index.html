@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 4.5.4</title>
+  <title>Planetary Rail Defense 4.5.5</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 4.5.4 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 4.5.5 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -65,7 +65,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 4.5.4</span></h1>
+          <h1>RAIL<br><span>DEFENSE 4.5.5</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -105,6 +105,7 @@
     <div class="debug-menu-title">Debug</div>
     <div class="debug-menu-warning">This is a debug menu intended for development. It's &quot;cheating&quot; if you use this during your game. But it's a single player game, so do whatever is fun for you.</div>
     <button id="debugDestroyObject" class="btn debug-action" data-mode="debug-destroy">Destroy object</button>
+    <button id="debugAddHive" class="btn debug-action" data-mode="debug-add-hive">Add hive</button>
     <button id="debugAddMaxCreeps" class="btn debug-action" data-mode="debug-add-max-creeps">Add big hex of creeps</button>
     <button id="debugAddMaxNeutralizers" class="btn debug-action" data-mode="debug-add-max-neutralizers">Add big hex of neutralizers</button>
     <button id="debugAddBaseResources" class="btn debug-action">Add base building resources</button>

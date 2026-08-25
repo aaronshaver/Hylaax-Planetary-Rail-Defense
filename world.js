@@ -192,6 +192,7 @@ class SoundBank {
   scheduleStop() { this.tone(210, .13, "sine", .012, 420); this.tone(330, .1, "sine", .007, 560, .025); }
   remove() { this.tone(170, .16, "sawtooth", .022, 65); }
   shot() { const now = performance.now(); if (now - this.lastShot > 65) { this.lastShot = now; this.tone(430, .11, "triangle", .018, 240); this.tone(170, .13, "sine", .011, 105, .02); } }
+  artilleryImpact() { this.tone(72, .2, "sine", .016, 42); this.tone(45, .16, "triangle", .008, 32, .025); }
   hit() { const now = performance.now(); if (now - this.lastHit > 500) { this.lastHit = now; this.tone(75, .12, "sawtooth", .018, 48); } }
   error() { this.tone(105, .18, "square", .022, 72); }
   trainDestroyed() {

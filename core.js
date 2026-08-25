@@ -97,7 +97,7 @@ const ui = Object.fromEntries([
   "gameOver", "survivalTime", "viewMapButton", "viewFinalStats", "restartButton", "toastStack",
   "confirmDialog", "confirmMessage", "confirmYes", "confirmNo", "remindersDialog", "remindersTutorial", "remindersContinue",
   "tutorialPrompt", "tutorialText", "tutorialOkay", "tutorialRestart", "tutorialArrows",
-  "debugToggle", "debugMenu", "debugDestroyObject", "debugAddMaxCreeps", "debugAddMaxNeutralizers", "debugAddBaseResources", "debugAddResearchPoints",
+  "debugToggle", "debugMenu", "debugDestroyObject", "debugAddHive", "debugAddMaxCreeps", "debugAddMaxNeutralizers", "debugAddBaseResources", "debugAddResearchPoints",
   "turretEnergyDialog", "turretEnergyMessage", "turretEnergyOkay",
   "trackDestroyedDialog", "trackDestroyedOkay",
   "neutralizerGateDialog", "neutralizerGateOkay",

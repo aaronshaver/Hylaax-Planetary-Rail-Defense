@@ -132,6 +132,7 @@ describe("game bootstrap", () => {
     assert.match(html,/class="debug-menu-title">Debug<\/div>\s*<div class="debug-menu-warning">This is a debug menu intended for development\. It's &quot;cheating&quot; if you use this during your game\. But it's a single player game, so do whatever is fun for you\.<\/div>/);
     assert.match(html,/id="debugDestroyObject"[^>]*data-mode="debug-destroy"[^>]*>Destroy object<\/button>/);
     assert.doesNotMatch(html,/id="debugAddCreep"|data-mode="debug-add-creep"|>Add creep<\/button>/);
+    assert.match(html,/id="debugAddHive"[^>]*data-mode="debug-add-hive"[^>]*>Add hive<\/button>/);
     assert.match(html,/id="debugAddMaxCreeps"[^>]*data-mode="debug-add-max-creeps"[^>]*>Add big hex of creeps<\/button>/);
     assert.match(html,/id="debugAddMaxNeutralizers"[^>]*data-mode="debug-add-max-neutralizers"[^>]*>Add big hex of neutralizers<\/button>/);
     assert.match(html,/id="debugAddBaseResources"[^>]*>Add base building resources<\/button>/);
@@ -159,9 +160,9 @@ describe("game bootstrap", () => {
     assert.equal((dialog.match(/Confirm salvage/g)||[]).length,1);assert.match(dialog,/id="confirmTitle" class="eyebrow text-danger">Confirm salvage/);assert.doesNotMatch(dialog,/<h2[^>]*>Confirm salvage<\/h2>/);
   });
 
-  test("the displayed and package version is 4.5.4",()=>{
+  test("the displayed and package version is 4.5.5",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 4\.5\.4/);assert.match(html,/DEFENSE 4\.5\.4/);assert.equal(packageJson.version,"4.5.4");
+    assert.match(html,/Planetary Rail Defense 4\.5\.5/);assert.match(html,/DEFENSE 4\.5\.5/);assert.equal(packageJson.version,"4.5.5");
   });
 });

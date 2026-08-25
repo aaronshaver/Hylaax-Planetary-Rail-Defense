@@ -41,6 +41,12 @@ function debugAddMaxCreepsAt(q,r){
   updateUI(true);render();toast(`Debug: Added ${added} creep${added===1?"":"s"}.`,"info");return added;
 }
 
+function debugAddHiveAt(q,r){
+  if(!hiveHexOpen(q,r,[],false))return fail("Cannot add a hive on that hex.");
+  const level=Math.max(1,hiveUnlockedLevel()),hive=createHive(q,r,level);runNewHiveCycle(hive);
+  updateUI(true);render();toast(`Debug: Added Level ${level} hive.`,"info");return hive;
+}
+
 function spawnEnemyFromHive(hive,spawnNumber=hive.spawnCount){
   const reservations=enemySpaceReservations(),constructionAnchors=playerConstructionAnchors();
   const options=[];
@@ -618,7 +624,7 @@ function resolveArtilleryImpact(projectile){
   for(let q=center.q-2;q<=center.q+2;q++)for(let r=center.r-2;r<=center.r+2;r++){const position={q,r};if(hexDistance(center,position)<=2)affected.push(position);}
   for(const position of affected){
     const damage=artilleryDamageAtDistance(hexDistance(center,position));
-    const targetHive=state.hives.get(key(position.q,position.r));if(targetHive)damageTarget(targetHive,damage);
+    const targetHive=state.hives.get(key(position.q,position.r));if(targetHive)damageTarget(targetHive,damage,{silent:true});
     for(const targetEnemy of [...state.enemies]){const visible=worldToAxial(targetEnemy.x,targetEnemy.y);if(visible.q===position.q&&visible.r===position.r)damageEnemy(targetEnemy,damage);}
     burst(position.q,position.r,"#ff9d58",4);
   }
@@ -629,6 +635,7 @@ function updateProjectiles(dt){
   for(const projectile of state.projectiles){
     projectile.life-=dt;
     if(projectile.kind==="artillery-shell"&&projectile.life<=0){
+      sounds.artilleryImpact();
       resolveArtilleryImpact(projectile);
       active.push({kind:"artillery-blast",q:projectile.centerQ,r:projectile.centerR,life:ARTILLERY_BLAST_SECONDS,maxLife:ARTILLERY_BLAST_SECONDS});
     }else if(projectile.life>0)active.push(projectile);

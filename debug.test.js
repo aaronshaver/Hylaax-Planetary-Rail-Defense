@@ -25,12 +25,20 @@ describe("Debug menu",()=>{
     api.setMode("debug-destroy");
     assert.equal(api.state.mode,"debug-destroy");
     assert.equal(elements.get("debugDestroyObject").classList.contains("active"),true);
+    api.setMode("debug-add-hive");assert.equal(elements.get("debugAddHive").classList.contains("active"),true);
     api.setMode("debug-add-max-creeps");assert.equal(elements.get("debugAddMaxCreeps").classList.contains("active"),true);
     api.setMode("debug-add-max-neutralizers");assert.equal(elements.get("debugAddMaxNeutralizers").classList.contains("active"),true);
     api.setDebugMenuOpen(false);
     assert.equal(api.state.mode,"select");
     assert.equal(elements.get("debugMenu").hidden,true);
     assert.equal(elements.get("debugToggle").ariaExpanded,"false");
+  });
+
+  test("Add hive places the currently unlocked level and immediately runs its first cycle",()=>{
+    const state=api.state;state.hives.clear();state.elapsed=480;
+    const target=findArmyCenter();assert.ok(target);api.setMode("debug-add-hive");
+    const hive=api.handleHexClick(target);assert.ok(hive);assert.equal(hive.level,8);assert.equal(hive.spawnCount,1);assert.equal(hive.nextSpawnAt,540);assert.equal(state.hives.get(api.key(target.q,target.r)),hive);
+    assert.equal(api.handleHexClick(target),undefined);assert.equal(state.hives.size,1,"an occupied Hive hex must not accept another Hive");
   });
 
   test("Add big hex of creeps fills the selected hex and all six surrounding hexes",()=>{
@@ -102,6 +110,6 @@ describe("Debug menu",()=>{
     api.setMode("debug-destroy");
     assert.equal(api.handleHexClick({q:0,r:0}),true);
     assert.equal(api.state.base.hp,0);assert.equal(api.state.gameOver,true);
-    assert.equal(elements.get("debugDestroyObject").disabled,true);assert.equal(elements.get("debugAddMaxCreeps").disabled,true);assert.equal(elements.get("debugAddMaxNeutralizers").disabled,true);assert.equal(elements.get("debugAddBaseResources").disabled,true);assert.equal(elements.get("debugAddResearchPoints").disabled,true);
+    assert.equal(elements.get("debugDestroyObject").disabled,true);assert.equal(elements.get("debugAddHive").disabled,true);assert.equal(elements.get("debugAddMaxCreeps").disabled,true);assert.equal(elements.get("debugAddMaxNeutralizers").disabled,true);assert.equal(elements.get("debugAddBaseResources").disabled,true);assert.equal(elements.get("debugAddResearchPoints").disabled,true);
   });
 });
