@@ -61,7 +61,7 @@ const CREEP_SLOT_RADIUS = 17;
 const CREEP_RENDER_SCALE = .64;
 const BASE_UNLOAD_TARGET = 110;
 const BASE_FOOTPRINT_OFFSETS = [{q:0,r:0},{q:1,r:0},{q:0,r:1},{q:1,r:-1}];
-const HIVE_LEVELS = [1,2,3,5,8,13];
+const HIVE_LEVELS = [1,2,3,5,8,13,21];
 const DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const COSTS = {
   track: { material: 1, energy: 0 },

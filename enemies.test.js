@@ -23,12 +23,12 @@ describe("Hive and defense behavior", () => {
     state.elapsed=creepOperation.executeAt;api.updateHives();assert.equal(state.enemies.length,1);
   });
 
-  test("a failed expansion roll spawns all 13 Creeps from a capped Level 13 Hive after its delay",()=>{
+  test("a failed expansion roll spawns all 21 Creeps from a capped Level 21 Hive after its delay",()=>{
     const state=api.state;state.hives.clear();state.enemies=[];state.nextEncroachmentAt=Infinity;state.elapsed=60;
-    const hive=api.createHive(12,0,21);assert.equal(hive.level,13);let spawnNumber=0;while(api.hiveReplicationRoll(hive,spawnNumber,13)&&spawnNumber<10000)spawnNumber++;
+    const hive=api.createHive(12,0,34);assert.equal(hive.level,21);let spawnNumber=0;while(api.hiveReplicationRoll(hive,spawnNumber,21)&&spawnNumber<10000)spawnNumber++;
     const delay=api.creepSpawnDelaySeconds(hive,spawnNumber,60);hive.spawnCount=spawnNumber;hive.nextSpawnAt=60;api.updateHives();
     state.elapsed=60+delay;api.updateHives();
-    assert.equal(state.hives.size,1);assert.equal(state.enemies.length,13);assert.equal(hive.productionPulseUntil,60+delay+.75);
+    assert.equal(state.hives.size,1);assert.equal(state.enemies.length,21);assert.equal(hive.productionPulseUntil,60+delay+.75);
   });
 
   test("a queued Creep batch is canceled when its source Hive is destroyed during the delay",()=>{
@@ -197,10 +197,10 @@ describe("Hive and defense behavior", () => {
     assert.equal(api.constants.COMBAT_TRAIN_RANGE, 6);
   });
 
-  test("timed additions use the current Fibonacci time level for both level and count, capped at 13",()=>{
-    const levels=[[0,0],[1,1],[2,2],[3,3],[4,3],[5,5],[8,8],[13,13],[14,13],[21,13],[189,13]];
+  test("timed additions use the current Fibonacci time level for both level and count, capped at 21",()=>{
+    const levels=[[0,0],[1,1],[2,2],[3,3],[4,3],[5,5],[8,8],[13,13],[14,13],[20,13],[21,21],[22,21],[189,21]];
     for(const [minute,level] of levels)assert.equal(api.hiveUnlockedLevel(minute*60),level,`minute ${minute} level`);
-    const counts=[[0,0],[1,1],[2,2],[3,3],[4,3],[5,5],[8,8],[13,13],[14,13],[21,13],[189,13]];
+    const counts=[[0,0],[1,1],[2,2],[3,3],[4,3],[5,5],[8,8],[13,13],[14,13],[20,13],[21,21],[22,21],[189,21]];
     for(const [minute,count] of counts)assert.equal(api.encroachingHiveCount(minute*60),count,`minute ${minute} count`);
   });
 
