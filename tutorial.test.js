@@ -47,6 +47,23 @@ describe("guided tutorial",()=>{
     assert.equal(overlay.hidden,false);
   });
 
+  test("Step 4 finishes by pointing back to the open end needed to close the loop",()=>{
+    api.startTutorial();
+    const positions=[{q:1,r:-2},{q:2,r:-2},{q:2,r:-3}],keys=positions.map(position=>api.key(position.q,position.r));
+    api.state.tracks.clear();
+    positions.forEach((position,index)=>api.state.tracks.set(keys[index],makeTrack(position.q,position.r,index===0?[keys[1]]:index===1?[keys[0],keys[2]]:[keys[1]])));
+    Object.assign(api.state.tutorial,{step:4,step4BaseLandKey:keys[0],step4EnergyLandKey:keys[1],step4MaterialLandKey:keys[2]});
+    api.state.trackStart=positions[2];
+
+    const finalArrow=api.tutorialArrowSpecs();
+    assert.equal(finalArrow.length,1,"only the final loop-closing arrow remains after all three landmarks are reached");
+    assert.equal(api.key(finalArrow[0].target.q,finalArrow[0].target.r),keys[0],"the final arrow points to the opposite open end of the connected Track");
+
+    api.state.tracks.get(keys[0]).links.add(keys[2]);
+    api.state.tracks.get(keys[2]).links.add(keys[0]);
+    assert.equal(api.tutorialArrowSpecs().length,0,"the final arrow disappears once the Track has no open ends");
+  });
+
   test("Step 9 points to adjacent Track, then Step 14 points to clear land beside each Stop",()=>{
     api.startTutorial();
     const loop=installTutorialLoop();

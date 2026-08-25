@@ -39,7 +39,7 @@ function makeCanvasContext() {
     fill:()=>{const call={path:[...values.currentPath],fillStyle:values.fillStyle,shadowBlur:values.shadowBlur||0,shadowColor:values.shadowColor};values.fillCalls.push(call);values.paintCalls.push({kind:"fill",...call});},
     stroke:()=>{const call={path:[...values.currentPath],strokeStyle:values.strokeStyle,lineWidth:values.lineWidth,shadowBlur:values.shadowBlur||0,shadowColor:values.shadowColor};values.strokeCalls.push(call);values.paintCalls.push({kind:"stroke",...call});},
     fillRect:(x,y,width,height)=>values.fillRectCalls.push({x,y,width,height,fillStyle:values.fillStyle,shadowBlur:values.shadowBlur||0,shadowColor:values.shadowColor}),
-    drawImage:(...args)=>values.drawImageCalls.push({args})
+    drawImage:(...args)=>{const call={kind:"image",args};values.drawImageCalls.push(call);values.paintCalls.push(call);}
   };
   values.textCalls=[];values.fillCalls=[];values.strokeCalls=[];values.fillRectCalls=[];values.drawImageCalls=[];values.translateCalls=[];values.scaleCalls=[];values.paintCalls=[];values.currentPath=[];
   return new Proxy(values, {

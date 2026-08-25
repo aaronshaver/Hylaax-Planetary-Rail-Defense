@@ -83,13 +83,13 @@ describe("repairs, ghosts, and schedules", () => {
     for(const item of [{type:"turret",label:"T",build:api.buildTurret},{type:"wall",label:"W",build:api.buildWall},{type:"artillery",label:"A",build:api.buildArtillery}]){
       api.reset();const state=api.state,context=elements.get("gameCanvas").context;addTestTrain();state.tracks.clear();state.structures.clear();state.baseMaterial=500;state.baseEnergy=500;state.paused=true;
       let target=null;
-      for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++)if(api.terrainAt(q,r).type==="land"&&api.hexDistance({q,r},state.base)>5)target={q,r};
-      assert.ok(target);installCompletedStop({q:target.q+1,r:target.r});context.textCalls.length=0;
+      for(let q=-12;q<=12&&!target;q++)for(let r=-12;r<=12&&!target;r++){const point=api.axialToWorld(q,r);if(api.terrainAt(q,r).type==="land"&&api.hexDistance({q,r},state.base)>5&&api.renderPointVisible(point.x,point.y,70,api.worldRenderBounds()))target={q,r};}
+      assert.ok(target);installCompletedStop({q:target.q+1,r:target.r});context.textCalls.length=0;api.staticWorldLayers.structures.context.textCalls.length=0;
 
       item.build(target.q,target.r);
 
       assert.equal(state.structures.get(api.key(target.q,target.r)).type,item.type);
-      assert.ok(context.textCalls.some(call=>call.text===item.label),`${item.type} should be painted synchronously while paused`);
+      assert.ok(api.staticWorldLayers.structures.context.textCalls.some(call=>call.text===item.label),`${item.type} should be painted synchronously into the static layer while paused`);
     }
   });
 
@@ -442,8 +442,8 @@ describe("repairs, ghosts, and schedules", () => {
       api.addScheduleStop(train,1,0);html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="undo-last-stop"[^>]*>Undo last stop<\/button>/,"Undo turns yellow as soon as a stop can be removed");assert.doesNotMatch(html,/data-action="undo-last-stop"[^>]*disabled/);
       api.addScheduleStop(train,0,-1);api.addScheduleStop(train,-1,1);
       html=api.selectionHtml();assert.match(html,/class="btn btn-command" data-action="finish-schedule"[^>]*>Done adding<\/button>/);assert.match(html,/class="btn btn-command" data-action="undo-last-stop"[^>]*>Undo last stop<\/button>/);assert.ok(html.indexOf("Done adding")<html.indexOf("Undo last stop"));assert.doesNotMatch(html,/click the first stop again/);
-      const context=elements.get("gameCanvas").context;context.textCalls.length=0;
-      assert.equal(api.undoLastScheduleStop(train),true);assert.equal(train.schedule.length,2);assert.deepEqual(context.textCalls.filter(call=>/^A\d+$/.test(call.text)).map(call=>call.text),["A1","A2"],"Undo must synchronously redraw the remaining Stop markers");api.addScheduleStop(train,-1,1);
+      const context=elements.get("gameCanvas").context;context.textCalls.length=0;api.staticWorldLayers.stops.context.textCalls.length=0;
+      assert.equal(api.undoLastScheduleStop(train),true);assert.equal(train.schedule.length,2);assert.deepEqual(api.staticWorldLayers.stops.context.textCalls.filter(call=>/^A\d+$/.test(call.text)).map(call=>call.text),["A1","A2"],"Undo must synchronously redraw the remaining cached Stop markers");api.addScheduleStop(train,-1,1);
       assert.equal(api.finishSchedule(train),true);
     }finally{api.sounds.tone=originalTone;}
 

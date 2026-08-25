@@ -1,9 +1,11 @@
 "use strict";
 
 const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+let ctx = canvas.getContext("2d");
 const terrainLayer = document.createElement("canvas");
 const terrainCtx = terrainLayer.getContext("2d");
+const STATIC_WORLD_LAYER_NAMES=["supply","tracks","ghosts","stops","base","structures"];
+const staticWorldLayers=Object.fromEntries(STATIC_WORLD_LAYER_NAMES.map(name=>{const canvas=document.createElement("canvas");return [name,{canvas,context:canvas.getContext("2d"),signature:"",contentSignature:"",view:null,builds:0}];}));
 const worldWrap = document.getElementById("worldWrap");
 const selectionContent = document.getElementById("selectionContent");
 const HEX = 31;

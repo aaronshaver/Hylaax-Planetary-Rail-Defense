@@ -18,6 +18,21 @@ describe("world state and selection", () => {
     assert.deepEqual({ ...api.fromKey(api.key(3, -2)) }, { q: 3, r: -2 });
   });
 
+  test("live structures and ghosts are indexed under every footprint hex",()=>{
+    const state=api.state,building={id:"indexed-research",type:"research",q:8,r:8,footprint:[{q:8,r:8},{q:9,r:8},{q:8,r:9}],hp:300,maxHp:300};
+    state.structures.set("8,8",building);
+    for(const cell of building.footprint)assert.equal(api.structureAt(cell.q,cell.r),building);
+    assert.equal(state.structures.byHex.size,3);
+
+    state.structures.delete("8,8");
+    for(const cell of building.footprint)assert.equal(api.structureAt(cell.q,cell.r),null);
+    const ghost={...building,id:"8,8",type:"ghost",objectType:"research"};state.ghosts.set(ghost.id,ghost);
+    for(const cell of ghost.footprint)assert.equal(api.ghostAt(cell.q,cell.r),ghost);
+
+    state.ghosts.delete(ghost.id);
+    for(const cell of ghost.footprint)assert.equal(api.ghostAt(cell.q,cell.r),null);
+  });
+
   test("changing tools updates the active world mode", () => {
     api.setMode("track");
     assert.equal(api.state.mode, "track");

@@ -189,6 +189,25 @@ function tutorialStep4Arrow(arrows,tutorial,targetProperty,directionProperty,tar
   tutorial[directionProperty]||=arrow.vectorName;arrows.push(arrow);
 }
 
+function tutorialStep4LoopEnd(tutorial){
+  const currentKey=state.trackStart?key(state.trackStart.q,state.trackStart.r):null;
+  if(!currentKey||!state.tracks.has(currentKey))return null;
+  const distances=new Map([[currentKey,0]]),queue=[currentKey];
+  for(let cursor=0;cursor<queue.length;cursor++){
+    const trackKey=queue[cursor];
+    for(const linkedKey of state.tracks.get(trackKey)?.links||[]){
+      if(!state.tracks.has(linkedKey)||distances.has(linkedKey))continue;
+      distances.set(linkedKey,distances.get(trackKey)+1);queue.push(linkedKey);
+    }
+  }
+  const isOpenEnd=trackKey=>trackKey!==currentKey&&[...(state.tracks.get(trackKey)?.links||[])].filter(linkedKey=>distances.has(linkedKey)).length<2;
+  if(tutorial.step4LoopEndKey&&distances.has(tutorial.step4LoopEndKey)&&isOpenEnd(tutorial.step4LoopEndKey))return state.tracks.get(tutorial.step4LoopEndKey);
+  const ends=[...distances.keys()].filter(isOpenEnd);
+  ends.sort((a,b)=>distances.get(b)-distances.get(a)||a.localeCompare(b));
+  tutorial.step4LoopEndKey=ends[0]||null;
+  return tutorial.step4LoopEndKey?state.tracks.get(tutorial.step4LoopEndKey):null;
+}
+
 function tutorialArrowSpecs(step=state.tutorial?.step){
   if(!state.tutorial?.active||!step)return [];
   const arrows=[],tutorial=state.tutorial;
@@ -203,6 +222,11 @@ function tutorialArrowSpecs(step=state.tutorial?.step){
     tutorialStep4Arrow(arrows,tutorial,"step4BaseLandKey","step4BaseDirection",()=>tutorialClearLandNextTo(state.base,{near:state.trackStart}),["se","sw","right","down","ne","nw"]);
     tutorialStep4Arrow(arrows,tutorial,"step4EnergyLandKey","step4EnergyDirection",()=>tutorialClearLandNextTo(energy,{near:state.base}),["ne","se","right","up","down"]);
     tutorialStep4Arrow(arrows,tutorial,"step4MaterialLandKey","step4MaterialDirection",()=>tutorialClearLandNextTo(material,{near:state.base}),["sw","nw","left","down","up"]);
+    if(!arrows.length){
+      const loopEnd=tutorialStep4LoopEnd(tutorial),directions=tutorial.step4LoopDirection?[tutorial.step4LoopDirection]:["right","se","sw","ne","nw","down","up","left"];
+      const arrow=tutorialWorldArrow(loopEnd,directions,arrows,{clearance:25,targetTrackKey:loopEnd?key(loopEnd.q,loopEnd.r):null});
+      if(arrow){tutorial.step4LoopDirection||=arrow.vectorName;arrows.push(arrow);}
+    }
   }
   else if(step===5){tutorialAddWorldArrow(arrows,structureWorldCenter(state.base),["right"],{clearance:62});}
   else if(step===6){const arrow=tutorialElementArrow(document.querySelector?.('[data-action="fabricate-place-builder-train"]'),"se");if(arrow)arrows.push(arrow);}

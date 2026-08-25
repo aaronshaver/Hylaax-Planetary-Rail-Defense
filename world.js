@@ -1,5 +1,22 @@
 "use strict";
 
+class HexOccupancyMap extends Map {
+  constructor(){super();this.byHex=new Map();this.revision=0;}
+  _cells(object){return object?.footprint?.length?object.footprint:[{q:object.q,r:object.r}];}
+  _index(object){for(const cell of this._cells(object))this.byHex.set(key(cell.q,cell.r),object);}
+  _unindex(object){
+    for(const cell of this._cells(object)){
+      const cellKey=key(cell.q,cell.r);if(this.byHex.get(cellKey)!==object)continue;
+      this.byHex.delete(cellKey);
+      for(const candidate of this.values())if(candidate!==object&&this._cells(candidate).some(item=>item.q===cell.q&&item.r===cell.r)){this.byHex.set(cellKey,candidate);break;}
+    }
+  }
+  set(anchorKey,object){const previous=super.get(anchorKey);if(previous)this._unindex(previous);super.set(anchorKey,object);this._index(object);this.revision++;return this;}
+  delete(anchorKey){const object=super.get(anchorKey);if(!object)return false;const removed=super.delete(anchorKey);if(removed){this._unindex(object);this.revision++;}return removed;}
+  clear(){if(!this.size&&!this.byHex.size)return;super.clear();this.byHex.clear();this.revision++;}
+  getAt(q,r){const positionKey=key(q,r);return super.get(positionKey)||this.byHex.get(positionKey)||null;}
+}
+
 function makeInitialState() {
   const mapSeed=Date.now();
   const base = { id: "base", type: "base", q: 0, r: 0, footprint:BASE_FOOTPRINT_OFFSETS.map(offset=>({q:offset.q,r:offset.r})), hp: 100, maxHp: 100 };
@@ -21,11 +38,11 @@ function makeInitialState() {
     uiClock: 0,
     tracks,
     base,
-    structures: new Map(),
+    structures: new HexOccupancyMap(),
     hives: new Map(),
     pendingHiveSpawns: [],
     pendingCreepBatches: [],
-    ghosts: new Map(),
+    ghosts: new HexOccupancyMap(),
     nodeResources: new Map(),
     clearedResourceNodes: new Set(),
     terraformedLand: new Set(),
@@ -156,6 +173,7 @@ let width = 1, height = 1, dpr = 1;
 let lastWallTime = Date.now();
 let simulationAccumulator = 0;
 let terrainLayerSignature="",terrainLayerResources=[],terrainLayerBuilds=0,terrainLayerCells=0,terrainRevision=0,terrainLayerView=null;
+let activeRenderBounds=null;
 let zoomGestureActive=false,zoomRenderPending=false,panRenderPending=false,zoomSettleTimer=null;
 let selectionCache = "";
 let selectionCacheKey="";
@@ -220,7 +238,7 @@ function resize() {
   canvas.height = Math.floor(height * dpr);
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
-  invalidateTerrainLayer();
+  invalidateTerrainLayer();invalidateStaticWorldLayers();
   if(typeof syncTutorialArrows==="function")syncTutorialArrows();
 }
 
@@ -231,6 +249,8 @@ function centerMapOnBase(){
 }
 
 function invalidateTerrainLayer(){terrainLayerSignature="";}
+
+function invalidateStaticWorldLayers(){for(const layer of Object.values(staticWorldLayers)){layer.signature="";layer.contentSignature="";layer.view=null;}}
 
 function screenToHex(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
@@ -250,7 +270,7 @@ function unitTraversalCost(q,r){return terrainAt(q,r).type==="water"?2:1;}
 
 function structureAt(q, r) {
   if (structureFootprint(state.base).some(cell=>cell.q===q&&cell.r===r)) return state.base;
-  return state.structures.get(key(q, r)) || [...state.structures.values()].find(structure=>structureFootprint(structure).some(cell=>cell.q===q&&cell.r===r)) || null;
+  return state.structures.getAt(q,r);
 }
 
 function structureFootprint(object){return object?.footprint?.length?object.footprint:[{q:object.q,r:object.r}];}
@@ -259,7 +279,7 @@ function nearestStructureCell(position,object){return [...structureFootprint(obj
 function structureWorldCenter(object){const cells=structureFootprint(object),points=cells.map(cell=>axialToWorld(cell.q,cell.r));return {x:points.reduce((sum,point)=>sum+point.x,0)/points.length,y:points.reduce((sum,point)=>sum+point.y,0)/points.length};}
 function basePerimeter(){return footprintPerimeter(structureFootprint(state.base));}
 
-function ghostAt(q,r){return state.ghosts.get(key(q,r))||[...state.ghosts.values()].find(ghost=>structureFootprint(ghost).some(cell=>cell.q===q&&cell.r===r))||null;}
+function ghostAt(q,r){return state.ghosts.getAt(q,r);}
 
 function trackGhostAt(q,r){const ghost=ghostAt(q,r);return ghost?.objectType==="track"?ghost:null;}
 

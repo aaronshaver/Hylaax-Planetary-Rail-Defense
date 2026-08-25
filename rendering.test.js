@@ -66,8 +66,9 @@ describe("rendering caches", () => {
     for(const target of targets){const cell=target.type==="base"?api.nearestStructureCell(stop,target):target,point=api.axialToWorld(cell.q,cell.r);assert.ok(endpoints.has(`${point.x},${point.y}`),target.type);}
     assert.equal(lines.some(call=>call.path.length>2),false,"the former large hex outline must not be drawn");
 
-    state.structures.delete("3,-1");context.strokeCalls.length=0;api.render();
-    assert.equal(context.strokeCalls[0].strokeStyle,"rgba(112,189,119,.44)","persistent supply lines must render below every world object");
+    state.structures.delete("3,-1");context.paintCalls.length=0;api.render();
+    const terrainIndex=context.paintCalls.findIndex(call=>call.kind==="image"),supplyIndex=context.paintCalls.findIndex(call=>call.kind==="image"&&call.args[0]===api.staticWorldLayers.supply.canvas);
+    assert.ok(terrainIndex>=0&&supplyIndex>terrainIndex,"the persistent supply-line layer must be composited immediately above terrain");
   });
 
   test("Train Stop bubbles are raised, larger, and solid medium green",()=>{
@@ -438,9 +439,23 @@ describe("rendering caches", () => {
   });
 
   test("particles and projectile effects render beneath unit bodies and labels",()=>{
-    const source=api.render.toString(),effects=source.indexOf("drawEffects()"),hives=source.indexOf("drawHives()"),structures=source.indexOf("drawStructures()"),trains=source.indexOf("drawTrains()"),enemies=source.indexOf("drawEnemies()");
+    const source=api.render.toString(),effects=source.indexOf("drawEffects()"),hives=source.indexOf("drawHives()"),structures=source.indexOf('drawStaticWorldLayer("structures")'),trains=source.indexOf("drawTrains()"),enemies=source.indexOf("drawEnemies()");
     assert.ok(effects>=0);
     assert.ok(effects<hives&&effects<structures&&effects<trains&&effects<enemies);
+  });
+
+  test("static world layers are reused until their content changes",()=>{
+    api.invalidateStaticWorldLayers();api.render();const first=api.staticWorldLayerStats();api.render();const second=api.staticWorldLayerStats();
+    for(const name of Object.keys(first))assert.equal(second[name].builds,first[name].builds,`${name} should be reused`);
+    api.state.tracks.set("20,20",{q:20,r:20,hp:1,maxHp:1,links:new Set()});api.render();const third=api.staticWorldLayerStats();
+    assert.equal(third.tracks.builds,second.tracks.builds+1);assert.equal(third.structures.builds,second.structures.builds);
+  });
+
+  test("world rendering skips distant points but retains lines crossing the viewport",()=>{
+    const context=elements.get("gameCanvas").context,near=makeEnemy("near",0,0),far=makeEnemy("far",100,100);api.state.enemies=[near,far];context.translateCalls.length=0;
+    api.drawWorldPass(api.drawEnemies);
+    assert.ok(context.translateCalls.some(call=>call.x===near.x&&call.y===near.y));assert.equal(context.translateCalls.some(call=>call.x===far.x&&call.y===far.y),false);
+    const bounds=api.worldRenderBounds();assert.equal(api.renderSegmentVisible(bounds.left-100,0,bounds.right+100,0,0,bounds),true);assert.equal(api.renderSegmentVisible(bounds.right+100,0,bounds.right+200,0,0,bounds),false);
   });
 
   test("seven Creeps render at seven separated positions within one hex",()=>{

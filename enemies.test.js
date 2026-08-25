@@ -259,7 +259,7 @@ describe("Hive and defense behavior", () => {
 
   test("trees no longer block Turret fire",()=>{let tree=null;for(let q=-50;q<=50&&!tree;q++)for(let r=-50;r<=50&&!tree;r++)if(api.terrainAt(q,r).type==="trees")tree={q,r};assert.ok(tree);assert.equal(api.hasClearShot({q:tree.q-1,r:tree.r},{q:tree.q+1,r:tree.r}),true);});
 
-  test("Creeps and Neutralizers expire after two minutes with their normal thin death X",()=>{
+  test("Creeps and Neutralizers expire after 1.5 minutes with their normal thin death X",()=>{
     const state=api.state;state.hives.clear();let first=null,second=null;for(let q=8;q<30&&!second;q++)for(let r=-10;r<20&&!second;r++)if(api.isPassable(q,r)&&!api.structureAt(q,r)){if(!first)first={q,r};else if(api.hexDistance(first,{q,r})>1)second={q,r};}
     const creep=api.spawnEnemyAt(first.q,first.r),ally=api.spawnNeutralizerAt(second.q,second.r);assert.ok(creep&&ally);state.elapsed=89.999;assert.equal(api.expireCreeps(),0);assert.equal(api.expireNeutralizers(),0);state.elapsed=90;assert.equal(api.expireCreeps(),1);assert.equal(api.expireNeutralizers(),1);assert.equal(state.enemies.length,0);assert.equal(state.neutralizers.length,0);assert.ok(state.projectiles.some(item=>item.kind==="creep-death-x"));assert.ok(state.projectiles.some(item=>item.kind==="neutralizer-death-x"));
   });
