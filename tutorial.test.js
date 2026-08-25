@@ -122,6 +122,22 @@ describe("guided tutorial",()=>{
     assert.equal(elements.get("tutorialText").textContent,"This is a tower defense game where automating train networks is the key to successful survival.\n\nStep 1: Click 'Build track' in the actions panel");
   });
 
+  test("only the tutorial's original starting Track is protected from salvage",()=>{
+    api.startTutorial();
+    const state=api.state,initialKey=state.tutorial.initialTrackKey,initial=state.tracks.get(initialKey),extra={q:4,r:0},extraKey=api.key(extra.q,extra.r);
+    state.tracks.set(extraKey,makeTrack(extra.q,extra.r));state.baseMaterial=10;api.setMode("salvage");
+
+    api.handleHexClick(initial);
+    assert.equal(state.tracks.has(initialKey),true);assert.equal(state.baseMaterial,10);
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"The tutorial's starting Track cannot be salvaged.");
+
+    api.handleHexClick(extra);
+    assert.equal(state.tracks.has(extraKey),false,"other tutorial Track remains salvageable");assert.equal(state.baseMaterial,11);
+
+    api.finishTutorial();api.setMode("salvage");api.handleHexClick(initial);
+    assert.equal(state.tracks.has(initialKey),false,"the original Track is salvageable after the tutorial ends");
+  });
+
   test("requires the ordered build, Train, schedule, Mine, and Turret milestones",()=>{
     api.startTutorial();
     api.tutorialEvent("mode",{mode:"track"});

@@ -137,6 +137,7 @@ function salvageBurst(target,count=8){for(const cell of structureFootprint(targe
 function removeTrack(q, r) {
   const k = key(q, r);
   if (!state.tracks.has(k)) return;
+  if(state.tutorial?.active&&state.tutorial.initialTrackKey===k)return fail("The tutorial's starting Track cannot be salvaged.");
   if (trainAt(q, r)) return fail("Move the train before removing this track.");
   deleteTrack(q,r);
   state.baseMaterial++;

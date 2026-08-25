@@ -385,7 +385,7 @@ function tutorialEvent(type,detail={}){
 }
 
 function startTutorial(){
-  state.tutorial={active:true,step:1,trainId:null,loopMaterialNodeKey:null,loopEnergyNodeKey:null,materialNodeKey:null,energyNodeKey:null};
+  state.tutorial={active:true,step:1,initialTrackKey:state.tracks.keys().next().value||null,trainId:null,loopMaterialNodeKey:null,loopEnergyNodeKey:null,materialNodeKey:null,energyNodeKey:null};
   state.paused=true;simulationAccumulator=0;syncTutorialUI();updateUI(true);render();
 }
 
