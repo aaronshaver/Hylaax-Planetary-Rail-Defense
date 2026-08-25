@@ -64,7 +64,7 @@ function canBaseAfford(cost){return state.baseMaterial>=cost.material&&state.bas
 const CONSTRUCTION_MODE_COSTS={track:COSTS.track,turret:COSTS.turret,mine:COSTS.mine,wall:COSTS.wall,artillery:COSTS.artillery,research:COSTS.research,gate:COSTS.gate,neutralizer:COSTS.neutralizer,terraform:COSTS.terraform,hiveBlocker:COSTS.hiveBlocker};
 const CONSTRUCTION_MODE_LABELS={track:"track",turret:"turret",mine:"mine",wall:"wall",artillery:"artillery",research:"research",gate:"gate",neutralizer:"neutralizer building",terraform:"terraforming land",hiveBlocker:"a hive blocker"};
 function constructionModeCost(mode){return CONSTRUCTION_MODE_COSTS[mode]||null;}
-function constructionModeAffordable(mode){const cost=constructionModeCost(mode);return mode==="hiveBlocker"||!cost||canBaseAfford(cost);}
+function constructionModeAffordable(mode){const cost=constructionModeCost(mode);return !cost||canBaseAfford(cost);}
 function constructionModeUnavailableMessage(mode){
   const cost=constructionModeCost(mode),label=CONSTRUCTION_MODE_LABELS[mode];
   return cost?`Needs ${cost.material} construction material${cost.energy?` and ${cost.energy} energy`:""} for ${label}.`:"";

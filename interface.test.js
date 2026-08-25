@@ -18,7 +18,8 @@ describe("interface formatting", () => {
       ["researchTool",api.constants.COSTS.research],
       ["gateTool",api.constants.COSTS.gate],
       ["neutralizerTool",api.constants.COSTS.neutralizer],
-      ["terraformTool",api.constants.COSTS.terraform]
+      ["terraformTool",api.constants.COSTS.terraform],
+      ["hiveBlockerTool",api.constants.COSTS.hiveBlocker]
     ];
     for(const [id,cost] of cases){
       state.baseMaterial=cost.material;state.baseEnergy=cost.energy;api.updateUI(true);
@@ -29,12 +30,12 @@ describe("interface formatting", () => {
     }
 
     state.baseMaterial=0;state.baseEnergy=0;api.updateUI(true);
-    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool","researchTool","gateTool","neutralizerTool","terraformTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"true",id);assert.equal(elements.get(id).classList.contains("unavailable"),true,id);}
+    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool","researchTool","gateTool","neutralizerTool","terraformTool","hiveBlockerTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"true",id);assert.equal(elements.get(id).classList.contains("unavailable"),true,id);}
     assert.equal(elements.get("selectTool").disabled,false);
     assert.equal(elements.get("salvageTool").disabled,false);
 
     state.baseMaterial=75;state.baseEnergy=75;api.updateUI(true);
-    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool","researchTool","gateTool","neutralizerTool","terraformTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"false",id);assert.equal(elements.get(id).classList.contains("unavailable"),false,id);}
+    for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool","researchTool","gateTool","neutralizerTool","terraformTool","hiveBlockerTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"false",id);assert.equal(elements.get(id).classList.contains("unavailable"),false,id);}
   });
 
   test("unaffordable construction modes cannot be entered and an active one exits when funds fall short",()=>{

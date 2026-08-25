@@ -123,15 +123,16 @@ function hiveBlockerCellClear(cell){
 }
 
 function hiveBlockerPlacementCost(q,r){
-  const newCells=hiveBlockerFootprint(q,r).filter(cell=>!state.hiveBlockedLand.has(key(cell.q,cell.r))).length;
+  const newCells=hiveBlockerFootprint(q,r).filter(cell=>hiveBlockerCellClear(cell)&&!state.hiveBlockedLand.has(key(cell.q,cell.r))).length;
   return {material:newCells*2,energy:newCells*2};
 }
 
 function placeHiveBlocker(q,r){
+  if(!canBaseAfford(COSTS.hiveBlocker))return fail("Needs 14 construction material and 14 energy for a hive blocker.");
   const footprint=hiveBlockerFootprint(q,r);
-  if(!footprint.every(hiveBlockerCellClear))return fail("Hive blockers need seven clear land hexes.");
+  const newCells=footprint.filter(cell=>hiveBlockerCellClear(cell)&&!state.hiveBlockedLand.has(key(cell.q,cell.r)));
+  if(!newCells.length)return true;
   const cost=hiveBlockerPlacementCost(q,r);if(!payBase(cost,"a hive blocker"))return false;
-  const newCells=footprint.filter(cell=>!state.hiveBlockedLand.has(key(cell.q,cell.r)));
   for(const cell of newCells)state.hiveBlockedLand.add(key(cell.q,cell.r));
   terrainRevision++;invalidateTerrainLayer();
   state.selected=null;sounds.place();for(const cell of newCells)burst(cell.q,cell.r,"#aab1b4",3,.55);updateUI(true);render();return true;

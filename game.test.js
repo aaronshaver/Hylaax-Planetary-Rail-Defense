@@ -89,7 +89,7 @@ describe("game bootstrap", () => {
     assert.match(html,/title="• Select units and structures\."/);
     assert.doesNotMatch(html,/Select a Train to create or clear its automatic schedule/);
     const oneStop="• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined",fiveStops="• Must be built within 5 hexes of a train stop so that it can be resupplied, repaired, and/or mined";
-    const expected={trackTool:"• Costs 1 C, 0 E",turretTool:"• Costs 10 C, 10 E&#10;"+oneStop,mineTool:"• Costs 10 C, 0 E&#10;"+oneStop,wallTool:"• Costs 30 C, 0 E&#10;"+fiveStops,artilleryTool:"• Costs 50 C, 50 E&#10;"+oneStop,researchTool:"• Costs 50 C, 50 E",gateTool:"• Costs 30 C, 0 E&#10;"+fiveStops,neutralizerTool:"• Costs 50 C, 50 E&#10;"+oneStop,terraformTool:"• Costs 5 C, 5 E&#10;• Converts one water, tree, mountain, C node, or E node into clear land",hiveBlockerTool:"• Costs 2 C, 2 E per newly covered hex (14 C, 14 E maximum)&#10;• Permanently prevents hives from ever spawning on a hex&#10;• Structures can be built on top as if it is clear land&#10;• Covers 7 hexes and may overlap existing hive-blocker hexes&#10;• Can only be placed on clear land"};
+    const expected={trackTool:"• Costs 1 C, 0 E",turretTool:"• Costs 10 C, 10 E&#10;"+oneStop,mineTool:"• Costs 10 C, 0 E&#10;"+oneStop,wallTool:"• Costs 30 C, 0 E&#10;"+fiveStops,artilleryTool:"• Costs 50 C, 50 E&#10;"+oneStop,researchTool:"• Costs 50 C, 50 E",gateTool:"• Costs 30 C, 0 E&#10;"+fiveStops,neutralizerTool:"• Costs 50 C, 50 E&#10;"+oneStop,terraformTool:"• Costs 5 C, 5 E&#10;• Converts one water, tree, mountain, C node, or E node into clear land",hiveBlockerTool:"• Requires 14 C, 14 E in base storage&#10;• Costs 2 C, 2 E per newly blocked clear-land hex&#10;• Permanently prevents hives from ever spawning on a hex&#10;• Structures can be built on top as if it is clear land&#10;• Covers 7 hexes; skips existing blockers and any hex that is occupied or not clear land"};
     for(const [id,cost] of Object.entries(expected)){const title=html.match(new RegExp(`id="${id}"[^>]*title="([^"]+)"`))?.[1];assert.equal(title,cost,id);}
     for(const title of [...html.matchAll(/class="btn tool-button[^"]*"[^>]*title="([^"]+)"/g)].map(match=>match[1]))for(const clause of title.split("&#10;"))assert.match(clause,/^• /);
   });
@@ -109,7 +109,7 @@ describe("game bootstrap", () => {
     assert.match(html,/data-mode="neutralizer"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">0<\/span>Build neutralizer/);
     assert.match(html,/id="terraformTool"[^>]*data-mode="terraform"[^>]*Costs 5 C, 5 E[^>]*>Terraform land<\/button>/);
     assert.doesNotMatch(html,/id="terraformTool"[^>]*>[\s\S]*?<span class="keycap">/);
-    assert.match(html,/id="hiveBlockerTool"[^>]*data-mode="hiveBlocker"[^>]*Costs 2 C, 2 E per newly covered hex \(14 C, 14 E maximum\)[^>]*>Hive blocker<\/button>/);
+    assert.match(html,/id="hiveBlockerTool"[^>]*data-mode="hiveBlocker"[^>]*Requires 14 C, 14 E in base storage[^>]*>Hive blocker<\/button>/);
     assert.doesNotMatch(html,/id="hiveBlockerTool"[^>]*>[\s\S]*?<span class="keycap">/);
   });
 
@@ -160,9 +160,9 @@ describe("game bootstrap", () => {
     assert.equal((dialog.match(/Confirm salvage/g)||[]).length,1);assert.match(dialog,/id="confirmTitle" class="eyebrow text-danger">Confirm salvage/);assert.doesNotMatch(dialog,/<h2[^>]*>Confirm salvage<\/h2>/);
   });
 
-  test("the displayed and package version is 4.5.5",()=>{
+  test("the displayed and package version is 4.5.6",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 4\.5\.5/);assert.match(html,/DEFENSE 4\.5\.5/);assert.equal(packageJson.version,"4.5.5");
+    assert.match(html,/Planetary Rail Defense 4\.5\.6/);assert.match(html,/DEFENSE 4\.5\.6/);assert.equal(packageJson.version,"4.5.6");
   });
 });
