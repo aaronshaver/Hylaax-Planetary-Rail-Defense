@@ -78,9 +78,6 @@ function updateConstructionToolAvailability(){
     ["select",ui.selectTool],["track",ui.trackTool],["turret",ui.turretTool],["mine",ui.mineTool],
     ["wall",ui.wallTool],["artillery",ui.artilleryTool],["salvage",ui.salvageTool],["research",ui.researchTool],["gate",ui.gateTool],["neutralizer",ui.neutralizerTool],["terraform",ui.terraformTool],["hiveBlocker",ui.hiveBlockerTool]
   ];
-  if(!state.gameOver&&!constructionModeAffordable(state.mode)){
-    state.mode="select";state.trackStart=null;canvas.style.cursor="default";
-  }
   for(const [mode,tool] of tools){
     const unavailable=!state.gameOver&&!constructionModeAffordable(mode),disabled=state.gameOver&&mode!=="select";
     tool.disabled=disabled;tool.ariaDisabled=String(disabled||unavailable);tool.classList.toggle("unavailable",unavailable);tool.classList.toggle("active",mode===state.mode);

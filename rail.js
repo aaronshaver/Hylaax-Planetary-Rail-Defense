@@ -92,7 +92,6 @@ function layTrack(q, r) {
       if(startGhost?.objectType!=="track")return fail("Select an existing track hex first.");
       if(!placeTrackOverGhost(startGhost))return;
       sounds.place();burst(q,r,"#d9bd78",5);
-      if(state.baseMaterial<=0){toast("Base building has no construction material remaining.","info");setMode("select");return;}
     }
     state.trackStart=destination;toast("Track start selected. Click adjacent hexes to keep building.","info");tutorialEvent("track-selected",{q,r});updateUI(true);return;
   }
@@ -128,7 +127,6 @@ function layTrack(q, r) {
   sounds.place();
   burst(q, r, "#d9bd78", 5);
   tutorialEvent(isNew?"track-built":"track-linked",{q,r});
-  if(isNew&&state.baseMaterial<=0){toast("Base building has no construction material remaining.","info");setMode("select");return;}
   updateUI(true);
 }
 

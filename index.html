@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#070a0d">
-  <title>Planetary Rail Defense 4.6.2</title>
+  <title>Planetary Rail Defense 4.6.4</title>
   <link rel="stylesheet" href="bootstrap.min.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main id="gameRoot" aria-label="Planetary Rail Defense 4.6.2 game">
+  <main id="gameRoot" aria-label="Planetary Rail Defense 4.6.4 game">
     <section id="worldWrap" aria-label="Hex grid game world">
       <canvas id="gameCanvas" tabindex="0" aria-label="Interactive hex grid map"></canvas>
 
@@ -65,7 +65,7 @@
       <header class="panel-header">
         <div>
           <div class="brand-kicker">PLANETARY</div>
-          <h1>RAIL<br><span>DEFENSE 4.6.2</span></h1>
+          <h1>RAIL<br><span>DEFENSE 4.6.4</span></h1>
         </div>
         <div class="header-controls">
           <button id="pauseToggle" class="btn btn-sm icon-button status-playing" aria-label="Pause simulation"><svg class="flat-status-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5 13 8 3 13.5Z"/></svg><span>Playing</span></button>
@@ -76,18 +76,24 @@
       <section class="panel-section tools-section">
         <div class="section-label">Actions</div>
         <div class="tool-grid" role="group" aria-label="Actions">
-          <button id="selectTool" class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="• Select units and structures."><span class="keycap">1</span>Select object</button>
-          <button id="trackTool" class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 1 C, 0 E"><span class="keycap">2</span>Build track</button>
-          <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 10 C, 10 E&#10;• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined"><span class="keycap">3</span>Build turret</button>
-          <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 10 C, 0 E&#10;• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined"><span class="keycap">4</span>Build mine</button>
-          <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 30 C, 0 E&#10;• Must be built within 5 hexes of a train stop so that it can be resupplied, repaired, and/or mined"><span class="keycap">5</span>Build wall</button>
-          <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E&#10;• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined"><span class="keycap">6</span>Build artillery</button>
-          <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="• Salvages for resources: train track, most buildings, and trains&#10;• Clears destroyed objects&#10;• Salvaging or clearing a mine leaves the underlying resource node untouched"><span class="keycap">7</span>Salvage/clear object</button>
-          <button id="researchTool" class="btn tool-button" data-mode="research" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E"><span class="keycap">8</span>Build research</button>
-          <button id="gateTool" class="btn tool-button" data-mode="gate" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 30 C, 0 E&#10;• Must be built within 5 hexes of a train stop so that it can be resupplied, repaired, and/or mined"><span class="keycap">9</span>Build gate</button>
-          <button id="neutralizerTool" class="btn tool-button" data-mode="neutralizer" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E&#10;• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined"><span class="keycap">0</span>Build neutralizer</button>
-          <button id="terraformTool" class="btn tool-button" data-mode="terraform" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 5 C, 5 E&#10;• Converts one water, tree, mountain, C node, or E node into clear land">Terraform land</button>
-          <button id="hiveBlockerTool" class="btn tool-button" data-mode="hiveBlocker" data-bs-toggle="tooltip" data-bs-placement="left" title="• Requires 7 C, 7 E in base storage&#10;• Costs 1 C, 1 E per newly blocked clear-land hex&#10;• Permanently prevents hives from ever spawning on a hex&#10;• Structures can be built on top as if it is clear land&#10;• Covers 7 hexes; skips existing blockers and any hex that is occupied or not clear land">Hive blocker</button>
+          <div class="tool-group" role="group" aria-label="Object actions">
+            <button id="selectTool" class="btn tool-button active" data-mode="select" data-bs-toggle="tooltip" data-bs-placement="left" title="• Select units and structures."><strong>Select</strong> object</button>
+            <button id="salvageTool" class="btn tool-button" data-mode="salvage" data-bs-toggle="tooltip" data-bs-placement="left" title="• Salvages for resources: train track, most buildings, and trains&#10;• Clears destroyed objects&#10;• Salvaging or clearing a mine leaves the underlying resource node untouched"><strong>Salvage/clear</strong> object</button>
+          </div>
+          <div class="tool-group" role="group" aria-label="Build actions">
+            <button id="trackTool" class="btn tool-button" data-mode="track" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 1 C, 0 E">Build <strong>track</strong></button>
+            <button id="turretTool" class="btn tool-button" data-mode="turret" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 10 C, 10 E&#10;• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined">Build <strong>turret</strong></button>
+            <button id="mineTool" class="btn tool-button" data-mode="mine" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 10 C, 0 E&#10;• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined">Build <strong>mine</strong></button>
+            <button id="wallTool" class="btn tool-button" data-mode="wall" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 30 C, 0 E&#10;• Must be built within 5 hexes of a train stop so that it can be resupplied, repaired, and/or mined">Build <strong>wall</strong></button>
+            <button id="artilleryTool" class="btn tool-button" data-mode="artillery" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E&#10;• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined">Build <strong>artillery</strong></button>
+            <button id="researchTool" class="btn tool-button" data-mode="research" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E">Build <strong>research</strong></button>
+            <button id="gateTool" class="btn tool-button" data-mode="gate" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 30 C, 0 E&#10;• Must be built within 5 hexes of a train stop so that it can be resupplied, repaired, and/or mined">Build <strong>gate</strong></button>
+            <button id="neutralizerTool" class="btn tool-button" data-mode="neutralizer" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 50 C, 50 E&#10;• Periodically produces ally units to leave the base and go neutralize creeps and hives&#10;• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined">Build <strong>neutralizer</strong></button>
+          </div>
+          <div class="tool-group" role="group" aria-label="Terrain actions">
+            <button id="terraformTool" class="btn tool-button" data-mode="terraform" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 5 C, 5 E&#10;• Converts one water, tree, mountain, C node, or E node into clear land"><strong>Terraform</strong> land</button>
+            <button id="hiveBlockerTool" class="btn tool-button" data-mode="hiveBlocker" data-bs-toggle="tooltip" data-bs-placement="left" title="• Costs 1 C, 1 E per hex&#10;• Permanently prevents hives from ever spawning on a hex&#10;• Structures can be built on top as if it is clear land&#10;• Covers 7 hexes; skips existing blockers and any hex that is occupied or not clear land">Hive <strong>blocker</strong></button>
+          </div>
         </div>
       </section>
 

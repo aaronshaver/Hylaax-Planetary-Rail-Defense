@@ -107,7 +107,7 @@ button { touch-action: manipulation; }
 }
 
 .panel-header {
-  padding: 24px 22px 20px;
+  padding: 24px 22px 16px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -160,40 +160,35 @@ button { touch-action: manipulation; }
 .icon-button.status-sound-off:hover { border-color: #bc9638; background: #7a6124; color: #fff5cf; }
 
 .panel-section { padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.tools-section, .selection-section { padding-top: 14px; }
 .section-label { margin-bottom: 12px; }
 
-.tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.tool-grid { display: grid; }
+.tool-group { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.tool-group + .tool-group { margin-top: 3px; padding-top: 3px; border-top: 1px dashed #59646a; }
 .tool-button {
   min-height: 52px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: .22em;
   padding: 7px 9px;
   border: 1px solid #29373d;
   border-radius: 4px;
   background: #11191d;
   color: #aebabe;
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 500;
   text-align: left;
 }
+.tool-button strong { font-weight: 800; }
 .tool-button:hover { color: #fff; border-color: #4a5b62; background: #162127; }
 .tool-button.active { color: #111; border-color: var(--accent); background: var(--accent); }
 .tool-button.unavailable,
 .tool-button.unavailable:hover { color: #748187; border-color: #243036; background: #0d1417; opacity: .34; cursor: not-allowed; }
 .tool-button:disabled,
 .tool-button:disabled:hover { color: #748187; border-color: #243036; background: #0d1417; opacity: .34; cursor: not-allowed; }
-.keycap {
-  min-width: 25px;
-  height: 25px;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid currentColor;
-  border-radius: 2px;
-  font: 700 14px/1 ui-monospace, monospace;
-  opacity: .7;
-}
-
+.tool-button.active.unavailable,
+.tool-button.active.unavailable:hover { color: #e5d7a4; border-color: var(--accent); background: #30291a; opacity: .72; cursor: crosshair; }
 .selection-section { min-height: 260px; }
 .selection-empty { padding: 34px 8px; color: #65757b; text-align: center; font-size: 18px; line-height: 1.6; }
 .selection-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 3px; }
@@ -371,7 +366,7 @@ button { touch-action: manipulation; }
 
 @media (max-width: 800px) {
   :root { --panel-width: 390px; }
-  .panel-header { padding: 17px 15px; }
+  .panel-header { padding: 17px 15px 13px; }
   .panel-section { padding: 14px 15px; }
 }
 

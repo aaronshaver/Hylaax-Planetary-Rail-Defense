@@ -72,7 +72,7 @@ describe("game bootstrap", () => {
   });
 
   test("Center Map on Base is a small button below the upper-left HUD instead of an Action",()=>{
-    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),css=fs.readFileSync(path.join(__dirname,"styles.css"),"utf8"),actions=html.match(/<div class="tool-grid"[^>]*>[\s\S]*?<\/div>/)?.[0]||"",topLeft=html.match(/<div class="top-left-stack">[\s\S]*?<\/button>\s*<\/div>/)?.[0]||"";
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),css=fs.readFileSync(path.join(__dirname,"styles.css"),"utf8"),actions=html.match(/<div class="tool-grid"[^>]*>[\s\S]*?<\/div>\s*<\/section>/)?.[0]||"",topLeft=html.match(/<div class="top-left-stack">[\s\S]*?<\/button>\s*<\/div>/)?.[0]||"";
     assert.equal((actions.match(/<button /g)||[]).length,12);assert.doesNotMatch(actions,/centerBaseButton/);assert.match(topLeft,/<\/div>\s*<button id="centerBaseButton" class="btn center-base-button" type="button">Center map on base building<\/button>/);
     assert.match(css,/\.center-base-button \{[^}]*padding: 7\.5px 13\.5px;[^}]*font: 700 18px\/1\.2/);
     const game=fs.readFileSync(path.join(__dirname,"game.js"),"utf8");assert.doesNotMatch(game,/e\.key==="9"/);
@@ -89,7 +89,7 @@ describe("game bootstrap", () => {
     assert.match(html,/title="• Select units and structures\."/);
     assert.doesNotMatch(html,/Select a Train to create or clear its automatic schedule/);
     const oneStop="• Must be built within 1 hex of a train stop so that it can be resupplied, repaired, and/or mined",fiveStops="• Must be built within 5 hexes of a train stop so that it can be resupplied, repaired, and/or mined";
-    const expected={trackTool:"• Costs 1 C, 0 E",turretTool:"• Costs 10 C, 10 E&#10;"+oneStop,mineTool:"• Costs 10 C, 0 E&#10;"+oneStop,wallTool:"• Costs 30 C, 0 E&#10;"+fiveStops,artilleryTool:"• Costs 50 C, 50 E&#10;"+oneStop,researchTool:"• Costs 50 C, 50 E",gateTool:"• Costs 30 C, 0 E&#10;"+fiveStops,neutralizerTool:"• Costs 50 C, 50 E&#10;"+oneStop,terraformTool:"• Costs 5 C, 5 E&#10;• Converts one water, tree, mountain, C node, or E node into clear land",hiveBlockerTool:"• Requires 7 C, 7 E in base storage&#10;• Costs 1 C, 1 E per newly blocked clear-land hex&#10;• Permanently prevents hives from ever spawning on a hex&#10;• Structures can be built on top as if it is clear land&#10;• Covers 7 hexes; skips existing blockers and any hex that is occupied or not clear land"};
+    const expected={trackTool:"• Costs 1 C, 0 E",turretTool:"• Costs 10 C, 10 E&#10;"+oneStop,mineTool:"• Costs 10 C, 0 E&#10;"+oneStop,wallTool:"• Costs 30 C, 0 E&#10;"+fiveStops,artilleryTool:"• Costs 50 C, 50 E&#10;"+oneStop,researchTool:"• Costs 50 C, 50 E",gateTool:"• Costs 30 C, 0 E&#10;"+fiveStops,neutralizerTool:"• Costs 50 C, 50 E&#10;• Periodically produces ally units to leave the base and go neutralize creeps and hives&#10;"+oneStop,terraformTool:"• Costs 5 C, 5 E&#10;• Converts one water, tree, mountain, C node, or E node into clear land",hiveBlockerTool:"• Costs 1 C, 1 E per hex&#10;• Permanently prevents hives from ever spawning on a hex&#10;• Structures can be built on top as if it is clear land&#10;• Covers 7 hexes; skips existing blockers and any hex that is occupied or not clear land"};
     for(const [id,cost] of Object.entries(expected)){const title=html.match(new RegExp(`id="${id}"[^>]*title="([^"]+)"`))?.[1];assert.equal(title,cost,id);}
     for(const title of [...html.matchAll(/class="btn tool-button[^"]*"[^>]*title="([^"]+)"/g)].map(match=>match[1]))for(const clause of title.split("&#10;"))assert.match(clause,/^• /);
   });
@@ -99,18 +99,17 @@ describe("game bootstrap", () => {
     assert.doesNotMatch(sources,/trackWithinRange|liveTrackWithinRange|requireNearbyTrack|within (?:three|3) hexes of (?:non-destroyed )?Track/i);
   });
 
-  test("the Actions panel exposes Terraform without a keyboard shortcut and keeps Salvage/Clear on key 7",()=>{
-    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
-    assert.match(html,/data-mode="wall"[^>]*Costs 30 C, 0 E[^>]*><span class="keycap">5<\/span>Build wall/);
-    assert.match(html,/data-mode="artillery"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">6<\/span>Build artillery/);
-    assert.match(html,/data-mode="salvage"[^>]*Salvages for resources: train track, most buildings, and trains&#10;• Clears destroyed objects&#10;• Salvaging or clearing a mine leaves the underlying resource node untouched[^>]*><span class="keycap">7<\/span>Salvage\/clear object/);
-    assert.match(html,/data-mode="research"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">8<\/span>Build research/);
-    assert.match(html,/data-mode="gate"[^>]*Costs 30 C, 0 E[^>]*><span class="keycap">9<\/span>Build gate/);
-    assert.match(html,/data-mode="neutralizer"[^>]*Costs 50 C, 50 E[^>]*><span class="keycap">0<\/span>Build neutralizer/);
-    assert.match(html,/id="terraformTool"[^>]*data-mode="terraform"[^>]*Costs 5 C, 5 E[^>]*>Terraform land<\/button>/);
-    assert.doesNotMatch(html,/id="terraformTool"[^>]*>[\s\S]*?<span class="keycap">/);
-    assert.match(html,/id="hiveBlockerTool"[^>]*data-mode="hiveBlocker"[^>]*Requires 7 C, 7 E in base storage[^>]*>Hive blocker<\/button>/);
-    assert.doesNotMatch(html,/id="hiveBlockerTool"[^>]*>[\s\S]*?<span class="keycap">/);
+  test("the Actions panel exposes every tool without number-key shortcuts",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),game=fs.readFileSync(path.join(__dirname,"game.js"),"utf8");
+    assert.match(html,/data-mode="wall"[^>]*Costs 30 C, 0 E[^>]*>Build <strong>wall<\/strong>/);
+    assert.match(html,/data-mode="artillery"[^>]*Costs 50 C, 50 E[^>]*>Build <strong>artillery<\/strong>/);
+    assert.match(html,/data-mode="salvage"[^>]*Salvages for resources: train track, most buildings, and trains&#10;• Clears destroyed objects&#10;• Salvaging or clearing a mine leaves the underlying resource node untouched[^>]*><strong>Salvage\/clear<\/strong> object/);
+    assert.match(html,/data-mode="research"[^>]*Costs 50 C, 50 E[^>]*>Build <strong>research<\/strong>/);
+    assert.match(html,/data-mode="gate"[^>]*Costs 30 C, 0 E[^>]*>Build <strong>gate<\/strong>/);
+    assert.match(html,/data-mode="neutralizer"[^>]*Costs 50 C, 50 E[^>]*>Build <strong>neutralizer<\/strong>/);
+    assert.match(html,/id="terraformTool"[^>]*data-mode="terraform"[^>]*Costs 5 C, 5 E[^>]*><strong>Terraform<\/strong> land<\/button>/);
+    assert.match(html,/id="hiveBlockerTool"[^>]*data-mode="hiveBlocker"[^>]*Costs 1 C, 1 E per hex[^>]*>Hive <strong>blocker<\/strong><\/button>/);
+    assert.doesNotMatch(html,/keycap/);assert.doesNotMatch(game,/e\.key\s*>?=\s*"1"|e\.key\s*===\s*"0"|Number\(e\.key\)/);
   });
 
   test("Base Train fabrication tooltips put standardized costs first and bullet every item",()=>{
@@ -160,9 +159,17 @@ describe("game bootstrap", () => {
     assert.equal((dialog.match(/Confirm salvage/g)||[]).length,1);assert.match(dialog,/id="confirmTitle" class="eyebrow text-danger">Confirm salvage/);assert.doesNotMatch(dialog,/<h2[^>]*>Confirm salvage<\/h2>/);
   });
 
-  test("the displayed and package version is 4.6.2",()=>{
+  test("the displayed and package version is 4.6.4",()=>{
     const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
     const packageJson=JSON.parse(fs.readFileSync(path.join(__dirname,"package.json"),"utf8"));
-    assert.match(html,/Planetary Rail Defense 4\.6\.2/);assert.match(html,/DEFENSE 4\.6\.2/);assert.equal(packageJson.version,"4.6.2");
+    assert.match(html,/Planetary Rail Defense 4\.6\.4/);assert.match(html,/DEFENSE 4\.6\.4/);assert.equal(packageJson.version,"4.6.4");
+  });
+
+  test("the Actions pane uses three ordered groups without numbered shortcut badges",()=>{
+    const html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8"),css=fs.readFileSync(path.join(__dirname,"styles.css"),"utf8"),actions=html.match(/<div class="tool-grid"[\s\S]*?<\/div>\s*<\/section>/)?.[0]||"";
+    const ids=[...actions.matchAll(/<button id="([^"]+Tool)"/g)].map(match=>match[1]);
+    assert.deepEqual(ids,["selectTool","salvageTool","trackTool","turretTool","mineTool","wallTool","artilleryTool","researchTool","gateTool","neutralizerTool","terraformTool","hiveBlockerTool"]);
+    assert.equal((actions.match(/class="tool-group"/g)||[]).length,3);assert.doesNotMatch(actions,/keycap/);
+    assert.equal((actions.match(/<strong>/g)||[]).length,12);assert.match(css,/\.tool-button \{[^}]*gap: \.22em;[^}]*font-weight: 500;/);assert.match(css,/\.tool-button strong \{ font-weight: 800; \}/);
   });
 });

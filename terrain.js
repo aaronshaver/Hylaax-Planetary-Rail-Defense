@@ -128,7 +128,7 @@ function hiveBlockerPlacementCost(q,r){
 }
 
 function placeHiveBlocker(q,r){
-  if(!canBaseAfford(COSTS.hiveBlocker))return fail("Needs 7 construction material and 7 energy for a hive blocker.");
+  if(!canBaseAfford(COSTS.hiveBlocker))return fail(INSUFFICIENT_BASE_RESOURCES_MESSAGE);
   const footprint=hiveBlockerFootprint(q,r);
   const newCells=footprint.filter(cell=>hiveBlockerCellClear(cell)&&!state.hiveBlockedLand.has(key(cell.q,cell.r)));
   if(!newCells.length)return true;

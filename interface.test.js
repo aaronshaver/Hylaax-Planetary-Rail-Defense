@@ -38,16 +38,19 @@ describe("interface formatting", () => {
     for(const id of ["trackTool","turretTool","mineTool","wallTool","artilleryTool","researchTool","gateTool","neutralizerTool","terraformTool","hiveBlockerTool"]){assert.equal(elements.get(id).disabled,false,id);assert.equal(elements.get(id).ariaDisabled,"false",id);assert.equal(elements.get(id).classList.contains("unavailable"),false,id);}
   });
 
-  test("unaffordable construction modes cannot be entered and an active one exits when funds fall short",()=>{
+  test("an active construction mode stays selected when funds fall short and blocks building with a clear error",()=>{
     const state=api.state;
     state.baseMaterial=50;state.baseEnergy=49;
     assert.equal(api.setMode("artillery"),false);
     assert.equal(state.mode,"select");
+    assert.equal(elements.get("toastStack").children.at(-1).textContent,"Insufficient resources in base to build this right now");
 
     state.baseEnergy=50;assert.equal(api.setMode("artillery"),true);assert.equal(state.mode,"artillery");
     state.baseEnergy=0;api.updateUI(true);
-    assert.equal(state.mode,"select");
-    assert.equal(elements.get("artilleryTool").disabled,false);assert.equal(elements.get("artilleryTool").ariaDisabled,"true");assert.equal(elements.get("artilleryTool").classList.contains("unavailable"),true);
+    assert.equal(state.mode,"artillery");
+    assert.equal(elements.get("artilleryTool").disabled,false);assert.equal(elements.get("artilleryTool").ariaDisabled,"true");assert.equal(elements.get("artilleryTool").classList.contains("unavailable"),true);assert.equal(elements.get("artilleryTool").classList.contains("active"),true);
+    const structuresBefore=state.structures.size;api.handleHexClick({q:9,r:9});
+    assert.equal(state.structures.size,structuresBefore);assert.equal(state.mode,"artillery");assert.equal(elements.get("toastStack").children.at(-1).textContent,"Insufficient resources in base to build this right now");
   });
 
   test("the upper-left HUD shows current Base resources instead of neutralization counts",()=>{

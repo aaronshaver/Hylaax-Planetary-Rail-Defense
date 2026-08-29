@@ -52,6 +52,28 @@ describe("resource logistics", () => {
     assert.ok(state.worldMessages.some(item=>item.message==="Train B: Fueled train A with energy"));
   });
 
+  test("Train-to-Train emergency Energy transfer happens before Turret and Base supply",()=>{
+    const state=api.state,receiver=state.trains[0],donor=addTestTrain();
+    positionTrain(receiver,[{q:4,r:0},{q:3,r:0},{q:2,r:0}]);positionTrain(donor,[{q:2,r:0},{q:1,r:0},{q:0,r:0}]);installLiveStop(donor);
+    receiver.fuel=0;receiver.energyDepleted=true;receiver.wagons[1].amount=0;donor.fuel=donor.maxFuel;donor.wagons[1].amount=9;donor.wasNearBase=false;state.baseEnergy=0;
+    const turret={id:"emergency-first-turret",type:"turret",q:3,r:-1,hp:18,maxHp:18,energy:0,maxEnergy:20,cooldown:0};state.structures.set(api.key(turret.q,turret.r),turret);
+
+    api.updateAutomaticLogistics();
+
+    assert.equal(receiver.fuel,4,"the depleted Train receives half of the donor's Energy first");assert.equal(turret.energy,5,"the Turret receives only the Energy left after emergency refueling");assert.equal(state.baseEnergy,0,"the Base cannot consume Energy ahead of the depleted Train");
+  });
+
+  test("a passing Train shares emergency Energy before moving away",()=>{
+    const state=api.state,receiver=state.trains[0],donor=addTestTrain(),from=[{q:2,r:0},{q:1,r:0},{q:0,r:0}],to=[{q:1,r:-1},{q:0,r:0},{q:-1,r:1}];
+    positionTrain(receiver,[{q:4,r:0},{q:3,r:0},{q:2,r:0}]);positionTrain(donor,from);
+    receiver.fuel=0;receiver.energyDepleted=true;receiver.wagons[1].amount=0;donor.wagons[1].amount=9;
+    donor.stepFrom=from;donor.stepTo=to;donor.progress=.99;donor.route=[to[0]];
+
+    api.update(api.constants.SIMULATION_STEP);
+
+    assert.equal(receiver.fuel,4);assert.equal(receiver.energyDepleted,false);assert.equal(api.trainSegments(donor).map(segment=>`${segment.q},${segment.r}`).join("|"),to.map(position=>`${position.q},${position.r}`).join("|"));
+  });
+
   test("the Base reports Energy loaded into a Train",()=>{
     const state=api.state,train=state.trains[0];
     moveTrain(train,2,0);installLiveStop(train);train.fuel=10;train.wagons[0].amount=1;train.wagons[1].amount=0;state.baseEnergy=50;
