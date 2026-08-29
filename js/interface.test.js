@@ -57,7 +57,7 @@ describe("interface formatting", () => {
     const state=api.state;state.baseEnergy=87.9;state.baseMaterial=432.6;api.updateUI(true);
     assert.equal(elements.get("baseEnergyHud").textContent,87);assert.equal(elements.get("baseMaterialHud").textContent,432);
     assert.equal(elements.has("hivesNeutralized"),false);assert.equal(elements.has("creepsNeutralized"),false);
-    const fs=require("node:fs"),path=require("node:path"),html=fs.readFileSync(path.join(__dirname,"index.html"),"utf8");
+    const fs=require("node:fs"),path=require("node:path"),html=fs.readFileSync(path.join(__dirname,"..","index.html"),"utf8");
     assert.ok(html.indexOf('id="baseMaterialHud"')<html.indexOf('id="baseEnergyHud"'),"Construction should appear before Energy in the HUD");
     assert.ok(html.indexOf('id="baseEnergyHud"')<html.indexOf('id="unminedMaterialHud"')&&html.indexOf('id="unminedMaterialHud"')<html.indexOf('id="unminedEnergyHud"'));
     assert.equal(elements.get("researchPointsHud").textContent,0);

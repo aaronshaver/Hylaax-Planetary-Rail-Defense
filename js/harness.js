@@ -100,7 +100,7 @@ class AudioContextMock {
 
 function loadGame() {
   const root = __dirname;
-  const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const html = fs.readFileSync(path.join(root, "..", "index.html"), "utf8");
   const ids = [...html.matchAll(/\bid=["']([^"']+)["']/g)].map(match => match[1]);
   const elements = new Map(ids.map(id => [id, id === "gameCanvas" ? new CanvasMock(id) : new ElementMock("div", id)]));
   const document = {

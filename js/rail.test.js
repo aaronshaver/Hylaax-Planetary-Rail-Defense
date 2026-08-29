@@ -302,7 +302,7 @@ describe("repairs, ghosts, and schedules", () => {
     api.damageTarget(firstTrack,.01);
 
     assert.equal(state.trackDestroyedWarningShown,true);assert.equal(state.paused,true);assert.equal(elements.get("trackDestroyedDialog").hidden,false);
-    const html=require("node:fs").readFileSync(require("node:path").join(__dirname,"index.html"),"utf8");assert.match(html,/Some of your train track has been destroyed\.[\s\S]*'Build track' button,[\s\S]*from healthy track to where the destroyed track is\./);
+    const html=require("node:fs").readFileSync(require("node:path").join(__dirname,"..","index.html"),"utf8");assert.match(html,/Some of your train track has been destroyed\.[\s\S]*'Build track' button,[\s\S]*from healthy track to where the destroyed track is\./);
     assert.equal(api.dismissTrackDestroyedWarning(),true);assert.equal(state.paused,false);assert.equal(elements.get("trackDestroyedDialog").hidden,true);
 
     api.damageTarget(secondTrack,.01);
