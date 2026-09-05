@@ -224,15 +224,25 @@ function chooseEnemySpaceSlot(reservations,q,r,enemy,salt=0){
 }
 
 function invalidateEnemyNavigation(){enemyNavigationVersion++;}
+let enemyNavigationWork=null;
 
 function resetEnemyNavigation(){
   enemyNavigationVersion++;
+  enemyNavigationWork=null;
   enemyNavigationCache={signature:"",distances:new Map(),targetKeys:new Set(),bounds:null,builds:0};
 }
 
 function enemyNavigationSignature(){return `${enemyNavigationVersion}|${state.base.q},${state.base.r}|${state.structures.size}`;}
 
 function rebuildEnemyNavigation(){
+  enemyNavigationWork=null;
+  const work=buildEnemyNavigationField();let result=work.next();
+  while(!result.done)result=work.next();
+  return result.value;
+}
+
+function* buildEnemyNavigationField(){
+  const signature=enemyNavigationSignature(),builds=enemyNavigationCache.builds+1;
   const targets=[state.base,...state.structures.values()],targetCells=targets.flatMap(target=>structureFootprint(target)),targetKeys=new Set(targetCells.map(target=>key(target.q,target.r)));
   const points=[...targetCells,...state.enemies];
   if(!points.length){enemyNavigationCache={signature:enemyNavigationSignature(),distances:new Map(),targetKeys,bounds:null,builds:enemyNavigationCache.builds+1};return enemyNavigationCache;}
@@ -251,6 +261,7 @@ function rebuildEnemyNavigation(){
       if(!passable(position.q,position.r)||distances.has(positionKey))continue;
       distances.set(positionKey,0);push({...position,distance:0});
     }
+    let expanded=0;
     while(queue.length){
       const current=pop(),currentKey=key(current.q,current.r);if(current.distance!==distances.get(currentKey))continue;
       for(const next of neighbors(current.q,current.r)){
@@ -260,19 +271,28 @@ function rebuildEnemyNavigation(){
         if(nextDistance>=(distances.get(nextKey)??Infinity))continue;
         distances.set(nextKey,nextDistance);push({...next,distance:nextDistance});
       }
+      if(++expanded%128===0){
+        // Publish the valid, outward-growing distance field so nearby Creeps can
+        // already move while distant cells are prepared over subsequent ticks.
+        enemyNavigationCache={signature,distances,targetKeys,bounds,builds};yield enemyNavigationCache;
+      }
     }
     if(state.enemies.every(enemy=>distances.has(key(enemy.q,enemy.r))||targetKeys.has(key(enemy.q,enemy.r))))break;
   }
-  enemyNavigationCache={signature:enemyNavigationSignature(),distances,targetKeys,bounds,builds:enemyNavigationCache.builds+1};
+  enemyNavigationCache={signature,distances,targetKeys,bounds,builds};
   return enemyNavigationCache;
 }
 
-function ensureEnemyNavigation(){
+function ensureEnemyNavigation(incremental=false){
   if(state.gameOver)return enemyNavigationCache;
   const signature=enemyNavigationSignature();
+  if(enemyNavigationWork?.signature!==signature)enemyNavigationWork=null;
   const bounds=enemyNavigationCache.bounds;
   const outsideBounds=state.enemies.some(enemy=>!bounds||enemy.q<bounds.minQ||enemy.q>bounds.maxQ||enemy.r<bounds.minR||enemy.r>bounds.maxR);
-  return signature!==enemyNavigationCache.signature||outsideBounds?rebuildEnemyNavigation():enemyNavigationCache;
+  if(!incremental)return signature!==enemyNavigationCache.signature||outsideBounds||enemyNavigationWork?rebuildEnemyNavigation():enemyNavigationCache;
+  if(!enemyNavigationWork&&(signature!==enemyNavigationCache.signature||outsideBounds))enemyNavigationWork={signature,iterator:buildEnemyNavigationField()};
+  if(enemyNavigationWork){const result=enemyNavigationWork.iterator.next();if(result.done)enemyNavigationWork=null;}
+  return enemyNavigationCache;
 }
 
 function nextEnemyNavigationStep(enemy,reservations,neutralizerIndex=null){
@@ -325,20 +345,31 @@ function addUnitDeathFlash(kind,x,y,color){
 function enemyNavigationStats(){return {builds:enemyNavigationCache.builds,cells:enemyNavigationCache.distances.size};}
 
 function findEnemyPath(start,goal,passable=isPassable,stopRange=0,movementCost=unitTraversalCost){
+  const search=createEnemyPathSearch(start,goal,stopRange);
+  return advanceEnemyPathSearch(search,passable,movementCost,Infinity);
+}
+
+// A search can also be resumed by the simulation, with a shared expansion budget.
+function createEnemyPathSearch(start,goal,stopRange=0){
   const startKey=key(start.q,start.r),goalKey=key(goal.q,goal.r);
-  if(hexDistance(start,goal)<=stopRange)return [];
   const distance=hexDistance(start,goal);
   const maxNodes=Math.min(60000,Math.max(20000,Math.ceil((distance+40)*(distance+40)*12)));
   const open=[],cameFrom=new Map(),gScore=new Map([[startKey,0]]),closed=new Set();
-  let order=0;
+  return {startKey,goalKey,goal:{q:goal.q,r:goal.r},stopRange,maxNodes,open,cameFrom,gScore,closed,order:1,explored:0,initial:{q:start.q,r:start.r,g:0,h:distance,f:distance,order:0}};
+}
+
+function advanceEnemyPathSearch(search,passable,movementCost=unitTraversalCost,nodeBudget=Infinity){
+  const {startKey,goalKey,goal,stopRange,maxNodes,open,cameFrom,gScore,closed}=search;
+  let order=search.order;
   const compare=(a,b)=>a.f-b.f||a.h-b.h||a.order-b.order;
   const push=node=>{open.push(node);let index=open.length-1;while(index>0){const parent=(index-1)>>1;if(compare(open[parent],node)<=0)break;open[index]=open[parent];index=parent;}open[index]=node;};
   const pop=()=>{const root=open[0],tail=open.pop();if(open.length&&tail){let index=0;while(true){const left=index*2+1,right=left+1;if(left>=open.length)break;let child=right<open.length&&compare(open[right],open[left])<0?right:left;if(compare(open[child],tail)>=0)break;open[index]=open[child];index=child;}open[index]=tail;}return root;};
-  push({q:start.q,r:start.r,g:0,h:distance,f:distance,order:order++});
-  for(let explored=0;open.length&&explored<maxNodes;){
+  if(search.initial){push(search.initial);search.initial=null;}
+  let expanded=0;
+  for(;open.length&&search.explored<maxNodes&&expanded<nodeBudget;){
     const current=pop(),currentKey=key(current.q,current.r);
     if(closed.has(currentKey))continue;
-    closed.add(currentKey);explored++;
+    closed.add(currentKey);search.explored++;expanded++;
     if(currentKey===goalKey||hexDistance(current,goal)<=stopRange){
       const reversed=[];let pathKey=currentKey;
       while(pathKey!==startKey){reversed.push(fromKey(pathKey));pathKey=cameFrom.get(pathKey);if(!pathKey)return null;}
@@ -353,7 +384,8 @@ function findEnemyPath(start,goal,passable=isPassable,stopRange=0,movementCost=u
       const h=hexDistance(next,goal);push({q:next.q,r:next.r,g:tentative,h,f:tentative+h,order:order++});
     }
   }
-  return null;
+  search.order=order;
+  return open.length&&search.explored<maxNodes?false:null;
 }
 
 function findEnemyStep(start,goal,passable=isPassable,stopRange=0){return findEnemyPath(start,goal,passable,stopRange)?.[0]||null;}
@@ -521,7 +553,7 @@ function damageTarget(target, amount,{silent=false}={}) {
 function updateEnemies(dt) {
   if(state.gameOver)return;
   expireCreeps();if(!state.enemies.length)return;
-  ensureEnemyNavigation();
+  ensureEnemyNavigation(true);
   const reservations=enemySpaceReservations(),neutralizerIndex=unitHexIndex(state.neutralizers);
   deferNeutralizerRemoval=true;
   try{for (const enemy of state.enemies) {

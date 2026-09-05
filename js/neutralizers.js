@@ -80,7 +80,21 @@ function cachedNeutralizerPathStep(unit,targetPosition,passable,pathBudget){
   if(cached){field.steps.delete(startKey);field.distances.delete(startKey);}
   if(pathBudget&&pathBudget.remaining<=0)return false;
   if(pathBudget)pathBudget.remaining--;
-  const path=findEnemyPath(unit,targetPosition,passable,1),position=path?.[0]||null;
+  // A fully occupied attack perimeter cannot be reached by searching the rest of the map.
+  if(!neighbors(targetPosition.q,targetPosition.r).some(cell=>passable(cell.q,cell.r))){unit.pathSearch=null;return null;}
+  let path;
+  if(pathBudget?.nodesRemaining!==undefined){
+    const signature=`${fieldKey}|${unit.q},${unit.r}`;
+    if(unit.pathSearch?.signature!==signature)unit.pathSearch={signature,search:createEnemyPathSearch(unit,targetPosition,1)};
+    const search=unit.pathSearch.search,before=search.explored;
+    path=advanceEnemyPathSearch(search,passable,unitTraversalCost,pathBudget.nodesRemaining);
+    pathBudget.nodesRemaining-=search.explored-before;
+    if(path===false)return false;
+    unit.pathSearch=null;
+    // Reservations can change while a long search is pending; never enter an occupied cell.
+    if(path?.length&&!passable(path[0].q,path[0].r))return false;
+  }else path=findEnemyPath(unit,targetPosition,passable,1);
+  const position=path?.[0]||null;
   if(position){
     if(!field){if(neutralizerRouteFields.size>=256)neutralizerRouteFields.clear();field={steps:new Map(),distances:new Map(),until:0};neutralizerRouteFields.set(fieldKey,field);}
     const endpoint=path.at(-1);if(!field.distances.has(key(endpoint.q,endpoint.r)))field.distances.set(key(endpoint.q,endpoint.r),0);
@@ -214,7 +228,7 @@ function updateNeutralizers(dt,initiativeRoll=Math.random){
   if(!state.neutralizers.length)return;
   const units=state.neutralizers,start=(state.neutralizerPathCursor||0)%units.length;
   state.neutralizerPathCursor=(start+NEUTRALIZER_PATH_SEARCHES_PER_TICK)%units.length;
-  const reservations=neutralizerSpaceReservations(),enemyIndex=unitHexIndex(state.enemies),neutralizerIndex=unitHexIndex(units),targetById=neutralizerTargetLookup(),pathBudget={remaining:NEUTRALIZER_PATH_SEARCHES_PER_TICK};
+  const reservations=neutralizerSpaceReservations(),enemyIndex=unitHexIndex(state.enemies),neutralizerIndex=unitHexIndex(units),targetById=neutralizerTargetLookup(),pathBudget={remaining:NEUTRALIZER_PATH_SEARCHES_PER_TICK,nodesRemaining:256};
   deferEnemyRemoval=true;
   try{for(let offset=0;offset<units.length;offset++){
     const unit=units[(start+offset)%units.length];

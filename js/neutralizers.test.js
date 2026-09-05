@@ -179,7 +179,7 @@ describe("Neutralizer buildings, gates, and ally units",()=>{
 
   test("Neutralizers use a small center triangle instead of the Creep center circle",()=>{
     const state=api.state,context=elements.get("gameCanvas").context,unit=makeNeutralizer("neutralizer-visual",12,12);state.neutralizers=[unit];context.fillCalls=[];context.scaleCalls=[];api.drawNeutralizers();
-    const marker=context.fillCalls.find(call=>call.fillStyle==="#8fd9ff");assert.ok(marker);assert.deepEqual(marker.path.map(step=>step.command),["moveTo","lineTo","lineTo","closePath"]);assert.equal(marker.path.some(step=>step.command==="arc"),false);
+    const marker=api.unitSprite("neutralizer",0).context.fillCalls.find(call=>call.fillStyle==="#8fd9ff"&&call.path.length===4);assert.ok(marker);assert.deepEqual(marker.path.map(step=>step.command),["moveTo","lineTo","lineTo","closePath"]);assert.equal(marker.path.some(step=>step.command==="arc"),false);
     assert.deepEqual(context.scaleCalls.at(-1),{x:api.constants.CREEP_RENDER_SCALE,y:api.constants.CREEP_RENDER_SCALE});const originalPhase=unit.phase;api.updateNeutralizers(.5);assert.equal(unit.phase,originalPhase,"neutralizer visuals should not pulse or flash over time");
   });
 

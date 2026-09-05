@@ -16,11 +16,11 @@ function update(dt) {
   state.uiClock-=dt;if(state.uiClock<=0){state.uiClock=.15;updateUI();}
 }
 
-function advanceSimulation(seconds){
+function advanceSimulation(seconds,maxTicks=Infinity){
   if(state.gameOver||state.paused||remindersOpen){simulationAccumulator=0;return 0;}
   simulationAccumulator+=Math.max(0,seconds);
   let ticks=0;
-  while(simulationAccumulator+1e-9>=SIMULATION_STEP&&!state.gameOver){update(SIMULATION_STEP);simulationAccumulator-=SIMULATION_STEP;ticks++;}
+  while(simulationAccumulator+1e-9>=SIMULATION_STEP&&!state.gameOver&&ticks<maxTicks){update(SIMULATION_STEP);simulationAccumulator-=SIMULATION_STEP;ticks++;}
   if(simulationAccumulator<0)simulationAccumulator=0;
   return ticks;
 }

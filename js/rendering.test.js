@@ -132,7 +132,7 @@ describe("rendering caches", () => {
     assert.equal(api.finishZoomGesture(),true);api.render();assert.equal(api.terrainLayerStats().builds,zoomedIn.builds+1,"zoom-out settling should rebuild once at final zoom");
   });
 
-  test("pan input transforms the overscanned terrain and rebuilds once after the drag settles",()=>{
+  test("pan input transforms the overscanned terrain without rebuilding after the drag settles",()=>{
     api.ensureTerrainLayer();const first=api.terrainLayerStats(),state=api.state;
     state.pointer.down=true;state.pointer.startX=100;state.pointer.startY=100;state.pointer.camX=state.camera.x;state.pointer.camY=state.camera.y;
 
@@ -141,7 +141,7 @@ describe("rendering caches", () => {
     assert.equal(state.camera.x,state.pointer.camX-40/state.camera.zoom);assert.equal(state.camera.y,state.pointer.camY-25/state.camera.zoom);
     assert.equal(api.terrainLayerStats().builds,first.builds,"pointer input must wait for the animation frame instead of rendering for every event");
     api.render();assert.equal(api.terrainLayerStats().builds,first.builds,"drag frames should transform the covering overscanned terrain");
-    state.pointer.down=false;api.render();assert.equal(api.terrainLayerStats().builds,first.builds+1,"the settled camera should rebuild terrain once");
+    state.pointer.down=false;api.render();assert.equal(api.terrainLayerStats().builds,first.builds,"a settled pan keeps the sharp covering terrain bitmap");
   });
 
   test("live Track never uses the legacy dark-red damaged rendering",()=>{
@@ -174,8 +174,8 @@ describe("rendering caches", () => {
 
     api.drawHives();
     assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#ff4054"&&call.lineWidth>2.5));
-    const hivePoint=api.axialToWorld(hive.q,hive.r),hiveBorder=context.strokeCalls.find(call=>call.strokeStyle==="#d33a51"&&call.lineWidth===2.2);
-    assert.ok(hiveBorder.path.some(item=>item.command==="lineTo"&&Math.hypot(item.x-hivePoint.x,item.y-hivePoint.y)>22),"the hive's colored interior border should sit closer to the hex edge");
+    const hiveBorder=api.hiveSprite(hive.level%3).context.strokeCalls.find(call=>call.strokeStyle==="#d33a51"&&call.lineWidth===2.2);
+    assert.ok(hiveBorder.path.some(item=>item.command==="lineTo"&&Math.hypot(item.x,item.y)>22),"the cached hive border retains its full silhouette");
     const hiveLabel=context.textCalls.find(call=>call.text==="H");assert.equal(hiveLabel.fillStyle,"#ff8793");assert.equal(hiveLabel.font,"900 20px ui-monospace, monospace");
 
     api.state.elapsed=.76;context.strokeCalls.length=0;api.drawHives();
@@ -239,7 +239,7 @@ describe("rendering caches", () => {
     const glyphs=context.textCalls.filter(call=>["B","T","A","W","R","C","E"].includes(call.text));
     assert.equal(glyphs.length,12);assert.ok(glyphs.every(call=>call.fillStyle==="#f3f7f8"&&call.font==="900 16.5px ui-monospace, monospace"));
     assert.ok(context.strokeCalls.some(call=>call.strokeStyle==="#ef9b54"&&call.path.some(item=>item.command==="arc"&&item.r===20)),"turret circle should use the larger radius and offensive orange");
-    for(const color of ["#a28d5e","#568f92"])assert.ok(context.strokeCalls.some(call=>call.strokeStyle===color&&call.path.some(item=>item.command==="arc"&&item.r===20)),`${color} resource-node circle should use the larger radius`);
+    for(const [type,color] of [["material","#a28d5e"],["energy","#568f92"]])assert.ok(api.depositSprite(type,false).context.strokeCalls.some(call=>call.strokeStyle===color&&call.path.some(item=>item.command==="arc"&&item.r===20)),`${color} resource-node circle should use the larger radius`);
     const artilleryPoint=api.axialToWorld(12,10),artilleryOutline=context.strokeCalls.find(call=>call.strokeStyle==="#ef9b54"&&call.path.every(item=>item.command!=="arc"));
     assert.ok(artilleryOutline.path.some(item=>item.command==="lineTo"&&Math.hypot(item.x-artilleryPoint.x,item.y-artilleryPoint.y)>21),"artillery outline should sit closer to the hex edge");
   });
@@ -326,24 +326,25 @@ describe("rendering caches", () => {
   test("each Train car keeps its assigned subtle color shade",()=>{
     const context=elements.get("gameCanvas").context;
     const { addTestTrain }=require("./harness.js"),train=addTestTrain("builder");
-    train.colorShade=0;train.wagons[0].colorShade=2;train.wagons[1].colorShade=0;context.fillRectCalls.length=0;
+    train.colorShade=0;train.wagons[0].colorShade=2;train.wagons[1].colorShade=0;context.drawImageCalls.length=0;
 
     api.drawTrains();
-    const firstColors=context.fillRectCalls.filter(call=>call.width===28&&call.height===18).map(call=>call.fillStyle);
+    const spriteColors=()=>context.drawImageCalls.flatMap(call=>call.args[0].context.fillRectCalls.filter(call=>call.width===28&&call.height===18).map(call=>call.fillStyle));
+    const firstColors=spriteColors();
     assert.deepEqual(firstColors,["#a88a42","#2a666c","#872a32"]);
 
-    context.fillRectCalls.length=0;api.drawTrains();
-    assert.deepEqual(context.fillRectCalls.filter(call=>call.width===28&&call.height===18).map(call=>call.fillStyle),firstColors,"car shades should remain stable across renders");
+    context.drawImageCalls.length=0;api.drawTrains();
+    assert.deepEqual(spriteColors(),firstColors,"car shades should remain stable across renders");
   });
 
   test("Turret Trains have a three-shade orange locomotive with no visible weapon or center mount",()=>{
     const context=elements.get("gameCanvas").context;
     const { addTestTrain }=require("./harness.js"),train=addTestTrain("combat");
-    context.strokeCalls.length=0;context.fillRectCalls.length=0;
+    context.strokeCalls.length=0;context.drawImageCalls.length=0;context.paintCalls.length=0;context.shadowBlur=0;
     for(let shade=0;shade<3;shade++){train.colorShade=shade;api.drawTrains();}
     assert.equal(context.strokeCalls.some(call=>call.strokeStyle==="#83edf2"&&call.lineWidth===4),false);
-    const locomotiveColors=context.fillRectCalls.filter(call=>call.width===28&&call.height===18&&api.constants.TRAIN_CAR_COLORS.combat.includes(call.fillStyle)).map(call=>call.fillStyle);
-    assert.deepEqual(locomotiveColors,["#7c4a28","#9b5d32","#ba703c"]);assert.ok(context.fillRectCalls.filter(call=>api.constants.TRAIN_CAR_COLORS.combat.includes(call.fillStyle)).every(call=>call.shadowColor==="#ef9b54"&&call.shadowBlur===12));
+    const locomotiveColors=context.drawImageCalls.flatMap(call=>call.args[0].context.fillRectCalls.filter(call=>call.width===28&&call.height===18&&api.constants.TRAIN_CAR_COLORS.combat.includes(call.fillStyle)).map(call=>call.fillStyle));
+    assert.deepEqual(locomotiveColors,["#7c4a28","#9b5d32","#ba703c"]);assert.ok(context.paintCalls.every(call=>!call.shadowBlur),"moving trains never request a live shadow blur");
   });
 
   test("Walls render as dark gray brickwork with a centered W",()=>{
@@ -468,11 +469,5 @@ describe("rendering caches", () => {
     assert.ok(context.scaleCalls.every(call=>call.x<=api.constants.CREEP_RENDER_SCALE*1.08&&call.y===call.x));
   });
 
-  test("unit shadow blurs disable independently above 100 units and return at 100",()=>{
-    const context=elements.get("gameCanvas").context,state=api.state,units=(kind,count)=>Array.from({length:count},(_,index)=>({...makeEnemy(`${kind}-${index}`,index%15,Math.floor(index/15),index%7),type:kind==="creep"?"enemy":"neutralizer"}));
-    state.enemies=units("creep",101);state.neutralizers=units("neutralizer",100);context.fillCalls.length=0;api.drawEnemies();api.drawNeutralizers();
-    assert.ok(context.fillCalls.filter(call=>call.fillStyle==="#b92838").every(call=>call.shadowBlur===0),"Creep shadows should be disabled at 101");assert.ok(context.fillCalls.filter(call=>call.fillStyle==="#258fc9").every(call=>call.shadowBlur===13),"Neutralizer shadows should remain at 100");
-    state.enemies.pop();state.neutralizers.push({...makeEnemy("neutralizer-101",20,20,0),type:"neutralizer"});context.fillCalls.length=0;api.drawEnemies();api.drawNeutralizers();
-    assert.ok(context.fillCalls.filter(call=>call.fillStyle==="#b92838").every(call=>call.shadowBlur===13),"Creep shadows should return at 100");assert.ok(context.fillCalls.filter(call=>call.fillStyle==="#258fc9").every(call=>call.shadowBlur===0),"Neutralizer shadows should be disabled at 101");assert.equal(api.constants.UNIT_SHADOW_RENDER_LIMIT,100);
-  });
+
 });

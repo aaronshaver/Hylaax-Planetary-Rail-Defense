@@ -18,4 +18,13 @@ describe("fixed-step simulation", () => {
     assert.equal(api.advanceSimulation(1), 0);
     assert.equal(api.state.elapsed, 0);
   });
+
+  test("bounded frame catch-up preserves all remaining simulation time",()=>{
+    assert.equal(api.advanceSimulation(.2,4),4);
+    assert.ok(Math.abs(api.state.elapsed-4/60)<1e-9);
+    assert.equal(api.advanceSimulation(0,4),4);
+    assert.equal(api.advanceSimulation(0,4),4);
+    assert.equal(api.advanceSimulation(0,4),0);
+    assert.ok(Math.abs(api.state.elapsed-.2)<1e-9,"frame budgeting must not discard elapsed simulation time");
+  });
 });

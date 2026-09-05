@@ -1,8 +1,9 @@
 {
   "name": "planetary-rail-defense",
-  "version": "4.6.5",
+  "version": "4.7.0",
   "private": true,
   "scripts": {
-    "test": "node --test"
+    "test": "node --test js/*.test.js",
+    "benchmark": "node tools/render-benchmark.cjs"
   }
 }
